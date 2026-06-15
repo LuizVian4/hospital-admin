@@ -17,6 +17,24 @@ export interface DashboardData {
   semEscalaDefinida: Funcionario[];
   mes: number;
   ano: number;
+  totalTecnicos: number;
+  comEscalaDefinida: number;
+  coberturaEscalaPercent: number;
+  funcionariosSemSetor: number;
+  setoresComCompetencia: number;
+  setoresSemCompetencia: { setorId: number; setor: string }[];
+  funcionariosPorCategoria: { categoria: string; total: number }[];
+  funcionariosPorContrato: { tipo: string; total: number }[];
+  resumoEscalaSetores: {
+    setorId: number;
+    setor: string;
+    totalFuncionarios: number;
+    totalTecnicos: number;
+    tecnicosSemEscala: number;
+    temCompetencia: boolean;
+  }[];
+  statusEspeciaisNoMes: { status: string; total: number }[];
+  totalStatusEspeciaisNoMes: number;
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
