@@ -1,5 +1,31 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Grid from '@mui/material/Grid';
+import Typography from '@mui/material/Typography';
+import Stack from '@mui/material/Stack';
+import Paper from '@mui/material/Paper';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Chip from '@mui/material/Chip';
+import Divider from '@mui/material/Divider';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Tooltip from '@mui/material/Tooltip';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import DownloadIcon from '@mui/icons-material/Download';
+import BusinessIcon from '@mui/icons-material/Business';
+import NotesIcon from '@mui/icons-material/Notes';
+import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import { api } from '@/api/client';
 import { useEscala, useUpdateObservacoes } from '@/hooks/useEscala';
 import { useSetores } from '@/hooks/useFuncionarios';
@@ -10,15 +36,16 @@ import { LegendaFeriados } from '@/components/GradeEscala/LegendaFeriados';
 import { ObservacoesCompetencia } from '@/components/GradeEscala/ObservacoesCompetencia';
 import { SetorSelector } from '@/components/SetorSelector';
 import { StatusBadge } from '@/components/StatusBadge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
+
+function formatDateBR(iso: string) {
+  return iso.split('-').reverse().join('/');
+}
 
 export function EscalaPage() {
   const { setorId, mes, ano } = useParams<{ setorId: string; mes: string; ano: string }>();
@@ -49,6 +76,7 @@ export function EscalaPage() {
   const updateObs = useUpdateObservacoes(competenciaId ?? 0);
 
   const setor = setores.find((s) => s.id === setorIdNum);
+  const periodoLabel = `${MESES[mesNum - 1]} / ${anoNum}`;
 
   const changeMes = (delta: number) => {
     let newMes = mesNum + delta;
@@ -81,93 +109,133 @@ export function EscalaPage() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Calendar className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Escala — {setor?.nome ?? 'Setor'}</h1>
-          </div>
-          <p className="text-muted-foreground mt-1 ml-8">
-            {setor?.empresa}
-            {setor?.gerente && (
-              <span className="before:content-['|'] before:mx-2 before:text-border">
-                Gerente: {setor.gerente}
-              </span>
-            )}
-          </p>
-        </div>
+    <Stack spacing={3}>
+      <Box>
+        <Stack direction="row" sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+          <CalendarMonthIcon color="primary" />
+          <Typography variant="h4" component="h1">
+            Escala — {setor?.nome ?? 'Setor'}
+          </Typography>
+          <Chip icon={<CalendarMonthIcon />} label={periodoLabel} color="primary" variant="outlined" size="small" />
+        </Stack>
+        <Stack direction="row" spacing={1} sx={{ mt: 0.75, ml: 4.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          {setor?.empresa && (
+            <Chip icon={<BusinessIcon />} label={setor.empresa} size="small" variant="outlined" />
+          )}
+          {setor?.gerente && (
+            <Typography variant="body2" color="text.secondary">
+              Gerente: <strong>{setor.gerente}</strong>
+            </Typography>
+          )}
+        </Stack>
+      </Box>
 
-        <div className="flex flex-wrap items-center gap-3">
+      <Paper sx={{ p: 2 }}>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={2}
+          sx={{ alignItems: { md: 'center' }, justifyContent: 'space-between' }}
+        >
           <SetorSelector
             value={setorIdNum}
             onChange={(id) => navigate(`/setores/${id}/escala/${mesNum}/${anoNum}`)}
           />
 
-          <div className="flex items-center rounded-lg border bg-card shadow-sm">
-            <Button variant="ghost" size="icon" className="rounded-r-none" onClick={() => changeMes(-1)}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="px-3 text-sm font-semibold min-w-[140px] text-center tabular-nums">
-              {MESES[mesNum - 1]} / {anoNum}
-            </span>
-            <Button variant="ghost" size="icon" className="rounded-l-none" onClick={() => changeMes(1)}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <Paper variant="outlined" sx={{ display: 'flex', alignItems: 'center' }}>
+              <Tooltip title="Mês anterior">
+                <IconButton size="small" onClick={() => changeMes(-1)}>
+                  <ChevronLeftIcon />
+                </IconButton>
+              </Tooltip>
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 600, minWidth: 140, textAlign: 'center', px: 1, fontVariantNumeric: 'tabular-nums' }}
+              >
+                {periodoLabel}
+              </Typography>
+              <Tooltip title="Próximo mês">
+                <IconButton size="small" onClick={() => changeMes(1)}>
+                  <ChevronRightIcon />
+                </IconButton>
+              </Tooltip>
+            </Paper>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportExcel}
-            disabled={!competenciaId || exportando || isLoading}
-          >
-            <Download className="h-4 w-4 mr-1.5" />
-            {exportando ? 'Exportando...' : 'Exportar Excel'}
-          </Button>
-        </div>
-      </div>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<DownloadIcon />}
+              onClick={handleExportExcel}
+              disabled={!competenciaId || exportando || isLoading}
+            >
+              {exportando ? 'Exportando...' : 'Exportar Excel'}
+            </Button>
+          </Stack>
+        </Stack>
+      </Paper>
 
-      <LegendaTurnos />
-      <LegendaFeriados mes={mesNum} ano={anoNum} />
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <LegendaTurnos />
+        </Grid>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <LegendaFeriados mes={mesNum} ano={anoNum} />
+        </Grid>
+      </Grid>
 
       {isLoading && <GradeEscalaSkeleton />}
       {escala && <GradeEscala data={escala} />}
 
       {escala && escala.statusEspeciais.length > 0 && (
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Status Especiais</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y rounded-md border">
-              {escala.statusEspeciais.map((se) => (
-                <div key={se.id ?? se.funcionario.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
-                  <span className="font-mono text-xs text-muted-foreground w-16 shrink-0">
-                    {se.funcionario.matricula}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <span className="truncate block">{se.funcionario.nome}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {se.dataInicio.split('-').reverse().join('/')} —{' '}
-                      {se.dataFim.split('-').reverse().join('/')}
-                    </span>
-                  </div>
-                  <StatusBadge status={se.status} />
-                </div>
-              ))}
-            </div>
+          <CardHeader
+            avatar={<BeachAccessIcon color="info" />}
+            title="Status Especiais"
+            subheader={`${escala.statusEspeciais.length} registro(s) ativo(s) em ${periodoLabel}`}
+            sx={{ pb: 0 }}
+          />
+          <Divider />
+          <CardContent sx={{ pt: 0, px: 0, '&:last-child': { pb: 0 } }}>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600, pl: 3 }}>Matrícula</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Funcionário</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Período</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {escala.statusEspeciais.map((se) => (
+                    <TableRow key={se.id ?? se.funcionario.id} hover>
+                      <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem', pl: 3 }}>
+                        {se.funcionario.matricula}
+                      </TableCell>
+                      <TableCell>{se.funcionario.nome}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap', color: 'text.secondary', fontSize: '0.875rem' }}>
+                        {formatDateBR(se.dataInicio)} — {formatDateBR(se.dataFim)}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={se.status} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </CardContent>
         </Card>
       )}
 
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            Observações
-          </CardTitle>
-        </CardHeader>
+        <CardHeader
+          avatar={<NotesIcon color="action" />}
+          title="Observações da competência"
+          subheader="Trocas de escala e anotações manuais"
+          sx={{ pb: 0 }}
+        />
+        <Divider />
         <CardContent>
           <ObservacoesCompetencia
             observacoes={escala?.observacoes}
@@ -177,6 +245,6 @@ export function EscalaPage() {
           />
         </CardContent>
       </Card>
-    </div>
+    </Stack>
   );
 }

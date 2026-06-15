@@ -1,32 +1,33 @@
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import { useSetores } from '@/hooks/useFuncionarios';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 interface SetorSelectorProps {
   value?: number;
   onChange: (setorId: number) => void;
+  size?: 'small' | 'medium';
 }
 
-export function SetorSelector({ value, onChange }: SetorSelectorProps) {
+export function SetorSelector({ value, onChange, size = 'small' }: SetorSelectorProps) {
   const { data: setores = [] } = useSetores();
 
   return (
-    <Select value={value?.toString()} onValueChange={(v) => onChange(parseInt(v, 10))}>
-      <SelectTrigger className="w-[200px]">
-        <SelectValue placeholder="Selecione o setor" />
-      </SelectTrigger>
-      <SelectContent>
+    <FormControl size={size} sx={{ minWidth: 200 }}>
+      <InputLabel id="setor-select-label">Setor</InputLabel>
+      <Select
+        labelId="setor-select-label"
+        label="Setor"
+        value={value?.toString() ?? ''}
+        onChange={(e) => onChange(Number(e.target.value))}
+      >
         {setores.map((s) => (
-          <SelectItem key={s.id} value={s.id.toString()}>
+          <MenuItem key={s.id} value={s.id.toString()}>
             {s.nome}
-          </SelectItem>
+          </MenuItem>
         ))}
-      </SelectContent>
-    </Select>
+      </Select>
+    </FormControl>
   );
 }

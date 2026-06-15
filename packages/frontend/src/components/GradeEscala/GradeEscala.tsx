@@ -1,5 +1,17 @@
 import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, Users } from 'lucide-react';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import CloseIcon from '@mui/icons-material/Close';
+import PeopleIcon from '@mui/icons-material/People';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+import SyncIcon from '@mui/icons-material/Sync';
 import type { GradeEscalaResponse, Turno, EscalaDiaUpdate, FuncionarioComTurnos } from '@escala/shared';
 import { GRUPOS_ESCALA, mapFeriadosPorDia } from '@escala/shared';
 import { COLUNAS_FIXAS, stickyLeft, colunaCalendarioClass } from '@/constants/turnos';
@@ -12,8 +24,6 @@ import { LinhaSemGrupo } from './LinhaSemGrupo';
 import type { EscalaCellChangeOptions } from './CelulaEscala';
 import { ConfirmarTrocaDialog, type CelulaTroca } from './ConfirmarTrocaDialog';
 import { useAtribuirGrupoEscala, useTrocarEscalaDia, useUpdateEscalaDia } from '@/hooks/useEscala';
-import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface GradeEscalaProps {
@@ -219,75 +229,94 @@ export function GradeEscala({ data }: GradeEscalaProps) {
   let rowIndex = 0;
 
   return (
-    <div className="rounded-lg border shadow-sm bg-card">
-      <div className="flex items-center justify-between gap-3 border-b px-4 py-2.5 bg-muted/30">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Users className="h-4 w-4" />
-            <span>
-              <strong className="text-foreground font-medium">{totalFuncionarios}</strong> funcionários
-            </span>
-          </div>
+    <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 2,
+          px: 2,
+          py: 1.25,
+          bgcolor: 'grey.50',
+          borderBottom: 1,
+          borderColor: 'divider',
+          flexWrap: 'wrap',
+        }}
+      >
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+            <PeopleIcon fontSize="small" color="action" />
+            <Typography variant="body2" color="text.secondary">
+              <Typography component="span" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                {totalFuncionarios}
+              </Typography>{' '}
+              funcionários
+            </Typography>
+          </Stack>
           {semAtribuicao.length > 0 && (
-            <span
-              className="inline-flex items-center gap-1.5 rounded-md border border-amber-300/80 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900"
-              title="Técnicos de enfermagem sem grupo de escala atribuído neste mês"
-            >
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-              {semAtribuicao.length === 1
-                ? '1 sem atribuição de escala'
-                : `${semAtribuicao.length} sem atribuição de escala`}
-            </span>
+            <Chip
+              icon={<WarningAmberIcon />}
+              label={
+                semAtribuicao.length === 1
+                  ? '1 sem atribuição de escala'
+                  : `${semAtribuicao.length} sem atribuição de escala`
+              }
+              size="small"
+              color="warning"
+              variant="outlined"
+            />
           )}
-        </div>
-        <div className="flex items-center gap-2 text-xs">
+        </Stack>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {(updateMutation.isPending || atribuirGrupo.isPending || trocarEscala.isPending) && (
-            <span className="inline-flex items-center gap-1.5 text-blue-600">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Salvando...
-            </span>
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+              <SyncIcon fontSize="small" color="primary" sx={{ animation: 'spin 1s linear infinite', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } } }} />
+              <Typography variant="caption" color="primary.main">Salvando...</Typography>
+            </Stack>
           )}
           {!updateMutation.isPending && updateMutation.isSuccess && (
-            <span className="inline-flex items-center gap-1.5 text-green-600">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Salvo
-            </span>
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+              <CheckCircleIcon fontSize="small" color="success" />
+              <Typography variant="caption" color="success.main">Salvo</Typography>
+            </Stack>
           )}
           {updateMutation.isError && (
-            <span className="text-red-600">Erro ao salvar. Tente novamente.</span>
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+              <ErrorIcon fontSize="small" color="error" />
+              <Typography variant="caption" color="error.main">Erro ao salvar</Typography>
+            </Stack>
           )}
-        </div>
-      </div>
+        </Box>
+      </Stack>
 
       {modoSelecaoTroca && trocaOrigem && (
-        <div className="flex items-center justify-between gap-3 border-b border-primary/20 bg-primary/5 px-4 py-2 text-sm text-primary">
-          <p>
-            Selecione na planilha o turno de <strong>outro funcionário</strong> para trocar com{' '}
-            <strong>{trocaOrigem.funcionarioNome}</strong> (dia {trocaOrigem.dia} ·{' '}
-            {trocaOrigem.turno})
-          </p>
-          <Button type="button" variant="ghost" size="sm" className="shrink-0 h-7" onClick={cancelarTroca}>
-            <X className="h-3.5 w-3.5 mr-1" />
-            Cancelar
-          </Button>
-        </div>
+        <Alert
+          severity="info"
+          action={
+            <IconButton size="small" color="inherit" onClick={cancelarTroca}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          }
+          sx={{ borderRadius: 0 }}
+        >
+          Selecione na planilha o turno de <strong>outro funcionário</strong> para trocar com{' '}
+          <strong>{trocaOrigem.funcionarioNome}</strong> (dia {trocaOrigem.dia} · {trocaOrigem.turno})
+        </Alert>
       )}
 
       {diasSemCoberturaLista.length > 0 && (
-        <div className="flex items-start gap-2 border-b border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>
-            <strong className="font-semibold">Atenção:</strong>{' '}
-            {diasSemCoberturaLista.length === 1 ? (
-              <>o dia <strong>{diasSemCoberturaLista[0]}</strong> não possui nenhum turno MT ou SN escalado.</>
-            ) : (
-              <>
-                os dias{' '}
-                <strong>{diasSemCoberturaLista.join(', ')}</strong> não possuem nenhum turno MT ou SN escalado.
-              </>
-            )}
-          </p>
-        </div>
+        <Alert severity="error" icon={<WarningAmberIcon />} sx={{ borderRadius: 0 }}>
+          {diasSemCoberturaLista.length === 1 ? (
+            <>
+              O dia <strong>{diasSemCoberturaLista[0]}</strong> não possui nenhum turno MT ou SN escalado.
+            </>
+          ) : (
+            <>
+              Os dias <strong>{diasSemCoberturaLista.join(', ')}</strong> não possuem nenhum turno MT ou SN escalado.
+            </>
+          )}
+        </Alert>
       )}
 
       <div className="overflow-auto max-h-[calc(100vh-320px)]">
@@ -505,6 +534,6 @@ export function GradeEscala({ data }: GradeEscalaProps) {
           onConfirm={handleConfirmTroca}
         />
       )}
-    </div>
+    </Paper>
   );
 }
