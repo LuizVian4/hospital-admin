@@ -22,7 +22,7 @@ export interface Funcionario {
   tipoContrato: TipoContrato;
   dataAdmissao?: string;
   cargaHoraria: CargaHoraria;
-  setorId: number;
+  setorId: number | null;
   ativo: boolean;
 }
 

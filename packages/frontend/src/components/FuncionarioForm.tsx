@@ -1,18 +1,22 @@
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Funcionario } from '@escala/shared';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import Box from '@mui/material/Box';
+import Grid from '@mui/material/Grid';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import TextField from '@mui/material/TextField';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
+import Divider from '@mui/material/Divider';
 import { useSetores } from '@/hooks/useFuncionarios';
+
+const SEM_SETOR = '__none__';
 
 const schema = z.object({
   matricula: z.string().min(1, 'Obrigatório'),
@@ -22,27 +26,39 @@ const schema = z.object({
   tipoContrato: z.string().default('EFETIVO'),
   dataAdmissao: z.string().optional(),
   cargaHoraria: z.enum(['180H', '144H']).default('180H'),
-  setorId: z.number(),
+  setorId: z.number().nullable(),
+  ativo: z.boolean(),
 });
 
-type FormData = z.infer<typeof schema>;
+export type FuncionarioFormData = z.infer<typeof schema>;
 
 interface FuncionarioFormProps {
+  formId?: string;
   initial?: Partial<Funcionario>;
-  onSubmit: (data: FormData) => void;
-  onCancel?: () => void;
+  onSubmit: (data: FuncionarioFormData) => void;
   loading?: boolean;
 }
 
-export function FuncionarioForm({ initial, onSubmit, onCancel, loading }: FuncionarioFormProps) {
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography
+      variant="overline"
+      color="text.secondary"
+      sx={{ fontWeight: 600, letterSpacing: 0.8, display: 'block' }}
+    >
+      {children}
+    </Typography>
+  );
+}
+
+export function FuncionarioForm({ formId, initial, onSubmit, loading }: FuncionarioFormProps) {
   const { data: setores = [] } = useSetores();
   const {
     register,
     handleSubmit,
-    setValue,
-    watch,
+    control,
     formState: { errors },
-  } = useForm<FormData>({
+  } = useForm<FuncionarioFormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       matricula: initial?.matricula ?? '',
@@ -52,110 +68,168 @@ export function FuncionarioForm({ initial, onSubmit, onCancel, loading }: Funcio
       tipoContrato: initial?.tipoContrato ?? 'EFETIVO',
       dataAdmissao: initial?.dataAdmissao ?? '',
       cargaHoraria: initial?.cargaHoraria ?? '180H',
-      setorId: initial?.setorId ?? setores[0]?.id,
+      setorId: initial?.setorId ?? setores[0]?.id ?? null,
+      ativo: initial?.ativo ?? true,
     },
   });
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      <div className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Identificação
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="matricula">Matrícula</Label>
-            <Input id="matricula" {...register('matricula')} disabled={!!initial?.id} />
-            {errors.matricula && (
-              <p className="text-xs text-red-500">{errors.matricula.message}</p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="coren">COREN</Label>
-            <Input id="coren" placeholder="Opcional" {...register('coren')} />
-          </div>
-        </div>
+    <Box
+      component="form"
+      id={formId}
+      onSubmit={handleSubmit(onSubmit)}
+      noValidate
+    >
+      <Stack spacing={3}>
+        <Box>
+          <SectionTitle>Identificação</SectionTitle>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Matrícula"
+                fullWidth
+                size="small"
+                disabled={!!initial?.id || loading}
+                error={!!errors.matricula}
+                helperText={errors.matricula?.message}
+                {...register('matricula')}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="COREN"
+                fullWidth
+                size="small"
+                placeholder="Opcional"
+                disabled={loading}
+                {...register('coren')}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                label="Nome completo"
+                fullWidth
+                size="small"
+                placeholder="Nome do funcionário"
+                disabled={loading}
+                error={!!errors.nome}
+                helperText={errors.nome?.message}
+                {...register('nome')}
+              />
+            </Grid>
+          </Grid>
+        </Box>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="nome">Nome completo</Label>
-          <Input id="nome" placeholder="Nome do funcionário" {...register('nome')} />
-          {errors.nome && <p className="text-xs text-red-500">{errors.nome.message}</p>}
-        </div>
-      </div>
+        <Divider />
 
-      <div className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Vínculo
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label>Categoria</Label>
-            <Input {...register('categoria')} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Tipo de contrato</Label>
-            <Select value={watch('tipoContrato')} onValueChange={(v) => setValue('tipoContrato', v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="EFETIVO">EFETIVO</SelectItem>
-                <SelectItem value="PROVISÓRIO">PROVISÓRIO</SelectItem>
-                <SelectItem value="Temporário">Temporário</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="dataAdmissao">Data de admissão</Label>
-            <Input id="dataAdmissao" type="date" {...register('dataAdmissao')} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Carga horária</Label>
-            <Select
-              value={watch('cargaHoraria')}
-              onValueChange={(v) => setValue('cargaHoraria', v as '180H' | '144H')}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="180H">180H</SelectItem>
-                <SelectItem value="144H">144H</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Setor</Label>
-          <Select
-            value={watch('setorId')?.toString()}
-            onValueChange={(v) => setValue('setorId', parseInt(v, 10))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione o setor" />
-            </SelectTrigger>
-            <SelectContent>
-              {setores.map((s) => (
-                <SelectItem key={s.id} value={s.id.toString()}>
-                  {s.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="flex justify-end gap-2 pt-2 border-t">
-        {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
-            Cancelar
-          </Button>
-        )}
-        <Button type="submit" disabled={loading}>
-          {loading ? 'Salvando...' : initial?.id ? 'Salvar alterações' : 'Cadastrar funcionário'}
-        </Button>
-      </div>
-    </form>
+        <Box>
+          <SectionTitle>Vínculo</SectionTitle>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Categoria"
+                fullWidth
+                size="small"
+                disabled={loading}
+                {...register('categoria')}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Controller
+                name="tipoContrato"
+                control={control}
+                render={({ field }) => (
+                  <FormControl fullWidth size="small" disabled={loading}>
+                    <InputLabel id="tipo-contrato-label">Tipo de contrato</InputLabel>
+                    <Select {...field} labelId="tipo-contrato-label" label="Tipo de contrato">
+                      <MenuItem value="EFETIVO">EFETIVO</MenuItem>
+                      <MenuItem value="PROVISÓRIO">PROVISÓRIO</MenuItem>
+                      <MenuItem value="Temporário">Temporário</MenuItem>
+                    </Select>
+                  </FormControl>
+                )}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Data de admissão"
+                type="date"
+                fullWidth
+                size="small"
+                disabled={loading}
+                slotProps={{ inputLabel: { shrink: true } }}
+                {...register('dataAdmissao')}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Controller
+                name="cargaHoraria"
+                control={control}
+                render={({ field }) => (
+                  <FormControl fullWidth size="small" disabled={loading}>
+                    <InputLabel id="carga-horaria-label">Carga horária</InputLabel>
+                    <Select {...field} labelId="carga-horaria-label" label="Carga horária">
+                      <MenuItem value="180H">180H</MenuItem>
+                      <MenuItem value="144H">144H</MenuItem>
+                    </Select>
+                  </FormControl>
+                )}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <Controller
+                name="setorId"
+                control={control}
+                render={({ field }) => (
+                  <FormControl fullWidth size="small" disabled={loading}>
+                    <InputLabel id="setor-label">Setor</InputLabel>
+                    <Select
+                      labelId="setor-label"
+                      label="Setor"
+                      value={field.value != null ? field.value.toString() : SEM_SETOR}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        field.onChange(v === SEM_SETOR ? null : Number(v));
+                      }}
+                    >
+                      <MenuItem value={SEM_SETOR}>
+                        <em>Sem setor</em>
+                      </MenuItem>
+                      {setores.map((s) => (
+                        <MenuItem key={s.id} value={s.id.toString()}>
+                          {s.nome}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <Controller
+                name="ativo"
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        disabled={loading}
+                      />
+                    }
+                    label={
+                      field.value
+                        ? 'Funcionário ativo'
+                        : 'Funcionário inativo — aparecerá em Inativados/Sem setor'
+                    }
+                  />
+                )}
+              />
+            </Grid>
+          </Grid>
+        </Box>
+      </Stack>
+    </Box>
   );
 }

@@ -85,7 +85,7 @@ export function mapFuncionario(row: {
     tipoContrato: (row.tipoContrato ?? 'EFETIVO') as Funcionario['tipoContrato'],
     dataAdmissao: row.dataAdmissao ?? undefined,
     cargaHoraria: (row.cargaHoraria ?? '180H') as Funcionario['cargaHoraria'],
-    setorId: row.setorId ?? 0,
+    setorId: row.setorId ?? null,
     ativo: row.ativo ?? true,
   };
 }

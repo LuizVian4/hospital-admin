@@ -14,7 +14,8 @@ const funcionarioSchema = z.object({
   tipoContrato: z.string().default('EFETIVO'),
   dataAdmissao: z.string().optional(),
   cargaHoraria: z.enum(['180H', '144H']).default('180H'),
-  setorId: z.number().int(),
+  setorId: z.number().int().nullable().optional(),
+  ativo: z.boolean().optional(),
 });
 
 export const funcionariosRoutes: FastifyPluginAsync = async (app) => {
@@ -51,7 +52,8 @@ export const funcionariosRoutes: FastifyPluginAsync = async (app) => {
           tipoContrato: body.tipoContrato,
           dataAdmissao: body.dataAdmissao,
           cargaHoraria: body.cargaHoraria,
-          setorId: body.setorId,
+          setorId: body.setorId ?? null,
+          ativo: body.ativo ?? true,
         })
         .returning();
       return reply.status(201).send(mapFuncionario(created));
