@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1718400000000,
+      "tag": "0000_initial",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1718486400000,
+      "tag": "0001_dia_inicio_escala",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1718572800000,
+      "tag": "0002_escala_inicio_por_mes",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1718659200000,
+      "tag": "0003_indice_padrao_escala",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1718745600000,
+      "tag": "0004_observacao_escala_dias",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1718832000000,
+      "tag": "0005_status_especial_datas",
+      "breakpoints": true
+    }
+  ]
+}

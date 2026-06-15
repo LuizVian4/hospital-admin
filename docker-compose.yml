@@ -1,0 +1,52 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: escala_hospital
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: packages/backend/Dockerfile
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/escala_hospital
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./packages/backend/src:/app/packages/backend/src
+      - ./packages/shared/src:/app/packages/shared/src
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "npm run build -w @escala/shared && npm run db:migrate -w @escala/backend && npm run dev -w @escala/backend"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: packages/frontend/Dockerfile
+    environment:
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./packages/frontend/src:/app/packages/frontend/src
+      - ./packages/frontend/index.html:/app/packages/frontend/index.html
+      - ./packages/frontend/vite.config.ts:/app/packages/frontend/vite.config.ts
+    depends_on:
+      - backend
+    command: npm run dev -w @escala/frontend -- --host 0.0.0.0
+
+volumes:
+  pgdata:

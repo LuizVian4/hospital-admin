@@ -1,0 +1,20 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/backend/package.json ./packages/backend/
+
+RUN npm install
+
+COPY packages/shared ./packages/shared
+COPY packages/backend ./packages/backend
+
+RUN npm run build -w @escala/shared
+
+WORKDIR /app/packages/backend
+
+EXPOSE 3001
+
+CMD ["npm", "run", "dev"]

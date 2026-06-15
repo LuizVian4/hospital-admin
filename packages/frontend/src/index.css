@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Turno cell colors */
+.turno-MT { @apply bg-blue-100 text-blue-900; }
+.turno-M { @apply bg-green-100 text-green-900; }
+.turno-T { @apply bg-yellow-100 text-yellow-900; }
+.turno-SN { @apply bg-purple-100 text-purple-900; }
+.turno-HC { @apply bg-slate-200 text-slate-800; }
+.turno-F { @apply bg-gray-100 text-gray-700; }
+.turno-FF { @apply bg-orange-100 text-orange-900; }
+.turno-INSS { @apply bg-red-100 text-red-900; }
+.turno-LG { @apply bg-pink-100 text-pink-900; }
+.turno-plantao { @apply bg-white border border-dashed border-slate-300 text-slate-700; }
+.turno-projetado { @apply outline outline-1 outline-dashed outline-slate-300/80 -outline-offset-1; }
+
+.dia-sem-cobertura { @apply !bg-red-200 !text-red-900; }
+.dia-sem-cobertura-header { @apply !bg-red-500 !text-white; }
+
+.coluna-hoje-header {
+  @apply !bg-primary !text-primary-foreground shadow-[inset_0_-2px_0_0_rgba(255,255,255,0.35)];
+}
+
+.coluna-hoje-dow {
+  @apply !bg-primary/20 !text-primary font-bold;
+}
+
+.coluna-hoje {
+  @apply border-x-2 border-primary/35;
+  box-shadow: inset 0 0 0 9999px rgba(59, 130, 246, 0.1);
+}
+
+.coluna-hoje.dia-sem-cobertura {
+  box-shadow: inset 0 0 0 9999px rgba(239, 68, 68, 0.18);
+  @apply border-x-2 border-red-500/50;
+}
+
+.coluna-fds-header {
+  @apply !bg-slate-200/95 !text-slate-600;
+}
+
+.coluna-fds-dow {
+  @apply !bg-slate-200/70 !text-slate-500;
+}
+
+.coluna-fds {
+  box-shadow: inset 0 0 0 9999px rgba(100, 116, 139, 0.07);
+}
+
+.coluna-feriado-header {
+  @apply !bg-rose-100/90 !text-rose-900;
+}
+
+.coluna-feriado-dow {
+  @apply !bg-rose-50 !text-rose-800 font-semibold;
+}
+
+.coluna-feriado {
+  box-shadow: inset 0 0 0 9999px rgba(244, 63, 94, 0.07);
+  @apply border-x border-rose-200/60;
+}
+
+.celula-status-especial {
+  @apply font-semibold;
+}
+
+.celula-status-FF {
+  @apply ring-1 ring-inset ring-orange-300/80;
+}
+
+.celula-status-INSS {
+  @apply ring-1 ring-inset ring-red-300/80;
+}
+
+.celula-status-LG {
+  @apply ring-1 ring-inset ring-pink-300/80;
+}
+
+.celula-com-troca {
+  @apply ring-2 ring-inset ring-violet-500/80;
+  box-shadow: inset 0 0 0 9999px rgba(139, 92, 246, 0.14);
+}
+
+.celula-com-troca::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 7px 7px 0;
+  border-color: transparent rgb(139 92 246) transparent transparent;
+  pointer-events: none;
+  z-index: 1;
+}

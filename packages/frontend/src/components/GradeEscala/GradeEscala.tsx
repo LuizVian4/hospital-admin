@@ -1,0 +1,510 @@
+import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, CheckCircle2, Loader2, Users } from 'lucide-react';
+import type { GradeEscalaResponse, Turno, EscalaDiaUpdate, FuncionarioComTurnos } from '@escala/shared';
+import { GRUPOS_ESCALA, mapFeriadosPorDia } from '@escala/shared';
+import { COLUNAS_FIXAS, stickyLeft, colunaCalendarioClass } from '@/constants/turnos';
+import { getDiasSemCoberturaMTSN } from '@/lib/escalaCobertura';
+import { listarFuncionarios, organizarPorGrupoEscala } from '@/lib/escalaGrupos';
+import { cn } from '@/lib/utils';
+import { LinhaTurno } from './LinhaTurno';
+import { LinhaGrupoEscala } from './LinhaGrupoEscala';
+import { LinhaSemGrupo } from './LinhaSemGrupo';
+import type { EscalaCellChangeOptions } from './CelulaEscala';
+import { ConfirmarTrocaDialog, type CelulaTroca } from './ConfirmarTrocaDialog';
+import { useAtribuirGrupoEscala, useTrocarEscalaDia, useUpdateEscalaDia } from '@/hooks/useEscala';
+import { Button } from '@/components/ui/button';
+import { X } from 'lucide-react';
+import { toast } from 'sonner';
+
+interface GradeEscalaProps {
+  data: GradeEscalaResponse;
+}
+
+export function GradeEscala({ data }: GradeEscalaProps) {
+  const { competencia, dias, diasSemana, grupos } = data;
+  const updateMutation = useUpdateEscalaDia(competencia.id);
+  const atribuirGrupo = useAtribuirGrupoEscala(competencia.id);
+  const trocarEscala = useTrocarEscalaDia(competencia.id);
+  const pendingRef = useRef<Map<string, EscalaDiaUpdate>>(new Map());
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const [dragOverGrupo, setDragOverGrupo] = useState<number | null>(null);
+  const [trocaOrigem, setTrocaOrigem] = useState<CelulaTroca | null>(null);
+  const [trocaConfirmacao, setTrocaConfirmacao] = useState<{
+    origem: CelulaTroca;
+    destino: CelulaTroca;
+  } | null>(null);
+
+  const modoSelecaoTroca = trocaOrigem != null && trocaConfirmacao == null;
+
+  const funcionarios = useMemo(() => listarFuncionarios(grupos), [grupos]);
+  const { porGrupo, semAtribuicao, semPadrao, comPadrao } = useMemo(
+    () => organizarPorGrupoEscala(funcionarios),
+    [funcionarios]
+  );
+
+  const totalFuncionarios = funcionarios.length;
+
+  const hoje = useMemo(() => {
+    const now = new Date();
+    if (now.getMonth() + 1 !== competencia.mes || now.getFullYear() !== competencia.ano) {
+      return null;
+    }
+    return now.getDate();
+  }, [competencia.mes, competencia.ano]);
+
+  const feriadosPorDia = useMemo(
+    () => mapFeriadosPorDia(competencia.mes, competencia.ano),
+    [competencia.mes, competencia.ano]
+  );
+
+  const diasSemCobertura = useMemo(
+    () => getDiasSemCoberturaMTSN(dias, grupos),
+    [dias, grupos]
+  );
+
+  const diasSemCoberturaLista = useMemo(
+    () => [...diasSemCobertura].sort((a, b) => a - b),
+    [diasSemCobertura]
+  );
+
+  const flushUpdates = useCallback(() => {
+    const items = [...pendingRef.current.values()];
+    if (items.length === 0) return;
+    pendingRef.current.clear();
+    updateMutation.mutate(items);
+  }, [updateMutation]);
+
+  const handleCellChange = useCallback(
+    (
+      funcionarioId: number,
+      dia: number,
+      turno: Turno | null,
+      options?: EscalaCellChangeOptions
+    ) => {
+      pendingRef.current.set(`${funcionarioId}:${dia}`, {
+        funcionarioId,
+        dia,
+        turno,
+        ...options,
+      });
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(flushUpdates, 500);
+    },
+    [flushUpdates]
+  );
+
+  const handleAtribuirGrupo = useCallback(
+    (funcionarioId: number, indicePadrao: number) => {
+      const grupo = GRUPOS_ESCALA.find((g) => g.indicePadrao === indicePadrao);
+      if (!grupo) return;
+
+      atribuirGrupo.mutate(
+        { funcionarioId, indicePadrao, turnoInicio: grupo.turnoInicio },
+        {
+          onSuccess: () => toast.success(`${grupo.label} atribuído — escala gerada a partir do dia 1`),
+          onError: () => toast.error('Erro ao atribuir grupo'),
+        }
+      );
+      setDragOverGrupo(null);
+    },
+    [atribuirGrupo]
+  );
+
+  const cancelarTroca = useCallback(() => {
+    setTrocaOrigem(null);
+    setTrocaConfirmacao(null);
+  }, []);
+
+  const getCelulaTroca = useCallback(
+    (funcionarioId: number, dia: number): CelulaTroca | null => {
+      const func = comPadrao.find((f) => f.id === funcionarioId);
+      if (!func) return null;
+      const turno = func.turnos[dia] ?? func.turnosProjetados?.[dia] ?? null;
+      if (!turno) return null;
+      return { funcionarioId, funcionarioNome: func.nome, dia, turno };
+    },
+    [comPadrao]
+  );
+
+  const handleIniciarTroca = useCallback(
+    (funcionarioId: number, dia: number) => {
+      const celula = getCelulaTroca(funcionarioId, dia);
+      if (!celula) {
+        toast.error('Este dia não possui turno para trocar');
+        return;
+      }
+      setTrocaConfirmacao(null);
+      setTrocaOrigem(celula);
+    },
+    [getCelulaTroca]
+  );
+
+  const handleSelecionarDestinoTroca = useCallback(
+    (funcionarioId: number, dia: number) => {
+      if (!trocaOrigem) return;
+
+      const destino = getCelulaTroca(funcionarioId, dia);
+      if (!destino) {
+        toast.error('A célula de destino precisa ter um turno');
+        return;
+      }
+
+      if (
+        destino.funcionarioId === trocaOrigem.funcionarioId &&
+        destino.dia === trocaOrigem.dia
+      ) {
+        return;
+      }
+
+      if (destino.funcionarioId === trocaOrigem.funcionarioId) {
+        toast.error('Selecione o turno de outro funcionário');
+        return;
+      }
+
+      setTrocaConfirmacao({ origem: trocaOrigem, destino });
+    },
+    [trocaOrigem, getCelulaTroca]
+  );
+
+  const handleConfirmTroca = useCallback(() => {
+    if (!trocaConfirmacao) return;
+    const { origem, destino } = trocaConfirmacao;
+
+    trocarEscala.mutate(
+      {
+        funcionarioIdOrigem: origem.funcionarioId,
+        diaOrigem: origem.dia,
+        funcionarioIdDestino: destino.funcionarioId,
+        diaDestino: destino.dia,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Troca realizada com sucesso');
+          cancelarTroca();
+        },
+        onError: (err) => toast.error(err.message || 'Erro ao realizar troca'),
+      }
+    );
+  }, [trocaConfirmacao, trocarEscala, cancelarTroca]);
+
+  const renderLinhas = (
+    lista: FuncionarioComTurnos[],
+    arrastavel: boolean,
+    comGrupo = false
+  ) =>
+    lista.map((func) => {
+      const currentIndex = rowIndex++;
+      return (
+        <LinhaTurno
+          key={func.id}
+          competenciaId={competencia.id}
+          funcionario={func}
+          dias={dias}
+          diasSemana={diasSemana}
+          hoje={hoje}
+          feriadosPorDia={feriadosPorDia}
+          diasSemCobertura={diasSemCobertura}
+          rowIndex={currentIndex}
+          arrastavel={arrastavel}
+          comGrupo={comGrupo}
+          trocaOrigem={trocaOrigem}
+          modoSelecaoTroca={modoSelecaoTroca}
+          onIniciarTroca={comGrupo ? handleIniciarTroca : undefined}
+          onSelecionarDestinoTroca={comGrupo ? handleSelecionarDestinoTroca : undefined}
+          onCellChange={handleCellChange}
+        />
+      );
+    });
+
+  let rowIndex = 0;
+
+  return (
+    <div className="rounded-lg border shadow-sm bg-card">
+      <div className="flex items-center justify-between gap-3 border-b px-4 py-2.5 bg-muted/30">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span>
+              <strong className="text-foreground font-medium">{totalFuncionarios}</strong> funcionários
+            </span>
+          </div>
+          {semAtribuicao.length > 0 && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-300/80 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900"
+              title="Técnicos de enfermagem sem grupo de escala atribuído neste mês"
+            >
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+              {semAtribuicao.length === 1
+                ? '1 sem atribuição de escala'
+                : `${semAtribuicao.length} sem atribuição de escala`}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          {(updateMutation.isPending || atribuirGrupo.isPending || trocarEscala.isPending) && (
+            <span className="inline-flex items-center gap-1.5 text-blue-600">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Salvando...
+            </span>
+          )}
+          {!updateMutation.isPending && updateMutation.isSuccess && (
+            <span className="inline-flex items-center gap-1.5 text-green-600">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Salvo
+            </span>
+          )}
+          {updateMutation.isError && (
+            <span className="text-red-600">Erro ao salvar. Tente novamente.</span>
+          )}
+        </div>
+      </div>
+
+      {modoSelecaoTroca && trocaOrigem && (
+        <div className="flex items-center justify-between gap-3 border-b border-primary/20 bg-primary/5 px-4 py-2 text-sm text-primary">
+          <p>
+            Selecione na planilha o turno de <strong>outro funcionário</strong> para trocar com{' '}
+            <strong>{trocaOrigem.funcionarioNome}</strong> (dia {trocaOrigem.dia} ·{' '}
+            {trocaOrigem.turno})
+          </p>
+          <Button type="button" variant="ghost" size="sm" className="shrink-0 h-7" onClick={cancelarTroca}>
+            <X className="h-3.5 w-3.5 mr-1" />
+            Cancelar
+          </Button>
+        </div>
+      )}
+
+      {diasSemCoberturaLista.length > 0 && (
+        <div className="flex items-start gap-2 border-b border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            <strong className="font-semibold">Atenção:</strong>{' '}
+            {diasSemCoberturaLista.length === 1 ? (
+              <>o dia <strong>{diasSemCoberturaLista[0]}</strong> não possui nenhum turno MT ou SN escalado.</>
+            ) : (
+              <>
+                os dias{' '}
+                <strong>{diasSemCoberturaLista.join(', ')}</strong> não possuem nenhum turno MT ou SN escalado.
+              </>
+            )}
+          </p>
+        </div>
+      )}
+
+      <div className="overflow-auto max-h-[calc(100vh-320px)]">
+        <table className="border-collapse text-sm w-max min-w-full">
+          <thead className="sticky top-0 z-20">
+            <tr className="bg-slate-100">
+              {COLUNAS_FIXAS.map((col, i) => (
+                <th
+                  key={col.key}
+                  className={cn(
+                    'border-b border-r px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600 sticky z-30 bg-slate-100 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]',
+                    col.key === 'nome' && 'text-left'
+                  )}
+                  style={{ left: stickyLeft(i), minWidth: col.width, width: col.width }}
+                >
+                  {col.label}
+                </th>
+              ))}
+              {dias.map((dia) => {
+                const isHoje = dia === hoje;
+                const idx = dias.indexOf(dia);
+                const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
+                const feriadoNome = feriadosPorDia[dia] ?? null;
+                const semCobertura = diasSemCobertura.has(dia);
+                return (
+                  <th
+                    key={dia}
+                    className={cn(
+                      'border-b px-1 py-2 text-xs min-w-[40px] text-center font-semibold',
+                      semCobertura
+                        ? 'dia-sem-cobertura-header'
+                        : cn(
+                            'bg-slate-100 text-slate-700',
+                            colunaCalendarioClass({ isWeekend, feriadoNome, isHoje, parte: 'header' })
+                          )
+                    )}
+                    title={
+                      semCobertura
+                        ? 'Sem cobertura MT/SN'
+                        : feriadoNome ?? (isHoje ? 'Dia atual' : undefined)
+                    }
+                  >
+                    {isHoje && !semCobertura ? (
+                      <span className="flex flex-col items-center gap-0.5 leading-none">
+                        <span className="text-[9px] font-bold uppercase tracking-wider opacity-90">Hoje</span>
+                        <span className="text-sm tabular-nums">{dia}</span>
+                      </span>
+                    ) : (
+                      dia
+                    )}
+                  </th>
+                );
+              })}
+            </tr>
+            <tr className="bg-slate-50">
+              <th
+                colSpan={COLUNAS_FIXAS.length}
+                className="border-b border-r px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-slate-500 sticky left-0 z-30 bg-slate-50 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)] text-left"
+              >
+                Escala
+              </th>
+              {diasSemana.map((ds, idx) => {
+                const dia = dias[idx];
+                const isHoje = dia === hoje;
+                const isWeekend = ds === 'SAB' || ds === 'DOM';
+                const feriadoNome = feriadosPorDia[dia] ?? null;
+                const semCobertura = diasSemCobertura.has(dia);
+                return (
+                  <th
+                    key={idx}
+                    className={cn(
+                      'border-b px-1 py-1 text-[10px] font-medium min-w-[40px] text-center',
+                      semCobertura
+                        ? 'dia-sem-cobertura-header'
+                        : cn(
+                            'bg-slate-50 text-slate-400',
+                            colunaCalendarioClass({ isWeekend, feriadoNome, isHoje, parte: 'dow' })
+                          )
+                    )}
+                    title={feriadoNome ?? undefined}
+                  >
+                    {ds}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {GRUPOS_ESCALA.map((grupo, gi) => {
+              const membros = porGrupo.get(grupo.indicePadrao) ?? [];
+              return (
+                <Fragment key={grupo.id}>
+                  {gi > 0 && (
+                    <tr>
+                      <td
+                        colSpan={COLUNAS_FIXAS.length + dias.length}
+                        className="h-1 bg-slate-200/60 border-y"
+                      />
+                    </tr>
+                  )}
+                  <LinhaGrupoEscala
+                    grupo={grupo}
+                    dias={dias}
+                    diasSemana={diasSemana}
+                    hoje={hoje}
+                    feriadosPorDia={feriadosPorDia}
+                    isDragOver={dragOverGrupo === grupo.indicePadrao}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      setDragOverGrupo(grupo.indicePadrao);
+                    }}
+                    onDragLeave={() => setDragOverGrupo(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const funcionarioId = Number(e.dataTransfer.getData('funcionarioId'));
+                      if (funcionarioId) handleAtribuirGrupo(funcionarioId, grupo.indicePadrao);
+                    }}
+                  />
+                  {renderLinhas(membros, true, true)}
+                </Fragment>
+              );
+            })}
+
+            {semAtribuicao.length > 0 && (
+              <>
+                <tr>
+                  <td colSpan={COLUNAS_FIXAS.length + dias.length} className="h-2 bg-slate-100/80 border-y" />
+                </tr>
+                <tr className="bg-amber-50/60">
+                  <td
+                    colSpan={COLUNAS_FIXAS.length}
+                    className="border-b border-r px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800 sticky left-0 z-10 bg-amber-50/60"
+                  >
+                    Sem atribuição — selecione um grupo ou arraste para cima
+                  </td>
+                  {dias.map((dia, idx) => {
+                    const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
+                    return (
+                      <td
+                        key={dia}
+                        className={cn(
+                          'border-b bg-amber-50/40',
+                          colunaCalendarioClass({
+                            isWeekend,
+                            feriadoNome: feriadosPorDia[dia],
+                            isHoje: dia === hoje,
+                          })
+                        )}
+                      />
+                    );
+                  })}
+                </tr>
+                {semAtribuicao.map((func) => {
+                  const currentIndex = rowIndex++;
+                  return (
+                    <LinhaSemGrupo
+                      key={func.id}
+                      funcionario={func}
+                      dias={dias}
+                      diasSemana={diasSemana}
+                      hoje={hoje}
+                      feriadosPorDia={feriadosPorDia}
+                      rowIndex={currentIndex}
+                      onAtribuirGrupo={handleAtribuirGrupo}
+                    />
+                  );
+                })}
+              </>
+            )}
+
+            {semPadrao.length > 0 && (
+              <>
+                <tr>
+                  <td colSpan={COLUNAS_FIXAS.length + dias.length} className="h-2 bg-slate-100/80 border-y" />
+                </tr>
+                <tr className="bg-slate-100/70">
+                  <td
+                    colSpan={COLUNAS_FIXAS.length}
+                    className="border-b border-r px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600 sticky left-0 z-10 bg-slate-100/70"
+                  >
+                    Outras categorias
+                  </td>
+                  {dias.map((dia, idx) => {
+                    const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
+                    return (
+                      <td
+                        key={dia}
+                        className={cn(
+                          'border-b bg-slate-100/50',
+                          colunaCalendarioClass({
+                            isWeekend,
+                            feriadoNome: feriadosPorDia[dia],
+                            isHoje: dia === hoje,
+                          })
+                        )}
+                      />
+                    );
+                  })}
+                </tr>
+                {renderLinhas(semPadrao, false, false)}
+              </>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {trocaConfirmacao && (
+        <ConfirmarTrocaDialog
+          open
+          origem={trocaConfirmacao.origem}
+          destino={trocaConfirmacao.destino}
+          isPending={trocarEscala.isPending}
+          onClose={() => setTrocaConfirmacao(null)}
+          onConfirm={handleConfirmTroca}
+        />
+      )}
+    </div>
+  );
+}
