@@ -8,6 +8,7 @@ export {
   projetarTurnosVazios,
   simularMesAPartirDeAncora,
   calcularTurnoProjetado,
+  calcularIndiceNoDia,
   resolverIndiceNoPadrao,
   encontrarAncoraPadrao,
   criarAncora,

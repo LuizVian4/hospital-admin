@@ -13,6 +13,9 @@ import {
   getPadraoEscala,
   projetarTurnosVazios,
   simularMesAPartirDeAncora,
+  ancoraFromEscalaInicio,
+  calcularTurnoProjetado,
+  calcularIndiceNoDia,
 } from '@escala/shared';
 import {
   agruparPorEscalaIgual,
@@ -30,6 +33,11 @@ import {
 function mesAnterior(mes: number, ano: number): { mes: number; ano: number } {
   if (mes === 1) return { mes: 12, ano: ano - 1 };
   return { mes: mes - 1, ano };
+}
+
+function mesSeguinte(mes: number, ano: number): { mes: number; ano: number } {
+  if (mes === 12) return { mes: 1, ano: ano + 1 };
+  return { mes: mes + 1, ano };
 }
 
 function mapEscalaInicioRow(row: {
@@ -242,7 +250,7 @@ export async function getGradeEscala(competenciaId: number): Promise<GradeEscala
   if (!comp || !comp.setor) return null;
 
   const totalDias = getDiasNoMes(comp.mes, comp.ano);
-  const dias = Array.from({ length: Math.min(30, totalDias) }, (_, i) => i + 1);
+  const dias = Array.from({ length: totalDias }, (_, i) => i + 1);
 
   const statusList = await listStatusPorSetorNoMes(comp.setorId!, comp.mes, comp.ano);
 
@@ -362,7 +370,7 @@ export async function batchUpdateEscalaDias(
   if (!comp) return;
 
   const totalDias = getDiasNoMes(comp.mes, comp.ano);
-  const dias = Array.from({ length: Math.min(30, totalDias) }, (_, i) => i + 1);
+  const dias = Array.from({ length: totalDias }, (_, i) => i + 1);
 
   const iniciosAtivos = await getIniciosAtivos(competenciaId);
   const expandedItems = [...items];
@@ -511,7 +519,7 @@ export async function zerarEscalaFuncionario(competenciaId: number, funcionarioI
   await desativarInicioAtivo(competenciaId, funcionarioId);
 
   const totalDias = getDiasNoMes(comp.mes, comp.ano);
-  const dias = Array.from({ length: Math.min(30, totalDias) }, (_, i) => i + 1);
+  const dias = Array.from({ length: totalDias }, (_, i) => i + 1);
 
   if (dias.length > 0) {
     await db.insert(escalaDias).values(
@@ -625,4 +633,109 @@ export async function findOrCreateCompetencia(mes: number, ano: number, setorId:
     .values({ mes, ano, setorId })
     .returning();
   return created;
+}
+
+export interface SimularProximoMesResult {
+  competenciaId: number;
+  mes: number;
+  ano: number;
+  processados: number;
+  ignorados: number;
+}
+
+export async function simularProximoMes(
+  competenciaId: number
+): Promise<SimularProximoMesResult> {
+  const grade = await getGradeEscala(competenciaId);
+  if (!grade) throw new Error('Competência não encontrada');
+
+  const comp = await db.query.competencias.findFirst({
+    where: eq(competencias.id, competenciaId),
+  });
+  if (!comp?.setorId) throw new Error('Setor não encontrado');
+
+  const { mes: proxMes, ano: proxAno } = mesSeguinte(comp.mes, comp.ano);
+  const proxComp = await findOrCreateCompetencia(proxMes, proxAno, comp.setorId);
+
+  const totalDiasProx = getDiasNoMes(proxMes, proxAno);
+  const diasProx = Array.from({ length: totalDiasProx }, (_, i) => i + 1);
+
+  let processados = 0;
+  let ignorados = 0;
+  const funcionariosVistos = new Set<number>();
+
+  for (const grupo of grade.grupos) {
+    for (const func of grupo.funcionarios) {
+      if (funcionariosVistos.has(func.id)) continue;
+      funcionariosVistos.add(func.id);
+
+      const padrao = getPadraoEscala(func.categoria ?? '');
+      if (!padrao) {
+        ignorados++;
+        continue;
+      }
+
+      const escalaInicio = func.escalaInicio;
+      if (!escalaInicio?.ativo) {
+        ignorados++;
+        continue;
+      }
+
+      const ancoraProx = ancoraFromEscalaInicio(padrao, escalaInicio, proxMes, proxAno);
+      const turnoDia1 = calcularTurnoProjetado(padrao, ancoraProx, 1);
+      if (!turnoDia1) {
+        ignorados++;
+        continue;
+      }
+
+      const indiceDia1 = calcularIndiceNoDia(padrao, ancoraProx, 1);
+
+      await zerarEscalaFuncionario(proxComp.id, func.id);
+
+      await criarInicioAtivo(
+        proxComp.id,
+        func.id,
+        1,
+        proxMes,
+        proxAno,
+        turnoDia1,
+        indiceDia1
+      );
+
+      const simulados = simularMesAPartirDeAncora(
+        padrao,
+        1,
+        turnoDia1,
+        diasProx,
+        indiceDia1,
+        true
+      );
+
+      for (const [diaStr, turnoSimulado] of Object.entries(simulados)) {
+        await upsertTurnoDia(proxComp.id, func.id, Number(diaStr), turnoSimulado);
+      }
+
+      processados++;
+    }
+  }
+
+  if (processados > 0) {
+    const MESES = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+    ];
+    const nota = `Simulação gerada a partir de ${MESES[comp.mes - 1]}/${comp.ano}: ${processados} técnico(s) com escala e grupo atualizados para ${MESES[proxMes - 1]}/${proxAno}.`;
+    await db
+      .update(competencias)
+      .set({ observacoes: appendObservacaoLista(proxComp.observacoes, nota) })
+      .where(eq(competencias.id, proxComp.id));
+  }
+
+  return {
+    competenciaId: proxComp.id,
+    mes: proxMes,
+    ano: proxAno,
+    processados,
+    ignorados,
+  };
 }

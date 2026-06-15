@@ -81,3 +81,16 @@ export function useUpdateObservacoes(competenciaId: number) {
     },
   });
 }
+
+export function useSimularProximoMes(competenciaId: number | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => api.simularProximoMes(competenciaId!),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['escala', competenciaId] });
+      queryClient.invalidateQueries({ queryKey: ['escala', result.competenciaId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}

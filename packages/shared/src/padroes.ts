@@ -162,14 +162,21 @@ export function calcularTurnoProjetado(
   ancora: AncoraPadrao,
   diaAlvo: number
 ): Turno | null {
+  const indice = calcularIndiceNoDia(padrao, ancora, diaAlvo);
+  return padrao[indice];
+}
+
+export function calcularIndiceNoDia(
+  padrao: Turno[],
+  ancora: AncoraPadrao,
+  diaAlvo: number
+): number {
   const offset =
     ancora.offsetAteMesAtual === 0
       ? diaAlvo - ancora.dia
       : ancora.offsetAteMesAtual + (diaAlvo - 1);
 
-  const indice =
-    (((ancora.indicePadrao + offset) % padrao.length) + padrao.length) % padrao.length;
-  return padrao[indice];
+  return (((ancora.indicePadrao + offset) % padrao.length) + padrao.length) % padrao.length;
 }
 
 export function simularMesAPartirDeAncora(

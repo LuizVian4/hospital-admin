@@ -49,7 +49,7 @@ export function diasAfetadosNoMes(
   dataFim: string,
   mes: number,
   ano: number,
-  maxDias = 30
+  maxDias?: number
 ): number[] {
   const { inicio: inicioMes, fim: fimMes } = limitesMes(mes, ano);
   const inicio = dataInicio > inicioMes ? dataInicio : inicioMes;
@@ -57,7 +57,7 @@ export function diasAfetadosNoMes(
   if (inicio > fim) return [];
 
   const dias: number[] = [];
-  const total = Math.min(maxDias, ultimoDiaDoMes(mes, ano));
+  const total = maxDias ?? ultimoDiaDoMes(mes, ano);
   const m = String(mes).padStart(2, '0');
 
   for (let d = 1; d <= total; d++) {

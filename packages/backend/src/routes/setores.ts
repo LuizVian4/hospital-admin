@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { db } from '../db';
 import { setores, competencias } from '../db/schema';
 import { findOrCreateCompetencia } from '../services/escala.service';
@@ -80,13 +80,15 @@ export const setoresRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(201).send(comp);
   });
 
-  app.get<{ Params: { id: string }; Querystring: { mes: string; ano: string } }>(
-    '/api/setores/:id/competencias',
-    async (request, reply) => {
-      const setorId = parseInt(request.params.id, 10);
-      const mes = parseInt(request.query.mes, 10);
-      const ano = parseInt(request.query.ano, 10);
+  app.get<{
+    Params: { id: string };
+    Querystring: { mes?: string; ano?: string };
+  }>('/api/setores/:id/competencias', async (request, reply) => {
+    const setorId = parseInt(request.params.id, 10);
+    const mes = request.query.mes ? parseInt(request.query.mes, 10) : undefined;
+    const ano = request.query.ano ? parseInt(request.query.ano, 10) : undefined;
 
+    if (mes !== undefined && ano !== undefined) {
       const comp = await db.query.competencias.findFirst({
         where: (c, { and, eq }) =>
           and(eq(c.mes, mes), eq(c.ano, ano), eq(c.setorId, setorId)),
@@ -95,5 +97,17 @@ export const setoresRoutes: FastifyPluginAsync = async (app) => {
       if (!comp) return reply.status(404).send({ error: 'Competência não encontrada' });
       return comp;
     }
-  );
+
+    return db
+      .select({
+        id: competencias.id,
+        mes: competencias.mes,
+        ano: competencias.ano,
+        setorId: competencias.setorId,
+        observacoes: competencias.observacoes,
+      })
+      .from(competencias)
+      .where(eq(competencias.setorId, setorId))
+      .orderBy(desc(competencias.ano), desc(competencias.mes));
+  });
 };

@@ -7,8 +7,15 @@ import { competencias } from '../db/schema';
 import { getGradeEscala } from './escala.service';
 
 const DIA_START_COL = 8; // 1-based: col H = day 1
-const MAX_DIAS = 30;
-const TOTAL_COLS = 7 + MAX_DIAS;
+const FIXED_COLS = 7;
+
+function totalCols(maxDias: number): number {
+  return FIXED_COLS + maxDias;
+}
+
+function maxDiasNaGrade(grade: GradeEscalaResponse): number {
+  return grade.dias.length > 0 ? grade.dias.length : grade.diasSemana.length;
+}
 
 const COLORS = {
   headerBg: 'FF1E3A8A',
@@ -112,17 +119,21 @@ function organizarPorGrupoEscala(funcionarios: FuncionarioComTurnos[]) {
   return { porGrupo, semAtribuicao, semPadrao };
 }
 
-function emptyRow(): string[] {
-  return new Array(TOTAL_COLS).fill('');
+function emptyRow(maxDias: number): string[] {
+  return new Array(totalCols(maxDias)).fill('');
 }
 
-function groupHeaderRow(label: string): string[] {
-  const row = emptyRow();
+function groupHeaderRow(label: string, maxDias: number): string[] {
+  const row = emptyRow(maxDias);
   row[0] = label;
   return row;
 }
 
-function funcionarioValues(func: FuncionarioComTurnos, dias: number[]): (string | number)[] {
+function funcionarioValues(
+  func: FuncionarioComTurnos,
+  dias: number[],
+  maxDias: number
+): (string | number)[] {
   const row: (string | number)[] = [
     func.matricula,
     func.nome,
@@ -133,7 +144,7 @@ function funcionarioValues(func: FuncionarioComTurnos, dias: number[]): (string 
     func.cargaHoraria,
   ];
 
-  for (let d = 1; d <= MAX_DIAS; d++) {
+  for (let d = 1; d <= maxDias; d++) {
     row.push(dias.includes(d) ? getTurnoCell(func, d).value : '');
   }
 
@@ -142,6 +153,7 @@ function funcionarioValues(func: FuncionarioComTurnos, dias: number[]): (string 
 
 function buildSheetRows(grade: GradeEscalaResponse, empresa?: string, gerente?: string): SheetRow[] {
   const { competencia, dias, observacoes, statusEspeciais } = grade;
+  const maxDias = maxDiasNaGrade(grade);
   const mesAno = `${String(competencia.mes).padStart(2, '0')}/${competencia.ano}`;
 
   const rows: SheetRow[] = [
@@ -149,12 +161,12 @@ function buildSheetRows(grade: GradeEscalaResponse, empresa?: string, gerente?: 
     { kind: 'meta', values: ['GERENTE', gerente ?? ''] },
     { kind: 'meta', values: ['SETOR', competencia.setor] },
     { kind: 'meta', values: ['COMPETÊNCIA', mesAno] },
-    { kind: 'spacer', values: emptyRow() },
+    { kind: 'spacer', values: emptyRow(maxDias) },
     {
       kind: 'header',
       values: (() => {
         const header: (string | number)[] = ['MAT', 'NOME', 'COREN', 'CAT', 'CTRT', 'ADM', 'CH'];
-        for (let d = 1; d <= MAX_DIAS; d++) {
+        for (let d = 1; d <= maxDias; d++) {
           const idx = d - 1;
           const dow = grade.diasSemana[idx] ?? '';
           header.push(dow ? `${d}\n${dow}` : String(d));
@@ -171,7 +183,7 @@ function buildSheetRows(grade: GradeEscalaResponse, empresa?: string, gerente?: 
     for (const func of lista) {
       rows.push({
         kind: 'employee',
-        values: funcionarioValues(func, dias),
+        values: funcionarioValues(func, dias, maxDias),
         funcionario: func,
       });
     }
@@ -182,25 +194,25 @@ function buildSheetRows(grade: GradeEscalaResponse, empresa?: string, gerente?: 
     if (lista.length === 0) continue;
     rows.push({
       kind: 'group',
-      values: groupHeaderRow(`${grupo.label} — ${grupo.descricao}`),
+      values: groupHeaderRow(`${grupo.label} — ${grupo.descricao}`, maxDias),
     });
     pushEmployees(lista);
   }
 
   if (semAtribuicao.length > 0) {
-    rows.push({ kind: 'group', values: groupHeaderRow('Sem atribuição de grupo') });
+    rows.push({ kind: 'group', values: groupHeaderRow('Sem atribuição de grupo', maxDias) });
     pushEmployees(semAtribuicao);
   }
 
   if (semPadrao.length > 0) {
-    rows.push({ kind: 'group', values: groupHeaderRow('Outras categorias') });
+    rows.push({ kind: 'group', values: groupHeaderRow('Outras categorias', maxDias) });
     pushEmployees(semPadrao);
   }
 
   if (statusEspeciais.length > 0) {
-    rows.push({ kind: 'spacer', values: emptyRow() });
+    rows.push({ kind: 'spacer', values: emptyRow(maxDias) });
     for (const se of statusEspeciais) {
-      const row = emptyRow();
+      const row = emptyRow(maxDias);
       row[0] = se.funcionario.matricula;
       row[1] = se.funcionario.nome;
       row[2] = se.funcionario.coren ?? '';
@@ -210,7 +222,7 @@ function buildSheetRows(grade: GradeEscalaResponse, empresa?: string, gerente?: 
   }
 
   if (observacoes) {
-    rows.push({ kind: 'spacer', values: emptyRow() });
+    rows.push({ kind: 'spacer', values: emptyRow(maxDias) });
     rows.push({ kind: 'obs', values: ['OBSERVAÇÕES', observacoes] });
   }
 
@@ -239,10 +251,10 @@ function styleMetaRow(row: ExcelJS.Row) {
   row.height = 20;
 }
 
-function styleHeaderRow(row: ExcelJS.Row, diasSemana: string[]) {
+function styleHeaderRow(row: ExcelJS.Row, diasSemana: string[], cols: number) {
   row.height = 32;
 
-  for (let col = 1; col <= TOTAL_COLS; col++) {
+  for (let col = 1; col <= cols; col++) {
     const cell = row.getCell(col);
     const isDayCol = col >= DIA_START_COL;
     const dayIdx = col - DIA_START_COL;
@@ -268,8 +280,8 @@ function styleHeaderRow(row: ExcelJS.Row, diasSemana: string[]) {
   }
 }
 
-function styleGroupRow(row: ExcelJS.Row, sheet: ExcelJS.Worksheet, rowNumber: number) {
-  sheet.mergeCells(rowNumber, 1, rowNumber, TOTAL_COLS);
+function styleGroupRow(row: ExcelJS.Row, sheet: ExcelJS.Worksheet, rowNumber: number, cols: number) {
+  sheet.mergeCells(rowNumber, 1, rowNumber, cols);
   const cell = row.getCell(1);
   cell.font = { bold: true, size: 10, color: { argb: COLORS.groupFont } };
   cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.groupBg } };
@@ -313,7 +325,8 @@ function styleEmployeeRow(
   row: ExcelJS.Row,
   func: FuncionarioComTurnos,
   dias: number[],
-  zebra: boolean
+  zebra: boolean,
+  maxDias: number
 ) {
   row.height = 18;
 
@@ -331,7 +344,7 @@ function styleEmployeeRow(
     cell.border = thinBorder();
   }
 
-  for (let d = 1; d <= MAX_DIAS; d++) {
+  for (let d = 1; d <= maxDias; d++) {
     const col = DIA_START_COL + d - 1;
     const cell = row.getCell(col);
     if (!dias.includes(d)) {
@@ -355,8 +368,8 @@ function styleStatusRow(row: ExcelJS.Row) {
   }
 }
 
-function styleObsRow(row: ExcelJS.Row, sheet: ExcelJS.Worksheet, rowNumber: number) {
-  sheet.mergeCells(rowNumber, 2, rowNumber, TOTAL_COLS);
+function styleObsRow(row: ExcelJS.Row, sheet: ExcelJS.Worksheet, rowNumber: number, cols: number) {
+  sheet.mergeCells(rowNumber, 2, rowNumber, cols);
   const label = row.getCell(1);
   const value = row.getCell(2);
 
@@ -382,7 +395,7 @@ function slugifySetor(nome: string): string {
     .toLowerCase();
 }
 
-function applyColumnWidths(sheet: ExcelJS.Worksheet) {
+function applyColumnWidths(sheet: ExcelJS.Worksheet, maxDias: number) {
   sheet.getColumn(1).width = 11;
   sheet.getColumn(2).width = 34;
   sheet.getColumn(3).width = 12;
@@ -390,7 +403,7 @@ function applyColumnWidths(sheet: ExcelJS.Worksheet) {
   sheet.getColumn(5).width = 12;
   sheet.getColumn(6).width = 12;
   sheet.getColumn(7).width = 8;
-  for (let d = 1; d <= MAX_DIAS; d++) {
+  for (let d = 1; d <= maxDias; d++) {
     sheet.getColumn(DIA_START_COL + d - 1).width = 5.5;
   }
 }
@@ -410,6 +423,8 @@ async function buildWorkbook(
   });
 
   const rows = buildSheetRows(grade, empresa, gerente);
+  const maxDias = maxDiasNaGrade(grade);
+  const cols = totalCols(maxDias);
   let employeeIndex = 0;
 
   rows.forEach((sheetRow, idx) => {
@@ -421,14 +436,14 @@ async function buildWorkbook(
         styleMetaRow(row);
         break;
       case 'header':
-        styleHeaderRow(row, grade.diasSemana);
+        styleHeaderRow(row, grade.diasSemana, cols);
         break;
       case 'group':
-        styleGroupRow(row, sheet, rowNumber);
+        styleGroupRow(row, sheet, rowNumber, cols);
         break;
       case 'employee':
         if (sheetRow.funcionario) {
-          styleEmployeeRow(row, sheetRow.funcionario, grade.dias, employeeIndex % 2 === 1);
+          styleEmployeeRow(row, sheetRow.funcionario, grade.dias, employeeIndex % 2 === 1, maxDias);
           employeeIndex++;
         }
         break;
@@ -436,14 +451,14 @@ async function buildWorkbook(
         styleStatusRow(row);
         break;
       case 'obs':
-        styleObsRow(row, sheet, rowNumber);
+        styleObsRow(row, sheet, rowNumber, cols);
         break;
       default:
         break;
     }
   });
 
-  applyColumnWidths(sheet);
+  applyColumnWidths(sheet, maxDias);
 
   sheet.pageSetup = {
     orientation: 'landscape',

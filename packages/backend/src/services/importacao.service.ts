@@ -7,6 +7,7 @@ import {
   normalizeContrato,
   normalizeCargaHoraria,
   parseDate,
+  getDiasNoMes,
 } from '../utils/helpers';
 import type { Turno } from '@escala/shared';
 import { limitesMes, normalizarStatusEspecial } from '@escala/shared';
@@ -128,6 +129,18 @@ function findDiaStartCol(rows: unknown[][], funcHeaderIdx: number): number {
   return DIA_START_COL_DEFAULT;
 }
 
+function countDiasNoHeader(headerRow: unknown[], diaStartCol: number): number {
+  let count = 0;
+  for (let j = diaStartCol; j < headerRow.length; j++) {
+    const raw = cellStr(headerRow, j);
+    if (!raw) break;
+    const dayNum = parseInt(raw.split('\n')[0], 10);
+    if (!Number.isFinite(dayNum) || dayNum !== count + 1) break;
+    count++;
+  }
+  return count > 0 ? count : 31;
+}
+
 function findFuncionarioHeaderIndex(rows: unknown[][]): number {
   for (let i = 0; i < rows.length; i++) {
     const col0 = cellStr(rows[i] as unknown[], 0).toUpperCase();
@@ -177,6 +190,8 @@ function parseSetorSheet(sheetName: string, rows: unknown[][]): ParsedSetor {
   }
 
   const diaStartCol = findDiaStartCol(rows, funcHeaderIdx);
+  const totalDias =
+    header.mes && header.ano ? getDiasNoMes(header.mes, header.ano) : countDiasNoHeader(rows[funcHeaderIdx], diaStartCol);
 
   for (let i = funcHeaderIdx + 1; i < rows.length; i++) {
     const row = rows[i] as unknown[];
@@ -221,7 +236,7 @@ function parseSetorSheet(sheetName: string, rows: unknown[][]): ParsedSetor {
     }
 
     const turnos: Record<number, Turno | null> = {};
-    for (let d = 1; d <= 30; d++) {
+    for (let d = 1; d <= totalDias; d++) {
       const col = diaStartCol + d - 1;
       turnos[d] = normalizeTurno(row[col]);
     }

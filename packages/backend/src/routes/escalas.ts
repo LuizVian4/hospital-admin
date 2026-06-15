@@ -10,6 +10,7 @@ import {
   zerarEscalaFuncionario,
   getRelatorioFolgas,
   getRelatorioCargaHoraria,
+  simularProximoMes,
 } from '../services/escala.service';
 import { exportEscalaExcel } from '../services/exportacao.service';
 import {
@@ -107,6 +108,21 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
 
       if (!updated) return reply.status(404).send({ error: 'Competência não encontrada' });
       return updated;
+    }
+  );
+
+  app.post<{ Params: { id: string } }>(
+    '/api/competencias/:id/simular-proximo-mes',
+    async (request, reply) => {
+      const competenciaId = parseInt(request.params.id, 10);
+
+      try {
+        const result = await simularProximoMes(competenciaId);
+        return result;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erro ao simular próximo mês';
+        return reply.status(400).send({ error: message });
+      }
     }
   );
 

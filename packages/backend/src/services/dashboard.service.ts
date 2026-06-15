@@ -10,7 +10,7 @@ export async function getDashboardData(mes?: number, ano?: number) {
   const mesAtual = mes ?? now.getMonth() + 1;
   const anoAtual = ano ?? now.getFullYear();
   const dias = Array.from(
-    { length: Math.min(30, getDiasNoMes(mesAtual, anoAtual)) },
+    { length: getDiasNoMes(mesAtual, anoAtual) },
     (_, i) => i + 1
   );
 

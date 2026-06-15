@@ -50,10 +50,11 @@ export function normalizeCargaHoraria(value: unknown): '180H' | '144H' {
   return str.includes('144') ? '144H' : '180H';
 }
 
-export function getDiasSemana(mes: number, ano: number, totalDias = 30): string[] {
+export function getDiasSemana(mes: number, ano: number, totalDias?: number): string[] {
   const dias = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'];
   const result: string[] = [];
-  for (let d = 1; d <= totalDias; d++) {
+  const total = totalDias ?? getDiasNoMes(mes, ano);
+  for (let d = 1; d <= total; d++) {
     const date = new Date(ano, mes - 1, d);
     result.push(dias[date.getDay()]);
   }

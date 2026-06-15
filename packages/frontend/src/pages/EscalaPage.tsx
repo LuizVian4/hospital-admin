@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -26,8 +26,14 @@ import DownloadIcon from '@mui/icons-material/Download';
 import BusinessIcon from '@mui/icons-material/Business';
 import NotesIcon from '@mui/icons-material/Notes';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContentText from '@mui/material/DialogContentText';
+import FastForwardIcon from '@mui/icons-material/FastForward';
 import { api } from '@/api/client';
-import { useEscala, useUpdateObservacoes } from '@/hooks/useEscala';
+import { useEscala, useUpdateObservacoes, useSimularProximoMes } from '@/hooks/useEscala';
 import { useSetores } from '@/hooks/useFuncionarios';
 import { GradeEscala } from '@/components/GradeEscala/GradeEscala';
 import { GradeEscalaSkeleton } from '@/components/GradeEscala/GradeEscalaSkeleton';
@@ -51,32 +57,64 @@ export function EscalaPage() {
   const { setorId, mes, ano } = useParams<{ setorId: string; mes: string; ano: string }>();
   const navigate = useNavigate();
   const [competenciaId, setCompetenciaId] = useState<number | undefined>();
+  const [temCompetenciaAnterior, setTemCompetenciaAnterior] = useState(false);
+  const [temCompetenciaProxima, setTemCompetenciaProxima] = useState(false);
+  const [competenciaLoading, setCompetenciaLoading] = useState(true);
   const [exportando, setExportando] = useState(false);
+  const [confirmSimular, setConfirmSimular] = useState(false);
 
   const setorIdNum = parseInt(setorId || '1', 10);
   const mesNum = parseInt(mes || '6', 10);
   const anoNum = parseInt(ano || '2026', 10);
 
+  const mesAnterior = useMemo(() => (mesNum === 1 ? 12 : mesNum - 1), [mesNum]);
+  const anoAnterior = useMemo(() => (mesNum === 1 ? anoNum - 1 : anoNum), [mesNum, anoNum]);
+  const proxMesNum = useMemo(() => (mesNum === 12 ? 1 : mesNum + 1), [mesNum]);
+  const proxAnoNum = useMemo(() => (mesNum === 12 ? anoNum + 1 : anoNum), [mesNum, anoNum]);
+
   const { data: setores = [] } = useSetores();
 
   useEffect(() => {
-    async function loadCompetencia() {
-      const existing = await api.getCompetencia(setorIdNum, mesNum, anoNum);
-      if (existing) {
-        setCompetenciaId(existing.id);
-        return;
+    let cancelled = false;
+
+    async function loadCompetencias() {
+      setCompetenciaLoading(true);
+      setCompetenciaId(undefined);
+
+      try {
+        const [atual, anterior, proxima] = await Promise.all([
+          api.getCompetencia(setorIdNum, mesNum, anoNum),
+          api.getCompetencia(setorIdNum, mesAnterior, anoAnterior),
+          api.getCompetencia(setorIdNum, proxMesNum, proxAnoNum),
+        ]);
+
+        if (cancelled) return;
+
+        setCompetenciaId(atual?.id);
+        setTemCompetenciaAnterior(!!anterior);
+        setTemCompetenciaProxima(!!proxima);
+      } catch {
+        if (!cancelled) toast.error('Erro ao carregar competência');
+      } finally {
+        if (!cancelled) setCompetenciaLoading(false);
       }
-      const created = await api.createCompetencia(setorIdNum, mesNum, anoNum);
-      setCompetenciaId(created.id);
     }
-    loadCompetencia().catch(() => toast.error('Erro ao carregar competência'));
-  }, [setorIdNum, mesNum, anoNum]);
+
+    loadCompetencias();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setorIdNum, mesNum, anoNum, mesAnterior, anoAnterior, proxMesNum, proxAnoNum]);
 
   const { data: escala, isLoading } = useEscala(competenciaId);
   const updateObs = useUpdateObservacoes(competenciaId ?? 0);
+  const simularProximoMes = useSimularProximoMes(competenciaId);
 
   const setor = setores.find((s) => s.id === setorIdNum);
   const periodoLabel = `${MESES[mesNum - 1]} / ${anoNum}`;
+  const proximoPeriodoLabel = `${MESES[proxMesNum - 1]} / ${proxAnoNum}`;
+  const podeSimularProximoMes = !!competenciaId && !temCompetenciaProxima;
 
   const changeMes = (delta: number) => {
     let newMes = mesNum + delta;
@@ -106,6 +144,35 @@ export function EscalaPage() {
     } finally {
       setExportando(false);
     }
+  };
+
+  const handleCriarCompetencia = async () => {
+    try {
+      const created = await api.createCompetencia(setorIdNum, mesNum, anoNum);
+      setCompetenciaId(created.id);
+      toast.success(`Competência de ${periodoLabel} criada`);
+    } catch {
+      toast.error('Erro ao criar competência');
+    }
+  };
+
+  const handleSimularProximoMes = () => {
+    if (!competenciaId) return;
+    simularProximoMes.mutate(undefined, {
+      onSuccess: (result) => {
+        setConfirmSimular(false);
+        toast.success(
+          `Escala de ${proximoPeriodoLabel} gerada para ${result.processados} técnico(s)${
+            result.ignorados > 0 ? ` (${result.ignorados} sem grupo ignorados)` : ''
+          }`
+        );
+        navigate(`/setores/${setorIdNum}/escala/${result.mes}/${result.ano}`);
+        setCompetenciaId(result.competenciaId);
+      },
+      onError: (err) => {
+        toast.error(err.message || 'Erro ao simular próximo mês');
+      },
+    });
   };
 
   return (
@@ -143,23 +210,39 @@ export function EscalaPage() {
 
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <Paper variant="outlined" sx={{ display: 'flex', alignItems: 'center' }}>
-              <Tooltip title="Mês anterior">
-                <IconButton size="small" onClick={() => changeMes(-1)}>
-                  <ChevronLeftIcon />
-                </IconButton>
-              </Tooltip>
+              {temCompetenciaAnterior && (
+                <Tooltip title="Mês anterior">
+                  <IconButton size="small" onClick={() => changeMes(-1)}>
+                    <ChevronLeftIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Typography
                 variant="body2"
                 sx={{ fontWeight: 600, minWidth: 140, textAlign: 'center', px: 1, fontVariantNumeric: 'tabular-nums' }}
               >
                 {periodoLabel}
               </Typography>
-              <Tooltip title="Próximo mês">
-                <IconButton size="small" onClick={() => changeMes(1)}>
-                  <ChevronRightIcon />
-                </IconButton>
-              </Tooltip>
+              {temCompetenciaProxima && (
+                <Tooltip title="Próximo mês">
+                  <IconButton size="small" onClick={() => changeMes(1)}>
+                    <ChevronRightIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Paper>
+
+            {podeSimularProximoMes && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<FastForwardIcon />}
+                onClick={() => setConfirmSimular(true)}
+                disabled={isLoading || simularProximoMes.isPending}
+              >
+                {simularProximoMes.isPending ? 'Simulando...' : 'Simular próximo mês'}
+              </Button>
+            )}
 
             <Button
               variant="outlined"
@@ -183,7 +266,18 @@ export function EscalaPage() {
         </Grid>
       </Grid>
 
-      {isLoading && <GradeEscalaSkeleton />}
+      {competenciaLoading && <GradeEscalaSkeleton />}
+      {!competenciaLoading && !competenciaId && (
+        <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+            Nenhuma competência cadastrada para {periodoLabel}.
+          </Typography>
+          <Button variant="contained" onClick={handleCriarCompetencia}>
+            Criar competência
+          </Button>
+        </Paper>
+      )}
+      {!competenciaLoading && isLoading && competenciaId && <GradeEscalaSkeleton />}
       {escala && <GradeEscala data={escala} />}
 
       {escala && escala.statusEspeciais.length > 0 && (
@@ -245,6 +339,48 @@ export function EscalaPage() {
           />
         </CardContent>
       </Card>
+
+      <Dialog open={confirmSimular} onClose={() => !simularProximoMes.isPending && setConfirmSimular(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Simular {proximoPeriodoLabel}</DialogTitle>
+        <DialogContent>
+          <DialogContentText component="div">
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              Esta ação irá gerar a escala de <strong>{proximoPeriodoLabel}</strong> com base no padrão
+              e grupo definidos em <strong>{periodoLabel}</strong>.
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              Para cada técnico com grupo atribuído, o sistema irá:
+            </Typography>
+            <Box component="ul" sx={{ pl: 2.5, m: 0 }}>
+              <Typography component="li" variant="body2">
+                Calcular o turno correto no dia 1 do mês seguinte
+              </Typography>
+              <Typography component="li" variant="body2">
+                Atualizar automaticamente o grupo de escala para o padrão correspondente
+              </Typography>
+              <Typography component="li" variant="body2">
+                Preencher todos os dias do mês com base na rotação do padrão
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="warning.main" sx={{ mt: 2 }}>
+              Escalas já existentes em {proximoPeriodoLabel} para esses técnicos serão substituídas.
+            </Typography>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setConfirmSimular(false)} disabled={simularProximoMes.isPending}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSimularProximoMes}
+            disabled={simularProximoMes.isPending}
+            startIcon={<FastForwardIcon />}
+          >
+            {simularProximoMes.isPending ? 'Gerando...' : `Gerar ${proximoPeriodoLabel}`}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

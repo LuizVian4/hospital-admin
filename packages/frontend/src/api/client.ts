@@ -10,6 +10,14 @@ import type {
   ImportPreview,
 } from '@escala/shared';
 
+export interface Competencia {
+  id: number;
+  mes: number;
+  ano: number;
+  setorId: number | null;
+  observacoes?: string | null;
+}
+
 export interface DashboardData {
   setores: Setor[];
   totalFuncionarios: number;
@@ -111,8 +119,11 @@ export const api = {
     );
     if (res.status === 404) return null;
     if (!res.ok) throw new Error('Erro ao buscar competência');
-    return res.json() as Promise<{ id: number }>;
+    return res.json() as Promise<Competencia>;
   },
+
+  listCompetenciasSetor: (setorId: number) =>
+    request<Competencia[]>(`/api/setores/${setorId}/competencias`),
 
   getEscala: (competenciaId: number) =>
     request<GradeEscalaResponse>(`/api/competencias/${competenciaId}/escala`),
@@ -158,6 +169,18 @@ export const api = {
     request(`/api/competencias/${competenciaId}/observacoes`, {
       method: 'PUT',
       body: JSON.stringify({ observacoes }),
+    }),
+
+  simularProximoMes: (competenciaId: number) =>
+    request<{
+      competenciaId: number;
+      mes: number;
+      ano: number;
+      processados: number;
+      ignorados: number;
+    }>(`/api/competencias/${competenciaId}/simular-proximo-mes`, {
+      method: 'POST',
+      body: JSON.stringify({}),
     }),
 
   importOds: async (file: File, confirmar = false, mes?: number, ano?: number) => {

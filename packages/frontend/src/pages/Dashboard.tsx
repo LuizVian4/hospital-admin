@@ -19,8 +19,6 @@ import Paper from '@mui/material/Paper';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
-import Tooltip from '@mui/material/Tooltip';
-import IconButton from '@mui/material/IconButton';
 import PeopleIcon from '@mui/icons-material/People';
 import BusinessIcon from '@mui/icons-material/Business';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
@@ -28,9 +26,9 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { api } from '@/api/client';
 import { SetoresEditor } from '@/components/SetoresEditor';
+import { SeletorCompetenciaSetor } from '@/components/SeletorCompetenciaSetor';
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -306,15 +304,7 @@ export function Dashboard() {
                           />
                         </TableCell>
                         <TableCell align="right">
-                          <Tooltip title="Abrir escala do setor">
-                            <IconButton
-                              size="small"
-                              component={RouterLink}
-                              to={`/setores/${row.setorId}/escala/${mes}/${ano}`}
-                            >
-                              <OpenInNewIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          <SeletorCompetenciaSetor setorId={row.setorId} setorNome={row.setor} />
                         </TableCell>
                       </TableRow>
                     ))}
