@@ -139,6 +139,7 @@ export interface ImportPreviewSetor {
 }
 
 export interface ImportPreview {
+  format: 'equipe' | 'escala';
   setores: ImportPreviewSetor[];
   totalFuncionarios: number;
   totalCelulas: number;

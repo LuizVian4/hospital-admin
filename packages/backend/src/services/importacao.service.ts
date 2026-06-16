@@ -10,30 +10,11 @@ import {
   parseDate,
   getDiasNoMes,
 } from '../utils/helpers';
-import type { Turno } from '@escala/shared';
+import type { Turno, ImportPreview, ImportPreviewSetor } from '@escala/shared';
 import { limitesMes, normalizarStatusEspecial } from '@escala/shared';
 import { findOrCreateCompetencia } from './escala.service';
 
-export interface ImportPreviewSetor {
-  nome: string;
-  empresa?: string;
-  gerente?: string;
-  mes?: number;
-  ano?: number;
-  funcionariosNovos: number;
-  funcionariosAtualizados: number;
-  celulasEscala: number;
-  statusEspeciais: number;
-  erros: string[];
-}
-
-export interface ImportPreview {
-  setores: ImportPreviewSetor[];
-  totalFuncionarios: number;
-  totalCelulas: number;
-  totalStatusEspeciais: number;
-  erros: string[];
-}
+export type { ImportPreview, ImportPreviewSetor };
 
 interface ParsedFuncionario {
   matricula: string;
@@ -554,21 +535,128 @@ async function upsertFuncionario(
   return created;
 }
 
-let lastPreview: ParsedSetor[] | null = null;
+let lastPreview: { tipo: ImportFormat; parsed: ParsedSetor[] } | null = null;
 
-export function setLastPreview(data: ParsedSetor[]) {
-  lastPreview = data;
+export function setLastPreview(data: ParsedSetor[], tipo?: ImportFormat) {
+  const format = tipo ?? data[0]?.format ?? 'escala';
+  lastPreview = { tipo: format, parsed: data };
 }
 
 export function getLastPreview(): ParsedSetor[] | null {
-  return lastPreview;
+  return lastPreview?.parsed ?? null;
 }
 
-export async function buildPreview(buffer: Buffer): Promise<ImportPreview> {
+function assertImportFormat(parsed: ParsedSetor[], expectedTipo: ImportFormat) {
+  const format = parsed[0]?.format ?? 'escala';
+  if (format !== expectedTipo) {
+    throw new Error(
+      expectedTipo === 'equipe'
+        ? 'Este arquivo parece ser uma escala mensal. Use o card de importação de escala.'
+        : 'Este arquivo parece ser uma planilha de equipe. Use o card de importação de equipe.'
+    );
+  }
+}
+
+export function buildEquipeTemplateBuffer(): Buffer {
+  const rows: unknown[][] = [
+    ['MAT', 'NOME', 'COREN', 'CAT', 'CTRT', 'ADM', 'CH', 'SETOR'],
+    [
+      '1170278',
+      'MARIA SILVA SANTOS',
+      '1897232',
+      'TÉC. DE ENFERMAGEM',
+      'EFETIVO',
+      '2020-03-15',
+      '180H',
+      '5º ANDAR',
+    ],
+    [
+      '1185001',
+      'JOÃO PEREIRA LIMA',
+      '',
+      'ENFERMEIRO',
+      'EFETIVO',
+      '2022-06-01',
+      '180H',
+      '5º ANDAR',
+    ],
+    [
+      '1190002',
+      'ANA COSTA OLIVEIRA',
+      '5551234',
+      'TÉC. DE ENFERMAGEM',
+      'PROVISÓRIO',
+      '2024-01-10',
+      '144H',
+      '6º ANDAR',
+    ],
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  const sheet = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(workbook, sheet, 'EQUIPE');
+  return Buffer.from(XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }));
+}
+
+export function buildEscalaTemplateBuffer(): Buffer {
+  const mes = 6;
+  const ano = 2026;
+  const totalDias = getDiasNoMes(mes, ano);
+  const diaHeaders = Array.from({ length: totalDias }, (_, i) => String(i + 1));
+  const turnosExemplo = ['MT', 'F', 'SN', '/', 'F', 'MT', 'SN'];
+
+  const rows: unknown[][] = [
+    ['EMPRESA', 'Hospital Teresa de Lisieux'],
+    ['GERENTE', 'Nome do Gerente'],
+    ['SETOR', '5º ANDAR'],
+    ['COMPETÊNCIA', `${mes}/${ano}`],
+    [],
+    ['MAT', 'NOME', 'COREN', 'CAT', 'CTRT', 'ADM', 'CH', ...diaHeaders],
+    [
+      '1170278',
+      'MARIA SILVA SANTOS',
+      '1897232',
+      'TÉC. DE ENFERMAGEM',
+      'EFETIVO',
+      '2020-03-15',
+      '180H',
+      ...Array.from({ length: totalDias }, (_, i) => turnosExemplo[i % turnosExemplo.length]),
+    ],
+    [
+      '1185001',
+      'JOÃO PEREIRA LIMA',
+      '',
+      'ENFERMEIRO',
+      'EFETIVO',
+      '2022-06-01',
+      '180H',
+      ...Array.from({ length: totalDias }, (_, i) => turnosExemplo[(i + 2) % turnosExemplo.length]),
+    ],
+    [],
+    ['OBSERVAÇÕES', 'Anotações gerais da competência (opcional)'],
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  const sheet = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(workbook, sheet, '5_ANDAR');
+  return Buffer.from(XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }));
+}
+
+export async function buildPreview(
+  buffer: Buffer,
+  expectedTipo?: ImportFormat
+): Promise<ImportPreview> {
   const parsed = parseOdsBuffer(buffer);
-  setLastPreview(parsed);
+  if (parsed.length === 0) {
+    throw new Error('Nenhum dado encontrado no arquivo');
+  }
+
+  const format = parsed[0]?.format ?? 'escala';
+  if (expectedTipo) assertImportFormat(parsed, expectedTipo);
+  setLastPreview(parsed, format);
 
   const preview: ImportPreview = {
+    format,
     setores: [],
     totalFuncionarios: 0,
     totalCelulas: 0,
@@ -746,7 +834,9 @@ export async function persistImport(
 }
 
 async function buildPreviewFromParsed(parsed: ParsedSetor[]): Promise<ImportPreview> {
+  const format = parsed[0]?.format ?? 'escala';
   const preview: ImportPreview = {
+    format,
     setores: [],
     totalFuncionarios: 0,
     totalCelulas: 0,
@@ -793,7 +883,14 @@ async function buildPreviewFromParsed(parsed: ParsedSetor[]): Promise<ImportPrev
   return preview;
 }
 
-export async function confirmImport(defaultMes?: number, defaultAno?: number): Promise<ImportPreview | null> {
+export async function confirmImport(
+  defaultMes?: number,
+  defaultAno?: number,
+  expectedTipo?: ImportFormat
+): Promise<ImportPreview | null> {
   if (!lastPreview) return null;
-  return persistImport(lastPreview, defaultMes, defaultAno);
+  if (expectedTipo && lastPreview.tipo !== expectedTipo) {
+    throw new Error('O preview não corresponde ao tipo de importação selecionado. Gere o preview novamente.');
+  }
+  return persistImport(lastPreview.parsed, defaultMes, defaultAno);
 }

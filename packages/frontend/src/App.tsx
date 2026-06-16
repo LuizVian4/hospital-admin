@@ -6,6 +6,7 @@ import { Layout } from '@/components/Layout';
 import { Dashboard } from '@/pages/Dashboard';
 import { EscalaPage } from '@/pages/EscalaPage';
 import { FuncionariosPage } from '@/pages/FuncionariosPage';
+import { FuncionarioProfilePage } from '@/pages/FuncionarioProfilePage';
 import { ImportacaoPage } from '@/pages/ImportacaoPage';
 
 const queryClient = new QueryClient({
@@ -28,6 +29,7 @@ export function App() {
               element={<EscalaPage tipoEscala="enfermeiro" />}
             />
             <Route path="funcionarios" element={<FuncionariosPage />} />
+            <Route path="funcionarios/:id" element={<FuncionarioProfilePage />} />
             <Route path="importacao" element={<ImportacaoPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

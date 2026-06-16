@@ -39,6 +39,13 @@ export const funcionariosRoutes: FastifyPluginAsync = async (app) => {
     return rows.map(mapFuncionario);
   });
 
+  app.get<{ Params: { id: string } }>('/api/funcionarios/:id', async (request, reply) => {
+    const id = parseInt(request.params.id, 10);
+    const func = await db.query.funcionarios.findFirst({ where: eq(funcionarios.id, id) });
+    if (!func) return reply.status(404).send({ error: 'Funcionário não encontrado' });
+    return mapFuncionario(func);
+  });
+
   app.post('/api/funcionarios', async (request, reply) => {
     const body = funcionarioSchema.parse(request.body);
     try {

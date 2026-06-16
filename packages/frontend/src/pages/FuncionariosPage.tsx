@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   useFuncionarios,
   useCreateFuncionario,
@@ -61,6 +62,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import type { Funcionario } from '@escala/shared';
 import { isEnfermeiro, isTecnicoEnfermagem } from '@escala/shared';
 import { toast } from 'sonner';
+import { getInitials } from '@/utils/funcionario';
 
 function isFuncionarioAgrupamentoEspecial(f: Funcionario): boolean {
   return !f.ativo || f.setorId == null;
@@ -70,13 +72,6 @@ function motivoAgrupamentoEspecial(f: Funcionario): string {
   if (!f.ativo && f.setorId == null) return 'Inativo · Sem setor';
   if (!f.ativo) return 'Inativo';
   return 'Sem setor';
-}
-
-function getInitials(nome: string): string {
-  const parts = nome.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function chaveCategoriaResumo(categoria: string): string {
@@ -217,16 +212,25 @@ function FuncionarioTableRow({
   onEdit,
   onStatus,
   onToggleAtivo,
+  onOpenProfile,
 }: {
   f: Funcionario;
   onEdit: (f: Funcionario) => void;
   onStatus: (f: Funcionario) => void;
   onToggleAtivo: (f: Funcionario) => void;
+  onOpenProfile: (f: Funcionario) => void;
 }) {
   const foraDoSetorAtivo = isFuncionarioAgrupamentoEspecial(f);
 
   return (
-    <TableRow hover sx={foraDoSetorAtivo ? { opacity: 0.85, bgcolor: 'grey.50' } : undefined}>
+    <TableRow
+      hover
+      onClick={() => onOpenProfile(f)}
+      sx={{
+        cursor: 'pointer',
+        ...(foraDoSetorAtivo ? { opacity: 0.85, bgcolor: 'grey.50' } : undefined),
+      }}
+    >
       <TableCell>
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
           <Avatar
@@ -311,17 +315,17 @@ function FuncionarioTableRow({
       <TableCell align="right">
         <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
           <Tooltip title={f.ativo ? 'Inativar funcionário' : 'Reativar funcionário'}>
-            <IconButton size="small" onClick={() => onToggleAtivo(f)}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onToggleAtivo(f); }}>
               {f.ativo ? <PersonOffIcon fontSize="small" /> : <PersonIcon fontSize="small" />}
             </IconButton>
           </Tooltip>
           <Tooltip title="Status especiais">
-            <IconButton size="small" onClick={() => onStatus(f)}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onStatus(f); }}>
               <EventBusyIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           <Tooltip title="Editar funcionário">
-            <IconButton size="small" onClick={() => onEdit(f)}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onEdit(f); }}>
               <EditIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -332,6 +336,7 @@ function FuncionarioTableRow({
 }
 
 export function FuncionariosPage() {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [searchNome, setSearchNome] = useState('');
   const [editing, setEditing] = useState<Funcionario | null>(null);
@@ -543,6 +548,7 @@ export function FuncionariosPage() {
               onEdit={openEdit}
               onStatus={setStatusFuncionario}
               onToggleAtivo={handleToggleAtivo}
+              onOpenProfile={(func) => navigate(`/funcionarios/${func.id}`)}
             />
           ))}
         </TableBody>

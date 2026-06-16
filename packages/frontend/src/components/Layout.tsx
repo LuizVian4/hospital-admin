@@ -30,7 +30,7 @@ const staticNav = [
     to: '/funcionarios',
     label: 'Funcionários',
     icon: PeopleIcon,
-    isActive: (path: string) => path === '/funcionarios',
+    isActive: (path: string) => path.startsWith('/funcionarios'),
   },
   {
     to: '/importacao',
@@ -155,7 +155,8 @@ export function Layout() {
               {!collapsed && (
                 <ListItemText
                   primary={label}
-                  primaryTypographyProps={{ variant: 'body2', fontWeight: selected ? 600 : 400, noWrap: true }}
+                  slotProps={{ primary: { variant: 'body2', noWrap: true } }}
+                  sx={{ '& .MuiListItemText-primary': { fontWeight: selected ? 600 : 400 } }}
                 />
               )}
             </ListItemButton>

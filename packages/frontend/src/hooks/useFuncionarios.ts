@@ -9,6 +9,14 @@ export function useFuncionarios(filters?: Record<string, string>) {
   });
 }
 
+export function useFuncionario(id: number | undefined) {
+  return useQuery({
+    queryKey: ['funcionario', id],
+    queryFn: () => api.getFuncionario(id!),
+    enabled: id != null && !Number.isNaN(id),
+  });
+}
+
 export function useSetores() {
   return useQuery({
     queryKey: ['setores'],
@@ -40,6 +48,9 @@ export function useUpdateFuncionario() {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<Funcionario> }) =>
       api.updateFuncionario(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['funcionarios'] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['funcionarios'] });
+      queryClient.invalidateQueries({ queryKey: ['funcionario', variables.id] });
+    },
   });
 }

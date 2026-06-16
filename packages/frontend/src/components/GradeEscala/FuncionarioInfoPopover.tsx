@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import type { FuncionarioComTurnos } from '@escala/shared';
 import { cn } from '@/lib/utils';
 
@@ -17,7 +18,7 @@ function formatDate(d?: string) {
 export function FuncionarioInfoPopover({ funcionario, className }: FuncionarioInfoPopoverProps) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
-  const triggerRef = useRef<HTMLSpanElement>(null);
+  const triggerRef = useRef<HTMLAnchorElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const show = useCallback(() => {
@@ -47,20 +48,21 @@ export function FuncionarioInfoPopover({ funcionario, className }: FuncionarioIn
 
   return (
     <>
-      <span
+      <Link
         ref={triggerRef}
+        to={`/funcionarios/${funcionario.id}`}
         onMouseEnter={show}
         onMouseLeave={hide}
         onFocus={show}
         onBlur={hide}
-        tabIndex={0}
+        onClick={(e) => e.stopPropagation()}
         className={cn(
-          'cursor-help underline decoration-dotted decoration-muted-foreground/50 underline-offset-2',
+          'cursor-pointer underline decoration-dotted decoration-muted-foreground/50 underline-offset-2 hover:text-primary hover:decoration-primary/60',
           className
         )}
       >
         {funcionario.nome}
-      </span>
+      </Link>
       {open &&
         createPortal(
           <div

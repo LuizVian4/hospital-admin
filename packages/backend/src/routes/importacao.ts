@@ -1,16 +1,42 @@
 import { FastifyPluginAsync } from 'fastify';
 import {
   buildPreview,
-  confirmImport,
   getLastPreview,
   parseOdsBuffer,
   persistImport,
   setLastPreview,
+  buildEquipeTemplateBuffer,
+  buildEscalaTemplateBuffer,
 } from '../services/importacao.service';
 
+type ImportTipo = 'equipe' | 'escala';
+
+function parseImportTipo(value?: string): ImportTipo | undefined {
+  if (value === 'equipe' || value === 'escala') return value;
+  return undefined;
+}
+
 export const importacaoRoutes: FastifyPluginAsync = async (app) => {
+  app.get<{ Params: { tipo: string } }>('/api/importacao/template/:tipo', async (request, reply) => {
+    const tipo = parseImportTipo(request.params.tipo);
+    if (!tipo) {
+      return reply.status(400).send({ error: 'Tipo inválido. Use equipe ou escala.' });
+    }
+
+    const buffer = tipo === 'equipe' ? buildEquipeTemplateBuffer() : buildEscalaTemplateBuffer();
+    const filename = tipo === 'equipe' ? 'template_equipe.xlsx' : 'template_escala.xlsx';
+
+    return reply
+      .header(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      )
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+      .send(buffer);
+  });
+
   app.post<{
-    Querystring: { confirmar?: string; mes?: string; ano?: string };
+    Querystring: { confirmar?: string; mes?: string; ano?: string; tipo?: string };
   }>('/api/importacao/ods', async (request, reply) => {
     const data = await request.file();
     if (!data) {
@@ -21,21 +47,38 @@ export const importacaoRoutes: FastifyPluginAsync = async (app) => {
     const confirmar = request.query.confirmar === 'true';
     const mes = request.query.mes ? parseInt(request.query.mes, 10) : undefined;
     const ano = request.query.ano ? parseInt(request.query.ano, 10) : undefined;
+    const tipo = parseImportTipo(request.query.tipo);
 
     if (confirmar) {
-      const preview = getLastPreview();
-      if (!preview) {
+      try {
         const parsed = parseOdsBuffer(buffer);
-        setLastPreview(parsed);
+        if (tipo) {
+          const format = parsed[0]?.format ?? 'escala';
+          if (format !== tipo) {
+            return reply.status(400).send({
+              error:
+                tipo === 'equipe'
+                  ? 'Este arquivo parece ser uma escala mensal. Use o card de importação de escala.'
+                  : 'Este arquivo parece ser uma planilha de equipe. Use o card de importação de equipe.',
+            });
+          }
+        }
         const result = await persistImport(parsed, mes, ano);
+        setLastPreview(parsed, tipo);
         return reply.status(201).send({ ...result, persisted: true });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erro ao confirmar importação';
+        return reply.status(400).send({ error: message });
       }
-      const result = await confirmImport(mes, ano);
-      return reply.status(201).send({ ...result, persisted: true });
     }
 
-    const preview = await buildPreview(buffer);
-    return preview;
+    try {
+      const preview = await buildPreview(buffer, tipo);
+      return preview;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro ao processar arquivo';
+      return reply.status(400).send({ error: message });
+    }
   });
 
   app.get('/api/importacao/preview', async (_request, reply) => {

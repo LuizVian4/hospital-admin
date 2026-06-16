@@ -98,6 +98,8 @@ export const api = {
     return request<Funcionario[]>(`/api/funcionarios${qs}`);
   },
 
+  getFuncionario: (id: number) => request<Funcionario>(`/api/funcionarios/${id}`),
+
   createFuncionario: (data: Partial<Funcionario>) =>
     request<Funcionario>('/api/funcionarios', { method: 'POST', body: JSON.stringify(data) }),
 
@@ -238,10 +240,17 @@ export const api = {
       }
     ),
 
-  importOds: async (file: File, confirmar = false, mes?: number, ano?: number) => {
+  importOds: async (
+    file: File,
+    confirmar = false,
+    tipo: 'equipe' | 'escala',
+    mes?: number,
+    ano?: number
+  ) => {
     const formData = new FormData();
     formData.append('file', file);
     const params = new URLSearchParams();
+    params.set('tipo', tipo);
     if (confirmar) params.set('confirmar', 'true');
     if (mes) params.set('mes', String(mes));
     if (ano) params.set('ano', String(ano));
@@ -257,6 +266,23 @@ export const api = {
     }
 
     return res.json() as Promise<ImportPreview & { persisted?: boolean }>;
+  },
+
+  downloadImportTemplate: async (tipo: 'equipe' | 'escala') => {
+    const res = await fetch(`${API_URL}/api/importacao/template/${tipo}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = tipo === 'equipe' ? 'template_equipe.xlsx' : 'template_escala.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   },
 
   getDashboard: () => request<DashboardData>('/api/dashboard'),
