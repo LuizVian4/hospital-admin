@@ -1,28 +1,20 @@
 import { Fragment } from 'react';
-import type { VirtualItem } from '@tanstack/react-virtual';
 import { LARGURA_COLUNA_DIA } from '@/constants/turnos';
 import { cn } from '@/lib/utils';
 
-export function CelulaEspacadorDias({
-  width,
-  as = 'td',
-}: {
-  width: number;
-  as?: 'td' | 'th';
-}) {
+export function CelulaEspacadorDias({ width }: { width: number }) {
   if (width <= 0) return null;
-  const Tag = as;
   return (
-    <Tag
+    <div
       aria-hidden
-      className="border-b p-0"
+      className="border-b shrink-0"
       style={{ width, minWidth: width, maxWidth: width }}
     />
   );
 }
 
 interface DiasVirtualizadosProps {
-  virtualColumns: VirtualItem[];
+  visibleDiaIndices: number[];
   padStart: number;
   padEnd: number;
   dias: number[];
@@ -30,7 +22,7 @@ interface DiasVirtualizadosProps {
 }
 
 export function DiasVirtualizados({
-  virtualColumns,
+  visibleDiaIndices,
   padStart,
   padEnd,
   dias,
@@ -39,10 +31,9 @@ export function DiasVirtualizados({
   return (
     <>
       <CelulaEspacadorDias width={padStart} />
-      {virtualColumns.map((vc) => {
-        const dia = dias[vc.index];
-        const width = vc.size || LARGURA_COLUNA_DIA;
-        return <Fragment key={dia}>{renderDia(dia, vc.index, width)}</Fragment>;
+      {visibleDiaIndices.map((idx) => {
+        const dia = dias[idx];
+        return <Fragment key={dia}>{renderDia(dia, idx, LARGURA_COLUNA_DIA)}</Fragment>;
       })}
       <CelulaEspacadorDias width={padEnd} />
     </>
@@ -58,12 +49,40 @@ interface DiaVazioProps {
 
 export function DiaVazio({ width, className, title, children }: DiaVazioProps) {
   return (
-    <td
+    <div
       title={title}
-      className={cn('border-b px-0 py-0 text-center text-xs min-w-[40px] h-9', className)}
+      className={cn(
+        'border-b border-r px-0 py-0 text-center text-xs min-w-[40px] h-9 shrink-0 flex items-center justify-center',
+        className
+      )}
       style={{ width, minWidth: width, maxWidth: width }}
     >
       {children}
-    </td>
+    </div>
+  );
+}
+
+interface CelulaDiaProps {
+  width: number;
+  className?: string;
+  title?: string;
+  children?: React.ReactNode;
+  onClick?: () => void;
+  style?: React.CSSProperties;
+}
+
+export function CelulaDia({ width, className, title, children, onClick, style }: CelulaDiaProps) {
+  return (
+    <div
+      title={title}
+      onClick={onClick}
+      className={cn(
+        'border-b border-r px-0 py-0 text-center text-xs min-w-[40px] h-9 shrink-0 relative',
+        className
+      )}
+      style={{ width, minWidth: width, maxWidth: width, ...style }}
+    >
+      {children}
+    </div>
   );
 }

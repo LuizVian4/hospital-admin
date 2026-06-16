@@ -1,87 +1,113 @@
-import type { VirtualItem } from '@tanstack/react-virtual';
+import { memo, useCallback } from 'react';
 import type { GrupoEscala } from '@escala/shared';
-import { COLUNAS_FIXAS, colunaCalendarioClass } from '@/constants/turnos';
+import { LARGURA_COLUNAS_FIXAS } from '@/constants/turnos';
 import { cn } from '@/lib/utils';
-import { DiasVirtualizados, DiaVazio } from './DiasVirtualizados';
+import { DiasVaziosVirtualizados } from './DiasVaziosVirtualizados';
+import { CelulaFixa, ColunasFixas, LinhaGrade, ViewportDias } from './GradeEscalaLayout';
 import { GripVertical } from 'lucide-react';
 
-interface LinhaGrupoEscalaProps {
+export interface LinhaGrupoEscalaProps {
   grupo: GrupoEscala;
+  indicePadrao: number;
+  virtualTop: number;
+  virtualHeight: number;
   dias: number[];
   diasSemana: string[];
   hoje: number | null;
   feriadosPorDia: Record<number, string>;
   isDragOver: boolean;
-  virtualColumns: VirtualItem[];
+  visibleDiaIndices: number[];
   diasPadStart: number;
   diasPadEnd: number;
-  onDragOver: (e: React.DragEvent) => void;
-  onDragLeave: () => void;
-  onDrop: (e: React.DragEvent) => void;
+  onDragOverGrupo: (indicePadrao: number, e: React.DragEvent) => void;
+  onDragLeaveGrupo: () => void;
+  onDropGrupo: (indicePadrao: number, e: React.DragEvent) => void;
 }
 
-export function LinhaGrupoEscala({
+function LinhaGrupoEscalaComponent({
   grupo,
+  indicePadrao,
+  virtualTop,
+  virtualHeight,
   dias,
   diasSemana,
   hoje,
   feriadosPorDia,
   isDragOver,
-  virtualColumns,
+  visibleDiaIndices,
   diasPadStart,
   diasPadEnd,
-  onDragOver,
-  onDragLeave,
-  onDrop,
+  onDragOverGrupo,
+  onDragLeaveGrupo,
+  onDropGrupo,
 }: LinhaGrupoEscalaProps) {
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => onDragOverGrupo(indicePadrao, e),
+    [onDragOverGrupo, indicePadrao]
+  );
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => onDropGrupo(indicePadrao, e),
+    [onDropGrupo, indicePadrao]
+  );
+
   return (
-    <tr
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
+    <LinhaGrade
+      virtualTop={virtualTop}
+      virtualHeight={virtualHeight}
+      onDragOver={handleDragOver}
+      onDragLeave={onDragLeaveGrupo}
+      onDrop={handleDrop}
       className={cn(
-        'transition-colors',
         isDragOver ? 'bg-primary/10 ring-2 ring-inset ring-primary/40' : 'bg-slate-100/90'
       )}
     >
-      <td
-        colSpan={COLUNAS_FIXAS.length}
-        className={cn(
-          'border-b border-r px-3 py-2 sticky left-0 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]',
-          isDragOver ? 'bg-primary/10' : 'bg-slate-100/90'
-        )}
-      >
-        <div className="flex items-center gap-2">
-          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-          <div>
-            <span className="text-xs font-semibold text-foreground">{grupo.label}</span>
-            <span className="mx-2 text-muted-foreground/40">·</span>
-            <span className="text-[11px] text-muted-foreground">{grupo.descricao}</span>
+      <ColunasFixas className={isDragOver ? 'bg-primary/10' : 'bg-slate-100/90'}>
+        <CelulaFixa width={LARGURA_COLUNAS_FIXAS} className="py-2">
+          <div className="flex items-center gap-2">
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+            <div>
+              <span className="text-xs font-semibold text-foreground">{grupo.label}</span>
+              <span className="mx-2 text-muted-foreground/40">·</span>
+              <span className="text-[11px] text-muted-foreground">{grupo.descricao}</span>
+            </div>
           </div>
-        </div>
-      </td>
-      <DiasVirtualizados
-        virtualColumns={virtualColumns}
-        padStart={diasPadStart}
-        padEnd={diasPadEnd}
-        dias={dias}
-        renderDia={(dia, idx, width) => {
-          const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
-          return (
-            <DiaVazio
-              width={width}
-              className={cn(
-                isDragOver ? 'bg-primary/5' : 'bg-slate-100/60',
-                colunaCalendarioClass({
-                  isWeekend,
-                  feriadoNome: feriadosPorDia[dia],
-                  isHoje: dia === hoje,
-                })
-              )}
-            />
-          );
-        }}
-      />
-    </tr>
+        </CelulaFixa>
+      </ColunasFixas>
+      <ViewportDias>
+        <DiasVaziosVirtualizados
+          visibleDiaIndices={visibleDiaIndices}
+          padStart={diasPadStart}
+          padEnd={diasPadEnd}
+          dias={dias}
+          diasSemana={diasSemana}
+          hoje={hoje}
+          feriadosPorDia={feriadosPorDia}
+          diaClassName="bg-slate-100/60"
+          dragHighlight={isDragOver}
+        />
+      </ViewportDias>
+    </LinhaGrade>
   );
 }
+
+function linhaGrupoPropsEqual(prev: LinhaGrupoEscalaProps, next: LinhaGrupoEscalaProps): boolean {
+  return (
+    prev.grupo === next.grupo &&
+    prev.indicePadrao === next.indicePadrao &&
+    prev.virtualTop === next.virtualTop &&
+    prev.virtualHeight === next.virtualHeight &&
+    prev.isDragOver === next.isDragOver &&
+    prev.dias === next.dias &&
+    prev.diasSemana === next.diasSemana &&
+    prev.hoje === next.hoje &&
+    prev.feriadosPorDia === next.feriadosPorDia &&
+    prev.visibleDiaIndices === next.visibleDiaIndices &&
+    prev.diasPadStart === next.diasPadStart &&
+    prev.diasPadEnd === next.diasPadEnd &&
+    prev.onDragOverGrupo === next.onDragOverGrupo &&
+    prev.onDragLeaveGrupo === next.onDragLeaveGrupo &&
+    prev.onDropGrupo === next.onDropGrupo
+  );
+}
+
+export const LinhaGrupoEscala = memo(LinhaGrupoEscalaComponent, linhaGrupoPropsEqual);

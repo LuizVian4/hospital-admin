@@ -65,3 +65,20 @@ export function buildGradeEscalaRows(input: {
 
   return rows;
 }
+
+export function getGradeEscalaRowKey(row: GradeEscalaRow, rowIndex: number): string {
+  switch (row.kind) {
+    case 'turno':
+      return `turno-${row.funcionario.id}`;
+    case 'group':
+      return `group-${row.grupo.id}`;
+    case 'indisponivel':
+      return `indisponivel-${row.funcionario.id}`;
+    case 'semGrupo':
+      return `sem-grupo-${row.funcionario.id}`;
+    case 'section':
+      return `section-${row.section}`;
+    default:
+      return `spacer-${rowIndex}`;
+  }
+}

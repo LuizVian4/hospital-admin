@@ -1,15 +1,18 @@
-import type { VirtualItem } from '@tanstack/react-virtual';
+import { memo } from 'react';
 import type { FuncionarioComTurnos, TipoEscala, TipoOcorrenciaEscala, Turno } from '@escala/shared';
-import { COLUNAS_FIXAS, stickyLeft } from '@/constants/turnos';
+import { COLUNAS_FIXAS, LARGURA_COLUNA_DIA } from '@/constants/turnos';
+import { ESCALA_CELL_NOOP, trocaOrigemEqual } from '@/lib/gradeEscalaMemo';
 import { cn } from '@/lib/utils';
-import { CelulaEscala, type EscalaCellChangeOptions } from './CelulaEscala';
 import type { CelulaTroca } from './ConfirmarTrocaDialog';
 import { FuncionarioInfoPopover } from './FuncionarioInfoPopover';
 import { ZerarEscalaButton } from './ZerarEscalaButton';
-import { DiasVirtualizados } from './DiasVirtualizados';
+import { CelulaEspacadorDias } from './DiasVirtualizados';
+import { LinhaTurnoCelula, type LinhaTurnoCelulaProps } from './LinhaTurnoCelula';
+import type { EscalaCellChangeOptions } from './CelulaEscala';
+import { CelulaFixa, ColunasFixas, LinhaGrade, ViewportDias } from './GradeEscalaLayout';
 import { GripVertical } from 'lucide-react';
 
-interface LinhaTurnoProps {
+export interface LinhaTurnoProps {
   competenciaId: number;
   tipoEscala: TipoEscala;
   funcionario: FuncionarioComTurnos;
@@ -18,7 +21,9 @@ interface LinhaTurnoProps {
   hoje: number | null;
   feriadosPorDia: Record<number, string>;
   rowIndex: number;
-  virtualColumns: VirtualItem[];
+  virtualTop: number;
+  virtualHeight: number;
+  visibleDiaIndices: number[];
   diasPadStart: number;
   diasPadEnd: number;
   arrastavel?: boolean;
@@ -41,9 +46,10 @@ interface LinhaTurnoProps {
     turno: Turno | null,
     options?: EscalaCellChangeOptions
   ) => void;
+  isScrolling?: boolean;
 }
 
-export function LinhaTurno({
+function LinhaTurnoComponent({
   competenciaId,
   tipoEscala,
   funcionario,
@@ -52,33 +58,34 @@ export function LinhaTurno({
   hoje,
   feriadosPorDia,
   rowIndex,
+  virtualTop,
+  virtualHeight,
   arrastavel = false,
   comGrupo = false,
   somenteLeitura = false,
   trocaOrigem = null,
   modoSelecaoTroca = false,
-  virtualColumns,
+  visibleDiaIndices,
   diasPadStart,
   diasPadEnd,
   onIniciarTroca,
   onSelecionarDestinoTroca,
   onSolicitarOcorrencia,
   onCellChange,
+  isScrolling = false,
 }: LinhaTurnoProps) {
   const isEven = rowIndex % 2 === 0;
   const rowBg = isEven ? 'bg-white' : 'bg-slate-50/70';
-
-  const stickyCell = (index: number, className?: string) =>
-    cn(
-      'border-b border-r px-2 py-1.5 text-xs sticky z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]',
-      rowBg,
-      'group-hover:bg-blue-50/60',
-      className
-    );
+  const trocaOrigemFuncionarioId = trocaOrigem?.funcionarioId ?? null;
+  const trocaOrigemDia = trocaOrigem?.dia ?? null;
+  const modoSomenteTroca = comGrupo && !somenteLeitura;
+  const onChange = onCellChange ?? ESCALA_CELL_NOOP;
 
   return (
-    <tr
-      className={cn('group transition-colors hover:bg-blue-50/40', rowBg)}
+    <LinhaGrade
+      virtualTop={virtualTop}
+      virtualHeight={virtualHeight}
+      className={cn('group hover:bg-blue-50/40', rowBg)}
       draggable={arrastavel && !modoSelecaoTroca}
       onDragStart={(e) => {
         if (!arrastavel || modoSelecaoTroca) return;
@@ -86,91 +93,116 @@ export function LinhaTurno({
         e.dataTransfer.effectAllowed = 'move';
       }}
     >
-      <td
-        className={stickyCell(0, 'font-medium text-foreground')}
-        style={{
-          left: stickyLeft(0),
-          minWidth: COLUNAS_FIXAS[0].width,
-          width: COLUNAS_FIXAS[0].width,
-          maxWidth: COLUNAS_FIXAS[0].width,
-        }}
-      >
-        <span className="flex items-center gap-1 min-w-0">
-          {arrastavel && (
-            <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 cursor-grab active:cursor-grabbing" />
-          )}
-          <span className="truncate min-w-0">
-            <FuncionarioInfoPopover funcionario={funcionario} />
+      <ColunasFixas className={rowBg}>
+        <CelulaFixa
+          width={COLUNAS_FIXAS[0].width}
+          className={cn('font-medium text-foreground group-hover:bg-blue-50/60', rowBg)}
+        >
+          <span className="flex items-center gap-1 min-w-0">
+            {arrastavel && (
+              <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 cursor-grab active:cursor-grabbing" />
+            )}
+            <span className="truncate min-w-0">
+              <FuncionarioInfoPopover funcionario={funcionario} />
+            </span>
+            <ZerarEscalaButton
+              competenciaId={competenciaId}
+              funcionarioId={funcionario.id}
+              funcionarioNome={funcionario.nome}
+            />
           </span>
-          <ZerarEscalaButton
-            competenciaId={competenciaId}
-            funcionarioId={funcionario.id}
-            funcionarioNome={funcionario.nome}
-          />
-        </span>
-      </td>
-      <td
-        className={stickyCell(1, 'text-muted-foreground truncate')}
-        style={{
-          left: stickyLeft(1),
-          minWidth: COLUNAS_FIXAS[1].width,
-          width: COLUNAS_FIXAS[1].width,
-          maxWidth: COLUNAS_FIXAS[1].width,
-        }}
-        title={funcionario.categoria}
-      >
-        {funcionario.categoria || '—'}
-      </td>
-      <DiasVirtualizados
-        virtualColumns={virtualColumns}
-        padStart={diasPadStart}
-        padEnd={diasPadEnd}
-        dias={dias}
-        renderDia={(dia, idx, width) => {
+        </CelulaFixa>
+        <CelulaFixa
+          width={COLUNAS_FIXAS[1].width}
+          className={cn('text-muted-foreground truncate group-hover:bg-blue-50/60', rowBg)}
+          title={funcionario.categoria}
+        >
+          {funcionario.categoria || '—'}
+        </CelulaFixa>
+      </ColunasFixas>
+      <ViewportDias>
+        <CelulaEspacadorDias width={diasPadStart} />
+        {visibleDiaIndices.map((idx) => {
+          const dia = dias[idx];
           const turno = funcionario.turnos[dia] ?? null;
           const turnoProjetado = funcionario.turnosProjetados?.[dia] ?? null;
           const exibicao = turno ?? turnoProjetado;
           const isTrocaOrigem =
-            trocaOrigem?.funcionarioId === funcionario.id && trocaOrigem.dia === dia;
+            trocaOrigemFuncionarioId === funcionario.id && trocaOrigemDia === dia;
           const elegivelDestinoTroca =
             modoSelecaoTroca &&
             comGrupo &&
             exibicao != null &&
             !funcionario.statusPorDia?.[dia] &&
-            funcionario.id !== trocaOrigem?.funcionarioId &&
+            funcionario.id !== trocaOrigemFuncionarioId &&
             !isTrocaOrigem;
 
-          return (
-            <CelulaEscala
-              cellWidth={width}
-              competenciaId={competenciaId}
-              tipoEscala={tipoEscala}
-              funcionarioId={funcionario.id}
-              dia={dia}
-              turno={turno}
-              turnoProjetado={turnoProjetado}
-              observacao={funcionario.observacoesDia?.[dia] ?? null}
-              ocorrencia={funcionario.ocorrenciasPorDia?.[dia] ?? null}
-              statusEspecial={funcionario.statusPorDia?.[dia] ?? null}
-              feriadoNome={feriadosPorDia[dia] ?? null}
-              modoSomenteTroca={comGrupo && !somenteLeitura}
-              modoSelecaoTroca={modoSelecaoTroca}
-              somenteLeitura={somenteLeitura}
-              isTrocaOrigem={isTrocaOrigem}
-              elegivelDestinoTroca={elegivelDestinoTroca}
-              isWeekend={diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM'}
-              isHoje={dia === hoje}
-              rowBg={rowBg}
-              onChange={onCellChange ?? (() => {})}
-              onIniciarTroca={onIniciarTroca}
-              onSelecionarDestinoTroca={onSelecionarDestinoTroca}
-              onSolicitarOcorrencia={(tipo) =>
-                onSolicitarOcorrencia?.(funcionario.id, funcionario.nome, dia, exibicao, tipo)
-              }
-            />
-          );
-        }}
-      />
-    </tr>
+          const celulaProps: LinhaTurnoCelulaProps = {
+            competenciaId,
+            tipoEscala,
+            funcionarioId: funcionario.id,
+            funcionarioNome: funcionario.nome,
+            dia,
+            cellWidth: LARGURA_COLUNA_DIA,
+            turno,
+            turnoProjetado,
+            observacao: funcionario.observacoesDia?.[dia] ?? null,
+            ocorrencia: funcionario.ocorrenciasPorDia?.[dia] ?? null,
+            statusEspecial: funcionario.statusPorDia?.[dia] ?? null,
+            feriadoNome: feriadosPorDia[dia] ?? null,
+            isWeekend: diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM',
+            isHoje: dia === hoje,
+            rowBg,
+            modoSomenteTroca,
+            modoSelecaoTroca,
+            somenteLeitura,
+            isTrocaOrigem,
+            elegivelDestinoTroca,
+            exibicaoSomente: isScrolling,
+            onChange,
+            onIniciarTroca,
+            onSelecionarDestinoTroca,
+            onSolicitarOcorrencia,
+          };
+
+          return <LinhaTurnoCelula key={dia} {...celulaProps} />;
+        })}
+        <CelulaEspacadorDias width={diasPadEnd} />
+      </ViewportDias>
+    </LinhaGrade>
   );
 }
+
+function linhaTurnoPropsEqual(prev: LinhaTurnoProps, next: LinhaTurnoProps): boolean {
+  if (prev.funcionario !== next.funcionario) return false;
+  if (prev.visibleDiaIndices !== next.visibleDiaIndices) return false;
+  if (prev.virtualTop !== next.virtualTop) return false;
+  if (prev.virtualHeight !== next.virtualHeight) return false;
+  if (prev.competenciaId !== next.competenciaId) return false;
+  if (prev.tipoEscala !== next.tipoEscala) return false;
+  if (prev.rowIndex !== next.rowIndex) return false;
+  if (prev.arrastavel !== next.arrastavel) return false;
+  if (prev.comGrupo !== next.comGrupo) return false;
+  if (prev.somenteLeitura !== next.somenteLeitura) return false;
+  if (prev.hoje !== next.hoje) return false;
+  if (prev.diasPadStart !== next.diasPadStart) return false;
+  if (prev.diasPadEnd !== next.diasPadEnd) return false;
+  if (prev.onCellChange !== next.onCellChange) return false;
+  if (prev.onIniciarTroca !== next.onIniciarTroca) return false;
+  if (prev.onSelecionarDestinoTroca !== next.onSelecionarDestinoTroca) return false;
+  if (prev.onSolicitarOcorrencia !== next.onSolicitarOcorrencia) return false;
+
+  if (prev.modoSelecaoTroca !== next.modoSelecaoTroca) {
+    if (prev.comGrupo || next.comGrupo) return false;
+  }
+
+  if (!trocaOrigemEqual(prev.trocaOrigem, next.trocaOrigem)) {
+    if (prev.comGrupo || next.comGrupo) return false;
+  }
+
+  if (prev.isScrolling !== next.isScrolling) return false;
+
+  return true;
+}
+
+export const LinhaTurno = memo(LinhaTurnoComponent, linhaTurnoPropsEqual);

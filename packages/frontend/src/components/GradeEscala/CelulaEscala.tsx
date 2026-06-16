@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import {
   TURNOS_DISPONIVEIS,
   formatarExibicaoComPlantaoExtra,
@@ -10,7 +10,9 @@ import {
   type Turno,
 } from '@escala/shared';
 import { turnoCellClass, statusEspecialCellClass, colunaCalendarioClass } from '@/constants/turnos';
+import { ocorrenciaCelulaEqual, ESCALA_CELL_NOOP } from '@/lib/gradeEscalaMemo';
 import { cn } from '@/lib/utils';
+import { CelulaDia } from './DiasVirtualizados';
 import {
   Select,
   SelectContent,
@@ -54,6 +56,8 @@ interface CelulaEscalaProps {
   onSelecionarDestinoTroca?: (funcionarioId: number, dia: number) => void;
   onSolicitarOcorrencia?: (tipo: TipoOcorrenciaEscala) => void;
   cellWidth?: number;
+  /** Durante scroll: mesma aparência visual, sem Select/popovers */
+  exibicaoSomente?: boolean;
 }
 
 function ConteudoTurno({
@@ -133,7 +137,7 @@ function MenuOcorrencias({
   );
 }
 
-export function CelulaEscala({
+function CelulaEscalaComponent({
   competenciaId,
   tipoEscala,
   funcionarioId,
@@ -157,6 +161,7 @@ export function CelulaEscala({
   onSelecionarDestinoTroca,
   onSolicitarOcorrencia,
   cellWidth,
+  exibicaoSomente = false,
 }: CelulaEscalaProps) {
   const [saving, setSaving] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -224,6 +229,56 @@ export function CelulaEscala({
             : modoSomenteTroca
               ? 'Abra o menu para troca, falta ou plantão extra'
               : undefined;
+
+  const celulaClassName = cn(
+    'flex items-center justify-center',
+    !exibicaoSomente && 'transition-colors',
+    temTroca && !isTrocaOrigem && 'celula-com-troca',
+    temOcorrencia && ocorrencia?.tipo === 'FALTA' && 'celula-falta',
+    temOcorrencia && ocorrencia?.tipo === 'PLANTAO_EXTRA' && 'celula-plantao-extra',
+    temStatusEspecial && statusEspecialCellClass(statusEspecial),
+    isTrocaOrigem && 'ring-2 ring-inset ring-primary bg-primary/10',
+    elegivelDestinoTroca && 'cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary/50',
+    !hasTurno && rowBg,
+    !isTrocaOrigem && !temStatusEspecial && !temOcorrencia && turnoCellClass(exibicao),
+    isProjetado && !temOcorrencia && 'turno-projetado',
+    colunaCalendarioClass({ isWeekend, feriadoNome, isHoje }),
+    !modoSelecaoTroca && !exibicaoSomente && 'group-hover:bg-blue-50/50',
+    saving && 'opacity-70'
+  );
+
+  if (exibicaoSomente) {
+    const conteudoSomente = temStatusEspecial ? (
+      <span
+        title={title}
+        className={cn(
+          'flex h-9 w-full items-center justify-center text-xs px-1 font-semibold',
+          hasTurno ? '' : 'text-muted-foreground/40'
+        )}
+      >
+        {exibicao ?? '·'}
+      </span>
+    ) : (
+      <span className="flex h-9 w-full items-center justify-center text-xs px-1">
+        <ConteudoTurno
+          exibicao={exibicao}
+          hasTurno={hasTurno}
+          isProjetado={isProjetado}
+          ocorrencia={ocorrencia}
+        />
+      </span>
+    );
+
+    return (
+      <CelulaDia
+        width={cellWidth ?? 40}
+        className={celulaClassName}
+        title={temTroca || temStatusEspecial || temOcorrencia ? undefined : title}
+      >
+        {conteudoSomente}
+      </CelulaDia>
+    );
+  }
 
   const conteudoStatus = (
     <span
@@ -327,31 +382,44 @@ export function CelulaEscala({
     );
 
   return (
-    <td
+    <CelulaDia
       onClick={modoSelecaoTroca && elegivelDestinoTroca ? handleCelulaClick : undefined}
-      style={
-        cellWidth != null
-          ? { width: cellWidth, minWidth: cellWidth, maxWidth: cellWidth }
-          : undefined
-      }
-      className={cn(
-        'border-b px-0 py-0 text-center text-xs min-w-[40px] h-9 relative transition-colors',
-        temTroca && !isTrocaOrigem && 'celula-com-troca',
-        temOcorrencia && ocorrencia?.tipo === 'FALTA' && 'celula-falta',
-        temOcorrencia && ocorrencia?.tipo === 'PLANTAO_EXTRA' && 'celula-plantao-extra',
-        temStatusEspecial && statusEspecialCellClass(statusEspecial),
-        isTrocaOrigem && 'ring-2 ring-inset ring-primary bg-primary/10',
-        elegivelDestinoTroca && 'cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary/50',
-        !hasTurno && rowBg,
-        !isTrocaOrigem && !temStatusEspecial && !temOcorrencia && turnoCellClass(exibicao),
-        isProjetado && !temOcorrencia && 'turno-projetado',
-        colunaCalendarioClass({ isWeekend, feriadoNome, isHoje }),
-        !modoSelecaoTroca && 'group-hover:bg-blue-50/50',
-        saving && 'opacity-70'
-      )}
+      width={cellWidth ?? 40}
+      className={celulaClassName}
       title={temTroca || temStatusEspecial || temOcorrencia ? undefined : title}
     >
       {celulaInner}
-    </td>
+    </CelulaDia>
   );
 }
+
+function celulaEscalaPropsEqual(prev: CelulaEscalaProps, next: CelulaEscalaProps): boolean {
+  return (
+    prev.competenciaId === next.competenciaId &&
+    prev.tipoEscala === next.tipoEscala &&
+    prev.funcionarioId === next.funcionarioId &&
+    prev.dia === next.dia &&
+    prev.turno === next.turno &&
+    prev.turnoProjetado === next.turnoProjetado &&
+    prev.observacao === next.observacao &&
+    ocorrenciaCelulaEqual(prev.ocorrencia, next.ocorrencia) &&
+    prev.statusEspecial === next.statusEspecial &&
+    prev.feriadoNome === next.feriadoNome &&
+    prev.modoSomenteTroca === next.modoSomenteTroca &&
+    prev.modoSelecaoTroca === next.modoSelecaoTroca &&
+    prev.somenteLeitura === next.somenteLeitura &&
+    prev.isTrocaOrigem === next.isTrocaOrigem &&
+    prev.elegivelDestinoTroca === next.elegivelDestinoTroca &&
+    prev.isWeekend === next.isWeekend &&
+    prev.isHoje === next.isHoje &&
+    prev.rowBg === next.rowBg &&
+    prev.cellWidth === next.cellWidth &&
+    prev.exibicaoSomente === next.exibicaoSomente &&
+    prev.onChange === next.onChange &&
+    prev.onIniciarTroca === next.onIniciarTroca &&
+    prev.onSelecionarDestinoTroca === next.onSelecionarDestinoTroca &&
+    prev.onSolicitarOcorrencia === next.onSolicitarOcorrencia
+  );
+}
+
+export const CelulaEscala = memo(CelulaEscalaComponent, celulaEscalaPropsEqual);

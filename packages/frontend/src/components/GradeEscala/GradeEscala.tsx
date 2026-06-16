@@ -14,7 +14,6 @@ import ErrorIcon from '@mui/icons-material/Error';
 import SyncIcon from '@mui/icons-material/Sync';
 import type { GradeEscalaResponse, TipoEscala, TipoOcorrenciaEscala, Turno } from '@escala/shared';
 import { getGruposPorTipoEscala, mapFeriadosPorDia } from '@escala/shared';
-import { LARGURA_COLUNAS_FIXAS } from '@/constants/turnos';
 import { getDiasSemCoberturaMTSN, getDiasComPoucosTecnicosMT, getDiasComPoucosTecnicosSN, MIN_TECNICOS_POR_TURNO } from '@/lib/escalaCobertura';
 import { listarFuncionarios, organizarPorGrupoEscala } from '@/lib/escalaGrupos';
 import { buildGradeEscalaRows } from '@/lib/gradeEscalaRows';
@@ -24,9 +23,7 @@ import {
   type OcorrenciaEscalaDialogState,
 } from './OcorrenciaEscalaDialog';
 import { useAtribuirGrupoEscala, useTrocarEscalaDia } from '@/hooks/useEscala';
-import { useGradeEscalaVirtual } from './useGradeEscalaVirtual';
-import { CabecalhoGradeEscala } from './CabecalhoGradeEscala';
-import { GradeEscalaCorpoVirtual } from './GradeEscalaCorpoVirtual';
+import { GradeEscalaTabelaVirtual } from './GradeEscalaTabelaVirtual';
 import { toast } from 'sonner';
 
 interface GradeEscalaProps {
@@ -236,22 +233,14 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
     [gruposEscala, porGrupo, indisponivel, semAtribuicao, semPadrao]
   );
 
-  const {
-    scrollRef,
-    table,
-    virtualColumns,
-    virtualRows,
-    totalDiasWidth,
-    paddingTop,
-    paddingBottom,
-    diasPadStart,
-    diasPadEnd,
-  } = useGradeEscalaVirtual(dias, flatRows);
-
   const handleDragOverGrupo = useCallback((indicePadrao: number, e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDragOverGrupo(indicePadrao);
+  }, []);
+
+  const handleDragLeaveGrupo = useCallback(() => {
+    setDragOverGrupo(null);
   }, []);
 
   const handleDropGrupo = useCallback(
@@ -398,50 +387,27 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
         </Alert>
       )}
 
-      <div ref={scrollRef} className="overflow-auto max-h-[calc(100vh-320px)]">
-        <table
-          className="border-collapse text-sm w-max min-w-full"
-          style={{ minWidth: LARGURA_COLUNAS_FIXAS + totalDiasWidth }}
-        >
-          <CabecalhoGradeEscala
-            table={table}
-            dias={dias}
-            diasSemana={diasSemana}
-            hoje={hoje}
-            feriadosPorDia={feriadosPorDia}
-            diasComProblemaCobertura={diasComProblemaCobertura}
-            virtualColumns={virtualColumns}
-            diasPadStart={diasPadStart}
-            diasPadEnd={diasPadEnd}
-          />
-          <GradeEscalaCorpoVirtual
-            flatRows={flatRows}
-            virtualRows={virtualRows}
-            paddingTop={paddingTop}
-            paddingBottom={paddingBottom}
-            virtualColumns={virtualColumns}
-            diasPadStart={diasPadStart}
-            diasPadEnd={diasPadEnd}
-            competenciaId={competencia.id}
-            tipoEscala={tipoEscala}
-            dias={dias}
-            diasSemana={diasSemana}
-            hoje={hoje}
-            feriadosPorDia={feriadosPorDia}
-            gruposEscala={gruposEscala}
-            dragOverGrupo={dragOverGrupo}
-            trocaOrigem={trocaOrigem}
-            modoSelecaoTroca={modoSelecaoTroca}
-            onDragOverGrupo={handleDragOverGrupo}
-            onDragLeaveGrupo={() => setDragOverGrupo(null)}
-            onDropGrupo={handleDropGrupo}
-            onAtribuirGrupo={handleAtribuirGrupo}
-            onIniciarTroca={handleIniciarTroca}
-            onSelecionarDestinoTroca={handleSelecionarDestinoTroca}
-            onSolicitarOcorrencia={handleSolicitarOcorrencia}
-          />
-        </table>
-      </div>
+      <GradeEscalaTabelaVirtual
+        dias={dias}
+        flatRows={flatRows}
+        diasSemana={diasSemana}
+        hoje={hoje}
+        feriadosPorDia={feriadosPorDia}
+        diasComProblemaCobertura={diasComProblemaCobertura}
+        competenciaId={competencia.id}
+        tipoEscala={tipoEscala}
+        gruposEscala={gruposEscala}
+        dragOverGrupo={dragOverGrupo}
+        trocaOrigem={trocaOrigem}
+        modoSelecaoTroca={modoSelecaoTroca}
+        onDragOverGrupo={handleDragOverGrupo}
+        onDragLeaveGrupo={handleDragLeaveGrupo}
+        onDropGrupo={handleDropGrupo}
+        onAtribuirGrupo={handleAtribuirGrupo}
+        onIniciarTroca={handleIniciarTroca}
+        onSelecionarDestinoTroca={handleSelecionarDestinoTroca}
+        onSolicitarOcorrencia={handleSolicitarOcorrencia}
+      />
 
       {trocaConfirmacao && (
         <ConfirmarTrocaDialog

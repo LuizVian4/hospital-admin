@@ -1,65 +1,79 @@
-import type { VirtualItem } from '@tanstack/react-virtual';
-import type { Table } from '@tanstack/react-table';
-import { COLUNAS_FIXAS, LARGURA_COLUNAS_FIXAS, colunaCalendarioClass, stickyLeft } from '@/constants/turnos';
+import { memo } from 'react';
+import {
+  COLUNAS_FIXAS,
+  LARGURA_COLUNA_DIA,
+  LARGURA_COLUNAS_FIXAS,
+  colunaCalendarioClass,
+} from '@/constants/turnos';
 import { cn } from '@/lib/utils';
 import { CelulaEspacadorDias } from './DiasVirtualizados';
+import { CabecalhoViewportDias, CelulaFixa, ColunasFixas } from './GradeEscalaLayout';
 
-interface CabecalhoGradeEscalaProps {
-  table: Table<{ id: string }>;
+export const CabecalhoFixoGradeEscala = memo(function CabecalhoFixoGradeEscala() {
+  return (
+    <ColunasFixas className="flex-col border-r border-slate-200">
+      <div className="flex bg-slate-100">
+        {COLUNAS_FIXAS.map((coluna) => (
+          <CelulaFixa
+            key={coluna.key}
+            width={coluna.width}
+            className={cn(
+              'py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600 bg-slate-100',
+              coluna.key === 'nome' && 'text-left'
+            )}
+          >
+            {coluna.label}
+          </CelulaFixa>
+        ))}
+      </div>
+      <div className="flex bg-slate-50 border-t border-slate-200">
+        <CelulaFixa
+          width={LARGURA_COLUNAS_FIXAS}
+          className="py-1 text-[10px] font-medium uppercase tracking-wider text-slate-500 bg-slate-50 text-left"
+        >
+          Escala
+        </CelulaFixa>
+      </div>
+    </ColunasFixas>
+  );
+});
+
+interface CabecalhoDiasGradeEscalaProps {
   dias: number[];
   diasSemana: string[];
   hoje: number | null;
   feriadosPorDia: Record<number, string>;
   diasComProblemaCobertura: Set<number>;
-  virtualColumns: VirtualItem[];
+  visibleDiaIndices: number[];
   diasPadStart: number;
   diasPadEnd: number;
 }
 
-export function CabecalhoGradeEscala({
-  table,
+function CabecalhoDiasGradeEscalaComponent({
   dias,
   diasSemana,
   hoje,
   feriadosPorDia,
   diasComProblemaCobertura,
-  virtualColumns,
+  visibleDiaIndices,
   diasPadStart,
   diasPadEnd,
-}: CabecalhoGradeEscalaProps) {
-  const fixedHeaders = table.getHeaderGroups()[0]?.headers.slice(0, COLUNAS_FIXAS.length) ?? [];
-
+}: CabecalhoDiasGradeEscalaProps) {
   return (
-    <thead className="sticky top-0 z-20">
-      <tr className="bg-slate-100">
-        {fixedHeaders.map((header, i) => (
-          <th
-            key={header.id}
-            className={cn(
-              'border-b border-r px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600 sticky z-30 bg-slate-100 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]',
-              header.id === 'nome' && 'text-left'
-            )}
-            style={{
-              left: stickyLeft(i),
-              minWidth: header.getSize(),
-              width: header.getSize(),
-            }}
-          >
-            {header.column.columnDef.header as string}
-          </th>
-        ))}
-        <CelulaEspacadorDias as="th" width={diasPadStart} />
-        {virtualColumns.map((vc) => {
-          const dia = dias[vc.index];
+    <CabecalhoViewportDias className="flex-col">
+      <div className="flex bg-slate-100">
+        <CelulaEspacadorDias width={diasPadStart} />
+        {visibleDiaIndices.map((idx) => {
+          const dia = dias[idx];
           const isHoje = dia === hoje;
-          const isWeekend = diasSemana[vc.index] === 'SAB' || diasSemana[vc.index] === 'DOM';
+          const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
           const feriadoNome = feriadosPorDia[dia] ?? null;
           const semCobertura = diasComProblemaCobertura.has(dia);
           return (
-            <th
+            <div
               key={dia}
               className={cn(
-                'border-b px-1 py-2 text-xs text-center font-semibold',
+                'border-b px-1 py-2 text-xs text-center font-semibold shrink-0',
                 semCobertura
                   ? 'dia-sem-cobertura-header'
                   : cn(
@@ -67,7 +81,11 @@ export function CabecalhoGradeEscala({
                       colunaCalendarioClass({ isWeekend, feriadoNome, isHoje, parte: 'header' })
                     )
               )}
-              style={{ width: vc.size, minWidth: vc.size, maxWidth: vc.size }}
+              style={{
+                width: LARGURA_COLUNA_DIA,
+                minWidth: LARGURA_COLUNA_DIA,
+                maxWidth: LARGURA_COLUNA_DIA,
+              }}
               title={
                 semCobertura
                   ? 'Cobertura insuficiente neste dia'
@@ -84,32 +102,25 @@ export function CabecalhoGradeEscala({
               ) : (
                 dia
               )}
-            </th>
+            </div>
           );
         })}
-        <CelulaEspacadorDias as="th" width={diasPadEnd} />
-      </tr>
-      <tr className="bg-slate-50">
-        <th
-          colSpan={COLUNAS_FIXAS.length}
-          className="border-b border-r px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-slate-500 sticky left-0 z-30 bg-slate-50 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)] text-left"
-          style={{ minWidth: LARGURA_COLUNAS_FIXAS }}
-        >
-          Escala
-        </th>
-        <CelulaEspacadorDias as="th" width={diasPadStart} />
-        {virtualColumns.map((vc) => {
-          const dia = dias[vc.index];
+        <CelulaEspacadorDias width={diasPadEnd} />
+      </div>
+      <div className="flex bg-slate-50">
+        <CelulaEspacadorDias width={diasPadStart} />
+        {visibleDiaIndices.map((idx) => {
+          const dia = dias[idx];
           const isHoje = dia === hoje;
-          const ds = diasSemana[vc.index];
+          const ds = diasSemana[idx];
           const isWeekend = ds === 'SAB' || ds === 'DOM';
           const feriadoNome = feriadosPorDia[dia] ?? null;
           const semCobertura = diasComProblemaCobertura.has(dia);
           return (
-            <th
+            <div
               key={`dow-${dia}`}
               className={cn(
-                'border-b px-1 py-1 text-[10px] font-medium text-center',
+                'border-b px-1 py-1 text-[10px] font-medium text-center shrink-0',
                 semCobertura
                   ? 'dia-sem-cobertura-header'
                   : cn(
@@ -117,17 +128,45 @@ export function CabecalhoGradeEscala({
                       colunaCalendarioClass({ isWeekend, feriadoNome, isHoje, parte: 'dow' })
                     )
               )}
-              style={{ width: vc.size, minWidth: vc.size, maxWidth: vc.size }}
+              style={{
+                width: LARGURA_COLUNA_DIA,
+                minWidth: LARGURA_COLUNA_DIA,
+                maxWidth: LARGURA_COLUNA_DIA,
+              }}
               title={
                 semCobertura ? 'Cobertura insuficiente neste dia' : feriadoNome ?? undefined
               }
             >
               {ds}
-            </th>
+            </div>
           );
         })}
-        <CelulaEspacadorDias as="th" width={diasPadEnd} />
-      </tr>
-    </thead>
+        <CelulaEspacadorDias width={diasPadEnd} />
+      </div>
+    </CabecalhoViewportDias>
   );
 }
+
+function cabecalhoDiasPropsEqual(
+  prev: CabecalhoDiasGradeEscalaProps,
+  next: CabecalhoDiasGradeEscalaProps
+): boolean {
+  return (
+    prev.dias === next.dias &&
+    prev.diasSemana === next.diasSemana &&
+    prev.hoje === next.hoje &&
+    prev.feriadosPorDia === next.feriadosPorDia &&
+    prev.diasComProblemaCobertura === next.diasComProblemaCobertura &&
+    prev.visibleDiaIndices === next.visibleDiaIndices &&
+    prev.diasPadStart === next.diasPadStart &&
+    prev.diasPadEnd === next.diasPadEnd
+  );
+}
+
+export const CabecalhoDiasGradeEscala = memo(
+  CabecalhoDiasGradeEscalaComponent,
+  cabecalhoDiasPropsEqual
+);
+
+// Compat: reexport combinado para testes ou uso legado
+export const CabecalhoGradeEscala = CabecalhoDiasGradeEscala;

@@ -1,81 +1,94 @@
-import type { VirtualItem } from '@tanstack/react-virtual';
+import { memo, useMemo } from 'react';
 import type { FuncionarioComTurnos } from '@escala/shared';
-import { LARGURA_COLUNAS_FIXAS, statusEspecialCellClass, colunaCalendarioClass } from '@/constants/turnos';
+import { LARGURA_COLUNAS_FIXAS } from '@/constants/turnos';
 import { cn } from '@/lib/utils';
 import { FuncionarioInfoPopover } from './FuncionarioInfoPopover';
-import { DiasVirtualizados, DiaVazio } from './DiasVirtualizados';
+import {
+  DiasLeituraVirtualizados,
+  buildDadosLeituraPorDia,
+} from './DiasLeituraVirtualizados';
+import { CelulaFixa, ColunasFixas, LinhaGrade, ViewportDias } from './GradeEscalaLayout';
 
-interface LinhaIndisponivelProps {
+export interface LinhaIndisponivelProps {
   funcionario: FuncionarioComTurnos;
+  virtualTop: number;
+  virtualHeight: number;
   dias: number[];
   diasSemana: string[];
   hoje: number | null;
   feriadosPorDia: Record<number, string>;
   rowIndex: number;
-  virtualColumns: VirtualItem[];
+  visibleDiaIndices: number[];
   diasPadStart: number;
   diasPadEnd: number;
 }
 
-export function LinhaIndisponivel({
+function LinhaIndisponivelComponent({
   funcionario,
+  virtualTop,
+  virtualHeight,
   dias,
   diasSemana,
   hoje,
   feriadosPorDia,
   rowIndex,
-  virtualColumns,
+  visibleDiaIndices,
   diasPadStart,
   diasPadEnd,
 }: LinhaIndisponivelProps) {
   const isEven = rowIndex % 2 === 0;
   const rowBg = isEven ? 'bg-sky-50/30' : 'bg-sky-50/50';
+  const dadosPorDia = useMemo(
+    () => buildDadosLeituraPorDia(funcionario, visibleDiaIndices, dias),
+    [funcionario, visibleDiaIndices, dias]
+  );
 
   return (
-    <tr className={cn('group transition-colors', rowBg)}>
-      <td
-        colSpan={2}
-        className={cn(
-          'border-b border-r px-2 py-1.5 text-xs sticky left-0 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] font-medium text-foreground',
-          rowBg
-        )}
-        style={{
-          minWidth: LARGURA_COLUNAS_FIXAS,
-          width: LARGURA_COLUNAS_FIXAS,
-          maxWidth: LARGURA_COLUNAS_FIXAS,
-        }}
-      >
-        <span className="truncate min-w-0">
-          <FuncionarioInfoPopover funcionario={funcionario} />
-        </span>
-      </td>
-      <DiasVirtualizados
-        virtualColumns={virtualColumns}
-        padStart={diasPadStart}
-        padEnd={diasPadEnd}
-        dias={dias}
-        renderDia={(dia, idx, width) => {
-          const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
-          const isHoje = dia === hoje;
-          const feriadoNome = feriadosPorDia[dia] ?? null;
-          const status = funcionario.statusPorDia?.[dia];
-          const turno = funcionario.turnos[dia] ?? funcionario.turnosProjetados?.[dia] ?? null;
-
-          return (
-            <DiaVazio
-              width={width}
-              title={status ? `Status especial: ${status}` : feriadoNome ?? undefined}
-              className={cn(
-                rowBg,
-                status ? statusEspecialCellClass(status) : 'text-muted-foreground/30',
-                colunaCalendarioClass({ isWeekend, feriadoNome, isHoje })
-              )}
-            >
-              {status ? (turno ?? '·') : '·'}
-            </DiaVazio>
-          );
-        }}
-      />
-    </tr>
+    <LinhaGrade virtualTop={virtualTop} virtualHeight={virtualHeight} className={rowBg}>
+      <ColunasFixas className={rowBg}>
+        <CelulaFixa
+          width={LARGURA_COLUNAS_FIXAS}
+          className={cn('font-medium text-foreground', rowBg)}
+        >
+          <span className="truncate min-w-0">
+            <FuncionarioInfoPopover funcionario={funcionario} />
+          </span>
+        </CelulaFixa>
+      </ColunasFixas>
+      <ViewportDias>
+        <DiasLeituraVirtualizados
+          visibleDiaIndices={visibleDiaIndices}
+          padStart={diasPadStart}
+          padEnd={diasPadEnd}
+          dias={dias}
+          diasSemana={diasSemana}
+          hoje={hoje}
+          feriadosPorDia={feriadosPorDia}
+          rowBg={rowBg}
+          dadosPorDia={dadosPorDia}
+        />
+      </ViewportDias>
+    </LinhaGrade>
   );
 }
+
+function linhaIndisponivelPropsEqual(
+  prev: LinhaIndisponivelProps,
+  next: LinhaIndisponivelProps
+): boolean {
+  return (
+    prev.funcionario === next.funcionario &&
+    prev.virtualTop === next.virtualTop &&
+    prev.virtualHeight === next.virtualHeight &&
+    prev.rowIndex === next.rowIndex &&
+    prev.dias === next.dias &&
+    prev.diasSemana === next.diasSemana &&
+    prev.hoje === next.hoje &&
+    prev.feriadosPorDia === next.feriadosPorDia &&
+    prev.visibleDiaIndices === next.visibleDiaIndices &&
+    prev.diasPadStart === next.diasPadStart &&
+    prev.diasPadEnd === next.diasPadEnd
+  );
+}
+
+export const LinhaIndisponivel = memo(LinhaIndisponivelComponent, linhaIndisponivelPropsEqual);
