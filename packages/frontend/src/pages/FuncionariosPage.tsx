@@ -59,6 +59,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CloseIcon from '@mui/icons-material/Close';
 import type { Funcionario } from '@escala/shared';
+import { isEnfermeiro, isTecnicoEnfermagem } from '@escala/shared';
 import { toast } from 'sonner';
 
 function isFuncionarioAgrupamentoEspecial(f: Funcionario): boolean {
@@ -76,6 +77,61 @@ function getInitials(nome: string): string {
   if (parts.length === 0) return '?';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function chaveCategoriaResumo(categoria: string): string {
+  if (isTecnicoEnfermagem(categoria)) return '__tecnico__';
+  if (isEnfermeiro(categoria)) return '__enfermeiro__';
+  return categoria?.trim() || '__sem_categoria__';
+}
+
+function formatarContagemCategoria(chave: string, count: number): string {
+  if (chave === '__tecnico__') {
+    return `${count} ${count === 1 ? 'técnico' : 'técnicos'}`;
+  }
+  if (chave === '__enfermeiro__') {
+    return `${count} ${count === 1 ? 'enfermeiro' : 'enfermeiros'}`;
+  }
+  if (chave === '__sem_categoria__') {
+    return `${count} sem categoria`;
+  }
+  return `${count} ${chave}`;
+}
+
+function contarPorCategoria(funcionarios: Funcionario[]): Array<{ chave: string; count: number }> {
+  const map = new Map<string, number>();
+  for (const f of funcionarios) {
+    const chave = chaveCategoriaResumo(f.categoria ?? '');
+    map.set(chave, (map.get(chave) ?? 0) + 1);
+  }
+  return [...map.entries()]
+    .map(([chave, count]) => ({ chave, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function ResumoCategoriasChips({
+  funcionarios,
+  color = 'primary',
+}: {
+  funcionarios: Funcionario[];
+  color?: 'primary' | 'default';
+}) {
+  const contagens = contarPorCategoria(funcionarios);
+  if (contagens.length === 0) return null;
+
+  return (
+    <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
+      {contagens.map(({ chave, count }) => (
+        <Chip
+          key={chave}
+          label={formatarContagemCategoria(chave, count)}
+          size="small"
+          color={color}
+          variant="outlined"
+        />
+      ))}
+    </Stack>
+  );
 }
 
 function contratoChipColor(
@@ -768,7 +824,7 @@ export function FuncionariosPage() {
         ) : (
           <Box>
             {setoresComFuncionarios.map((grupo) => (
-              <Accordion key={grupo.id} defaultExpanded disableGutters elevation={0}>
+              <Accordion key={grupo.id} disableGutters elevation={0}>
                 <AccordionSummary
                   expandIcon={<ExpandMoreIcon />}
                   sx={{
@@ -778,19 +834,16 @@ export function FuncionariosPage() {
                     '&:hover': { bgcolor: 'primary.100' },
                   }}
                 >
-                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                  <Stack
+                    direction="row"
+                    spacing={1.5}
+                    sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 0.75 }}
+                  >
                     <BusinessIcon fontSize="small" color="primary" />
                     <Typography variant="subtitle2" color="primary.dark">
                       {grupo.nome}
                     </Typography>
-                    <Chip
-                      label={`${grupo.funcionarios.length} ${
-                        grupo.funcionarios.length === 1 ? 'técnico' : 'técnicos'
-                      }`}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    />
+                    <ResumoCategoriasChips funcionarios={grupo.funcionarios} />
                   </Stack>
                 </AccordionSummary>
                 <AccordionDetails sx={{ p: 0 }}>
@@ -800,7 +853,7 @@ export function FuncionariosPage() {
             ))}
 
             {grupoEspecial.length > 0 && (
-              <Accordion defaultExpanded disableGutters elevation={0}>
+              <Accordion disableGutters elevation={0}>
                 <AccordionSummary
                   expandIcon={<ExpandMoreIcon />}
                   sx={{
@@ -810,18 +863,16 @@ export function FuncionariosPage() {
                     '&:hover': { bgcolor: 'grey.200' },
                   }}
                 >
-                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                  <Stack
+                    direction="row"
+                    spacing={1.5}
+                    sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 0.75 }}
+                  >
                     <PersonOffIcon fontSize="small" color="action" />
                     <Typography variant="subtitle2" color="text.secondary">
                       Inativados / Sem setor
                     </Typography>
-                    <Chip
-                      label={`${grupoEspecial.length} ${
-                        grupoEspecial.length === 1 ? 'pessoa' : 'pessoas'
-                      }`}
-                      size="small"
-                      variant="outlined"
-                    />
+                    <ResumoCategoriasChips funcionarios={grupoEspecial} color="default" />
                   </Stack>
                 </AccordionSummary>
                 <AccordionDetails sx={{ p: 0 }}>
