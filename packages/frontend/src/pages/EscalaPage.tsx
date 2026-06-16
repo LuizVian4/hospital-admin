@@ -357,10 +357,7 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
             </Typography>
             <Box component="ul" sx={{ pl: 2.5, m: 0 }}>
               <Typography component="li" variant="body2">
-                Calcular o turno correto no dia 1 do mês seguinte
-              </Typography>
-              <Typography component="li" variant="body2">
-                Atualizar automaticamente o grupo de escala para o padrão correspondente
+                Definir o turno e o grupo no início do mês seguinte
               </Typography>
               <Typography component="li" variant="body2">
                 Preencher todos os dias do mês com base na rotação do padrão

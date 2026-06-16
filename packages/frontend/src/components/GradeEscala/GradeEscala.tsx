@@ -141,7 +141,7 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
       atribuirGrupo.mutate(
         { funcionarioId, indicePadrao, turnoInicio: grupo.turnoInicio },
         {
-          onSuccess: () => toast.success(`${grupo.label} atribuído — escala gerada a partir do dia 1`),
+          onSuccess: () => toast.success(`${grupo.label} atribuído — escala gerada`),
           onError: () => toast.error('Erro ao atribuir grupo'),
         }
       );

@@ -1,5 +1,8 @@
 import type { EscalaInicio, Turno } from './types';
 
+/** Dia fixo de início da escala em cada competência */
+export const DIA_INICIO_ESCALA = 1;
+
 /** Ciclo padrão para Téc. de Enfermagem: MT → F → SN → / → F */
 export const PADRAO_TEC_ENFERMAGEM: Turno[] = ['MT', 'F', 'SN', '/', 'F'];
 
@@ -114,15 +117,14 @@ export function resolverIndiceNoPadrao(
 
 export function criarAncora(
   padrao: Turno[],
-  diaInicio: number,
   turnoInicio: Turno,
   turnos: Record<number, Turno | null> = {}
 ): AncoraPadrao {
   return {
-    dia: diaInicio,
-    indicePadrao: resolverIndiceNoPadrao(padrao, diaInicio, turnoInicio, {
+    dia: DIA_INICIO_ESCALA,
+    indicePadrao: resolverIndiceNoPadrao(padrao, DIA_INICIO_ESCALA, turnoInicio, {
       ...turnos,
-      [diaInicio]: turnoInicio,
+      [DIA_INICIO_ESCALA]: turnoInicio,
     }),
     offsetAteMesAtual: 0,
   };
@@ -136,21 +138,21 @@ export function ancoraFromEscalaInicio(
 ): AncoraPadrao {
   const indicePadrao =
     config.indicePadrao ??
-    resolverIndiceNoPadrao(padrao, config.diaInicio, config.turnoInicio, {
-      [config.diaInicio]: config.turnoInicio,
+    resolverIndiceNoPadrao(padrao, DIA_INICIO_ESCALA, config.turnoInicio, {
+      [DIA_INICIO_ESCALA]: config.turnoInicio,
     });
 
   if (config.mesInicio === mesAtual && config.anoInicio === anoAtual) {
-    return { dia: config.diaInicio, indicePadrao, offsetAteMesAtual: 0 };
+    return { dia: DIA_INICIO_ESCALA, indicePadrao, offsetAteMesAtual: 0 };
   }
 
-  const dataInicio = new Date(config.anoInicio, config.mesInicio - 1, config.diaInicio);
-  const dia1MesAtual = new Date(anoAtual, mesAtual - 1, 1);
+  const dataInicio = new Date(config.anoInicio, config.mesInicio - 1, DIA_INICIO_ESCALA);
+  const dia1MesAtual = new Date(anoAtual, mesAtual - 1, DIA_INICIO_ESCALA);
   const offsetAteMesAtual = Math.round(
     (dia1MesAtual.getTime() - dataInicio.getTime()) / 86400000
   );
 
-  return { dia: config.diaInicio, indicePadrao, offsetAteMesAtual };
+  return { dia: DIA_INICIO_ESCALA, indicePadrao, offsetAteMesAtual };
 }
 
 export function encontrarAncoraPadrao(
@@ -211,22 +213,18 @@ export function calcularIndiceNoDia(
 
 export function simularMesAPartirDeAncora(
   padrao: Turno[],
-  diaInicio: number,
   turnoInicio: Turno,
   dias: number[],
-  indicePadrao?: number,
-  apenasApartirDoInicio = false
+  indicePadrao?: number
 ): Record<number, Turno> {
   const ancora: AncoraPadrao =
     indicePadrao != null
-      ? { dia: diaInicio, indicePadrao, offsetAteMesAtual: 0 }
-      : criarAncora(padrao, diaInicio, turnoInicio);
+      ? { dia: DIA_INICIO_ESCALA, indicePadrao, offsetAteMesAtual: 0 }
+      : criarAncora(padrao, turnoInicio);
 
   const simulados: Record<number, Turno> = {};
 
   for (const dia of dias) {
-    if (apenasApartirDoInicio && dia < diaInicio) continue;
-
     const turno = calcularTurnoProjetado(padrao, ancora, dia);
     if (turno) simulados[dia] = turno;
   }
@@ -260,48 +258,6 @@ export function projetarTurnosVazios(
   const projetados: Record<number, Turno> = {};
   for (const dia of dias) {
     if (dia in turnosSalvos) continue;
-
-    const turno = calcularTurnoProjetado(padrao, ancora, dia);
-    if (turno) projetados[dia] = turno;
-  }
-
-  return projetados;
-}
-
-/** @deprecated Use projetarTurnosVazios */
-export function isDiaFuturo(dia: number, mes: number, ano: number, hoje = new Date()): boolean {
-  const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-  const alvo = new Date(ano, mes - 1, dia);
-  return alvo >= inicioHoje;
-}
-
-/** @deprecated Use projetarTurnosVazios */
-export function projetarTurnosFuturos(
-  padrao: Turno[],
-  turnosSalvos: Record<number, Turno | null>,
-  dias: number[],
-  mes: number,
-  ano: number,
-  turnosMesAnterior?: Record<number, Turno | null>,
-  diasNoMesAnterior?: number,
-  escalaInicio?: EscalaInicio | null,
-  hoje = new Date()
-): Record<number, Turno> {
-  const ancora = encontrarAncoraPadrao(
-    padrao,
-    turnosSalvos,
-    escalaInicio,
-    mes,
-    ano,
-    turnosMesAnterior,
-    diasNoMesAnterior
-  );
-  if (!ancora) return {};
-
-  const projetados: Record<number, Turno> = {};
-  for (const dia of dias) {
-    if (dia in turnosSalvos) continue;
-    if (!isDiaFuturo(dia, mes, ano, hoje)) continue;
 
     const turno = calcularTurnoProjetado(padrao, ancora, dia);
     if (turno) projetados[dia] = turno;

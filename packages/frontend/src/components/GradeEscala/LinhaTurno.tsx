@@ -132,11 +132,6 @@ export function LinhaTurno({
             modoSelecaoTroca={modoSelecaoTroca}
             isTrocaOrigem={isTrocaOrigem}
             elegivelDestinoTroca={elegivelDestinoTroca}
-            isDiaInicio={
-              funcionario.escalaInicio != null &&
-              dia === funcionario.escalaInicio.diaInicio &&
-              funcionario.escalaInicio.diaInicio > 1
-            }
             isWeekend={diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM'}
             isHoje={dia === hoje}
             rowBg={rowBg}

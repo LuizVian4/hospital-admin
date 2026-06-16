@@ -12,7 +12,6 @@ export {
   isEnfermeiro,
   pertenceTipoEscala,
   type TipoEscala,
-  projetarTurnosFuturos,
   projetarTurnosVazios,
   simularMesAPartirDeAncora,
   calcularTurnoProjetado,
@@ -21,8 +20,8 @@ export {
   encontrarAncoraPadrao,
   criarAncora,
   ancoraFromEscalaInicio,
-  isDiaFuturo,
   normalizarCategoria,
+  DIA_INICIO_ESCALA,
   type AncoraPadrao,
   type GrupoEscala,
 } from './padroes';

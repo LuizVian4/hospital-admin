@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import type { EscalaDiaUpdate, TipoEscala, TrocaEscalaRequest } from '@escala/shared';
+import { DIA_INICIO_ESCALA, type EscalaDiaUpdate, type TipoEscala, type TrocaEscalaRequest } from '@escala/shared';
 
 export function useEscala(competenciaId: number | undefined, tipo: TipoEscala = 'tecnico') {
   return useQuery({
@@ -48,7 +48,7 @@ export function useAtribuirGrupoEscala(competenciaId: number) {
       api.updateEscalaDias(competenciaId, [
         {
           funcionarioId,
-          dia: 1,
+          dia: DIA_INICIO_ESCALA,
           turno: turnoInicio,
           definirInicio: true,
           indicePadrao,

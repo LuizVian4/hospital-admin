@@ -28,10 +28,9 @@ export interface Funcionario {
 
 export type TipoRegistroEscala = 'turno' | 'inicio';
 
-/** Configuração de início da escala por funcionário/competência (mês) */
+/** Configuração de início da escala por funcionário/competência (mês) — sempre a partir do dia 1 */
 export interface EscalaInicio {
   id?: number;
-  diaInicio: number;
   mesInicio: number;
   anoInicio: number;
   turnoInicio: Turno;

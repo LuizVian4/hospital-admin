@@ -12,7 +12,6 @@ import {
 import { ObservacaoTrocaPopover } from './ObservacaoTrocaPopover';
 
 export interface EscalaCellChangeOptions {
-  definirInicio?: boolean;
   indicePadrao?: number;
 }
 
@@ -28,7 +27,6 @@ interface CelulaEscalaProps {
   modoSelecaoTroca?: boolean;
   isTrocaOrigem?: boolean;
   elegivelDestinoTroca?: boolean;
-  isDiaInicio: boolean;
   isWeekend: boolean;
   isHoje: boolean;
   rowBg: string;
@@ -54,7 +52,6 @@ export function CelulaEscala({
   modoSelecaoTroca = false,
   isTrocaOrigem = false,
   elegivelDestinoTroca = false,
-  isDiaInicio,
   isWeekend,
   isHoje,
   rowBg,
@@ -195,7 +192,6 @@ export function CelulaEscala({
         !hasTurno && rowBg,
         !isTrocaOrigem && !temStatusEspecial && turnoCellClass(exibicao),
         isProjetado && 'turno-projetado',
-        isDiaInicio && !isTrocaOrigem && 'ring-1 ring-inset ring-amber-400/60 bg-amber-50/40',
         colunaCalendarioClass({ isWeekend, feriadoNome, isHoje }),
         !modoSelecaoTroca && 'group-hover:bg-blue-50/50',
         saving && 'opacity-70'

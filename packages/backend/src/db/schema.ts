@@ -64,7 +64,6 @@ export const escalaDias = pgTable('escala_dias', {
   turno: text('turno'),
   observacao: text('observacao'),
   /** Início da escala — preenchido quando tipo_registro = 'inicio' */
-  diaInicio: integer('dia_inicio'),
   mesInicio: integer('mes_inicio'),
   anoInicio: integer('ano_inicio'),
   turnoInicio: text('turno_inicio'),

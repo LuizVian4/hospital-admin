@@ -22,6 +22,7 @@ import {
   ancoraFromEscalaInicio,
   calcularTurnoProjetado,
   calcularIndiceNoDia,
+  DIA_INICIO_ESCALA,
 } from '@escala/shared';
 import {
   agruparPorEscalaIgual,
@@ -48,7 +49,6 @@ function mesSeguinte(mes: number, ano: number): { mes: number; ano: number } {
 
 function mapEscalaInicioRow(row: {
   id: number;
-  diaInicio: number | null;
   mesInicio: number | null;
   anoInicio: number | null;
   turnoInicio: string | null;
@@ -56,10 +56,9 @@ function mapEscalaInicioRow(row: {
   ativo: boolean;
 }): EscalaInicio | null {
   const turno = normalizeTurno(row.turnoInicio);
-  if (!row.diaInicio || !row.mesInicio || !row.anoInicio || !turno) return null;
+  if (!row.mesInicio || !row.anoInicio || !turno) return null;
   return {
     id: row.id,
-    diaInicio: row.diaInicio,
     mesInicio: row.mesInicio,
     anoInicio: row.anoInicio,
     turnoInicio: turno,
@@ -161,7 +160,6 @@ async function desativarInicioAtivo(competenciaId: number, funcionarioId: number
 async function criarInicioAtivo(
   competenciaId: number,
   funcionarioId: number,
-  diaInicio: number,
   mesInicio: number,
   anoInicio: number,
   turnoInicio: Turno,
@@ -174,7 +172,6 @@ async function criarInicioAtivo(
     tipoRegistro: 'inicio',
     dia: null,
     turno: null,
-    diaInicio,
     mesInicio,
     anoInicio,
     turnoInicio,
@@ -416,24 +413,15 @@ export async function batchUpdateEscalaDias(
   });
   if (!comp) return;
 
-  const iniciosAtivos = await getIniciosAtivos(competenciaId);
   const celulasInicio = new Set<string>();
 
   for (const item of items) {
-    if (!item.turno) continue;
+    if (!item.definirInicio || !item.turno) continue;
 
     const func = await db.query.funcionarios.findFirst({
       where: eq(funcionarios.id, item.funcionarioId),
     });
     if (!func) continue;
-
-    const inicioAtual = iniciosAtivos.get(item.funcionarioId);
-    const diaInicioPadrao = inicioAtual?.diaInicio ?? 1;
-    const ehInicio =
-      item.definirInicio === true ||
-      (item.definirInicio !== false && item.dia === diaInicioPadrao);
-
-    if (!ehInicio) continue;
 
     const padrao = getPadraoEscala(func.categoria ?? 'TÉC. DE ENFERMAGEM');
     if (!padrao) continue;
@@ -444,13 +432,12 @@ export async function batchUpdateEscalaDias(
     await criarInicioAtivo(
       competenciaId,
       item.funcionarioId,
-      item.dia,
       comp.mes,
       comp.ano,
       turno,
       item.indicePadrao
     );
-    celulasInicio.add(`${item.funcionarioId}:${item.dia}`);
+    celulasInicio.add(`${item.funcionarioId}:${DIA_INICIO_ESCALA}`);
   }
 
   const deduped = new Map<string, { funcionarioId: number; dia: number; turno: Turno | null }>();
@@ -739,7 +726,6 @@ export async function simularProximoMes(
       await criarInicioAtivo(
         proxComp.id,
         func.id,
-        1,
         proxMes,
         proxAno,
         turnoDia1,
