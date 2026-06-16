@@ -12,12 +12,6 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
 import Tooltip from '@mui/material/Tooltip';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -25,7 +19,6 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DownloadIcon from '@mui/icons-material/Download';
 import BusinessIcon from '@mui/icons-material/Business';
 import NotesIcon from '@mui/icons-material/Notes';
-import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -42,7 +35,6 @@ import { LegendaTurnos } from '@/components/GradeEscala/LegendaTurnos';
 import { LegendaFeriados } from '@/components/GradeEscala/LegendaFeriados';
 import { ObservacoesCompetencia } from '@/components/GradeEscala/ObservacoesCompetencia';
 import { SetorSelector } from '@/components/SetorSelector';
-import { StatusBadge } from '@/components/StatusBadge';
 import { toast } from 'sonner';
 
 const MESES = [
@@ -65,10 +57,6 @@ const ESCALA_CONFIG: Record<
     labelFuncionario: 'enfermeiro',
   },
 };
-
-function formatDateBR(iso: string) {
-  return iso.split('-').reverse().join('/');
-}
 
 interface EscalaPageProps {
   tipoEscala?: TipoEscala;
@@ -337,48 +325,6 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
       )}
       {!competenciaLoading && isLoading && competenciaId && <GradeEscalaSkeleton />}
       {escala && <GradeEscala data={escala} tipoEscala={tipoEscala} />}
-
-      {escala && escala.statusEspeciais.length > 0 && (
-        <Card>
-          <CardHeader
-            avatar={<BeachAccessIcon color="info" />}
-            title="Status Especiais"
-            subheader={`${escala.statusEspeciais.length} registro(s) ativo(s) em ${periodoLabel}`}
-            sx={{ pb: 0 }}
-          />
-          <Divider />
-          <CardContent sx={{ pt: 0, px: 0, '&:last-child': { pb: 0 } }}>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, pl: 3 }}>Matrícula</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Funcionário</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Período</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {escala.statusEspeciais.map((se) => (
-                    <TableRow key={se.id ?? se.funcionario.id} hover>
-                      <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem', pl: 3 }}>
-                        {se.funcionario.matricula}
-                      </TableCell>
-                      <TableCell>{se.funcionario.nome}</TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap', color: 'text.secondary', fontSize: '0.875rem' }}>
-                        {formatDateBR(se.dataInicio)} — {formatDateBR(se.dataFim)}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={se.status} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader

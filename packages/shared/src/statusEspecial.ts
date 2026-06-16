@@ -44,6 +44,15 @@ export function intervaloSobrepoeMes(
   return dataInicio <= fim && dataFim >= inicio;
 }
 
+/** Status especial ativo em todos os dias do mês (ex.: férias no mês inteiro). */
+export function statusCobreMesInteiro(
+  statusPorDia: Record<number, StatusEspecial> | undefined,
+  totalDias: number
+): boolean {
+  if (!statusPorDia || totalDias <= 0) return false;
+  return Object.keys(statusPorDia).length >= totalDias;
+}
+
 export function diasAfetadosNoMes(
   dataInicio: string,
   dataFim: string,

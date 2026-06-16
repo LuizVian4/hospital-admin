@@ -1,5 +1,5 @@
 import type { FuncionarioComTurnos, GrupoEscala, GrupoTurno } from '@escala/shared';
-import { getPadraoEscala } from '@escala/shared';
+import { getPadraoEscala, statusCobreMesInteiro } from '@escala/shared';
 
 export function listarFuncionarios(grupos: GrupoTurno[]): FuncionarioComTurnos[] {
   const map = new Map<number, FuncionarioComTurnos>();
@@ -15,7 +15,8 @@ export function listarFuncionarios(grupos: GrupoTurno[]): FuncionarioComTurnos[]
 
 export function organizarPorGrupoEscala(
   funcionarios: FuncionarioComTurnos[],
-  gruposEscala: GrupoEscala[]
+  gruposEscala: GrupoEscala[],
+  totalDias: number
 ) {
   const comPadrao: FuncionarioComTurnos[] = [];
   const semPadrao: FuncionarioComTurnos[] = [];
@@ -23,6 +24,7 @@ export function organizarPorGrupoEscala(
     gruposEscala.map((g) => [g.indicePadrao, []])
   );
   const semAtribuicao: FuncionarioComTurnos[] = [];
+  const indisponivel: FuncionarioComTurnos[] = [];
 
   for (const func of funcionarios) {
     if (!getPadraoEscala(func.categoria)) {
@@ -31,6 +33,12 @@ export function organizarPorGrupoEscala(
     }
 
     comPadrao.push(func);
+
+    if (statusCobreMesInteiro(func.statusPorDia, totalDias)) {
+      indisponivel.push(func);
+      continue;
+    }
+
     const indice = func.escalaInicio?.indicePadrao;
     if (indice != null && porGrupo.has(indice)) {
       porGrupo.get(indice)!.push(func);
@@ -44,7 +52,8 @@ export function organizarPorGrupoEscala(
 
   for (const lista of porGrupo.values()) lista.sort(sortNome);
   semAtribuicao.sort(sortNome);
+  indisponivel.sort(sortNome);
   semPadrao.sort(sortNome);
 
-  return { porGrupo, semAtribuicao, semPadrao, comPadrao };
+  return { porGrupo, semAtribuicao, indisponivel, semPadrao, comPadrao };
 }

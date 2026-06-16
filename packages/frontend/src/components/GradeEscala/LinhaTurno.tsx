@@ -14,7 +14,6 @@ interface LinhaTurnoProps {
   diasSemana: string[];
   hoje: number | null;
   feriadosPorDia: Record<number, string>;
-  diasSemCobertura: Set<number>;
   rowIndex: number;
   arrastavel?: boolean;
   comGrupo?: boolean;
@@ -37,7 +36,6 @@ export function LinhaTurno({
   diasSemana,
   hoje,
   feriadosPorDia,
-  diasSemCobertura,
   rowIndex,
   arrastavel = false,
   comGrupo = false,
@@ -135,11 +133,12 @@ export function LinhaTurno({
             isTrocaOrigem={isTrocaOrigem}
             elegivelDestinoTroca={elegivelDestinoTroca}
             isDiaInicio={
-              funcionario.escalaInicio != null && dia === funcionario.escalaInicio.diaInicio
+              funcionario.escalaInicio != null &&
+              dia === funcionario.escalaInicio.diaInicio &&
+              funcionario.escalaInicio.diaInicio > 1
             }
             isWeekend={diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM'}
             isHoje={dia === hoje}
-            isDiaSemCobertura={diasSemCobertura.has(dia)}
             rowBg={rowBg}
             onChange={onCellChange}
             onIniciarTroca={onIniciarTroca}

@@ -56,13 +56,9 @@ export function colunaCalendarioClass(opts: {
 
   if (isHoje) return colunaHojeClass(true, parte);
 
-  if (feriadoNome) {
-    if (parte === 'header') return 'coluna-feriado-header';
-    if (parte === 'dow') return 'coluna-feriado-dow';
-    return 'coluna-feriado';
-  }
+  const destaqueCalendario = isWeekend || Boolean(feriadoNome);
 
-  if (isWeekend) {
+  if (destaqueCalendario) {
     if (parte === 'header') return 'coluna-fds-header';
     if (parte === 'dow') return 'coluna-fds-dow';
     return 'coluna-fds';

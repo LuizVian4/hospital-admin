@@ -31,7 +31,6 @@ interface CelulaEscalaProps {
   isDiaInicio: boolean;
   isWeekend: boolean;
   isHoje: boolean;
-  isDiaSemCobertura: boolean;
   rowBg: string;
   onChange: (
     funcionarioId: number,
@@ -58,7 +57,6 @@ export function CelulaEscala({
   isDiaInicio,
   isWeekend,
   isHoje,
-  isDiaSemCobertura,
   rowBg,
   onChange,
   onIniciarTroca,
@@ -106,9 +104,7 @@ export function CelulaEscala({
     ? 'Célula de origem — selecione outra célula na planilha'
     : elegivelDestinoTroca
       ? 'Clique para selecionar como destino da troca'
-      : isDiaSemCobertura
-        ? 'Sem cobertura: nenhum funcionário com turno MT ou SN neste dia'
-        : isProjetado
+      : isProjetado
           ? 'Projeção automática pelo padrão do grupo'
           : modoSomenteTroca
             ? 'Abra o menu e selecione Troca'
@@ -196,19 +192,12 @@ export function CelulaEscala({
         temStatusEspecial && statusEspecialCellClass(statusEspecial),
         isTrocaOrigem && 'ring-2 ring-inset ring-primary bg-primary/10',
         elegivelDestinoTroca && 'cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary/50',
-        isDiaSemCobertura
-          ? cn(
-              'dia-sem-cobertura',
-              colunaCalendarioClass({ isWeekend, feriadoNome, isHoje })
-            )
-          : [
-              !hasTurno && rowBg,
-              !isTrocaOrigem && !temStatusEspecial && turnoCellClass(exibicao),
-              isProjetado && 'turno-projetado',
-              isDiaInicio && !isTrocaOrigem && 'ring-1 ring-inset ring-amber-400/60 bg-amber-50/40',
-              colunaCalendarioClass({ isWeekend, feriadoNome, isHoje }),
-              !modoSelecaoTroca && 'group-hover:bg-blue-50/50',
-            ],
+        !hasTurno && rowBg,
+        !isTrocaOrigem && !temStatusEspecial && turnoCellClass(exibicao),
+        isProjetado && 'turno-projetado',
+        isDiaInicio && !isTrocaOrigem && 'ring-1 ring-inset ring-amber-400/60 bg-amber-50/40',
+        colunaCalendarioClass({ isWeekend, feriadoNome, isHoje }),
+        !modoSelecaoTroca && 'group-hover:bg-blue-50/50',
         saving && 'opacity-70'
       )}
       title={temTroca || temStatusEspecial ? undefined : title}

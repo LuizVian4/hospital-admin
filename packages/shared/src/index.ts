@@ -56,6 +56,7 @@ export {
   limitesMes,
   intervaloSobrepoeMes,
   diasAfetadosNoMes,
+  statusCobreMesInteiro,
 } from './statusEspecial';
 export {
   calcularPascoa,

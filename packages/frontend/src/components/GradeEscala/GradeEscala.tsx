@@ -15,12 +15,13 @@ import SyncIcon from '@mui/icons-material/Sync';
 import type { GradeEscalaResponse, GrupoEscala, Turno, EscalaDiaUpdate, FuncionarioComTurnos, TipoEscala } from '@escala/shared';
 import { getGruposPorTipoEscala, mapFeriadosPorDia } from '@escala/shared';
 import { COLUNAS_FIXAS, stickyLeft, colunaCalendarioClass } from '@/constants/turnos';
-import { getDiasSemCoberturaMTSN } from '@/lib/escalaCobertura';
+import { getDiasSemCoberturaMTSN, getDiasComPoucosTecnicosMT, getDiasComPoucosTecnicosSN, MIN_TECNICOS_POR_TURNO } from '@/lib/escalaCobertura';
 import { listarFuncionarios, organizarPorGrupoEscala } from '@/lib/escalaGrupos';
 import { cn } from '@/lib/utils';
 import { LinhaTurno } from './LinhaTurno';
 import { LinhaGrupoEscala } from './LinhaGrupoEscala';
 import { LinhaSemGrupo } from './LinhaSemGrupo';
+import { LinhaIndisponivel } from './LinhaIndisponivel';
 import type { EscalaCellChangeOptions } from './CelulaEscala';
 import { ConfirmarTrocaDialog, type CelulaTroca } from './ConfirmarTrocaDialog';
 import { useAtribuirGrupoEscala, useTrocarEscalaDia, useUpdateEscalaDia } from '@/hooks/useEscala';
@@ -49,9 +50,9 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
   const modoSelecaoTroca = trocaOrigem != null && trocaConfirmacao == null;
 
   const funcionarios = useMemo(() => listarFuncionarios(grupos), [grupos]);
-  const { porGrupo, semAtribuicao, semPadrao, comPadrao } = useMemo(
-    () => organizarPorGrupoEscala(funcionarios, gruposEscala),
-    [funcionarios, gruposEscala]
+  const { porGrupo, semAtribuicao, indisponivel, semPadrao, comPadrao } = useMemo(
+    () => organizarPorGrupoEscala(funcionarios, gruposEscala, dias.length),
+    [funcionarios, gruposEscala, dias.length]
   );
 
   const totalFuncionarios = funcionarios.length;
@@ -70,13 +71,40 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
   );
 
   const diasSemCobertura = useMemo(
-    () => getDiasSemCoberturaMTSN(dias, grupos),
-    [dias, grupos]
+    () => (tipoEscala === 'tecnico' ? getDiasSemCoberturaMTSN(dias, grupos) : new Set<number>()),
+    [dias, grupos, tipoEscala]
   );
+
+  const diasComPoucosTecnicosMT = useMemo(
+    () => (tipoEscala === 'tecnico' ? getDiasComPoucosTecnicosMT(dias, grupos) : new Set<number>()),
+    [dias, grupos, tipoEscala]
+  );
+
+  const diasComPoucosTecnicosSN = useMemo(
+    () => (tipoEscala === 'tecnico' ? getDiasComPoucosTecnicosSN(dias, grupos) : new Set<number>()),
+    [dias, grupos, tipoEscala]
+  );
+
+  const diasComProblemaCobertura = useMemo(() => {
+    const problemas = new Set(diasSemCobertura);
+    for (const dia of diasComPoucosTecnicosMT) problemas.add(dia);
+    for (const dia of diasComPoucosTecnicosSN) problemas.add(dia);
+    return problemas;
+  }, [diasSemCobertura, diasComPoucosTecnicosMT, diasComPoucosTecnicosSN]);
 
   const diasSemCoberturaLista = useMemo(
     () => [...diasSemCobertura].sort((a, b) => a - b),
     [diasSemCobertura]
+  );
+
+  const diasComPoucosTecnicosMTLista = useMemo(
+    () => [...diasComPoucosTecnicosMT].sort((a, b) => a - b),
+    [diasComPoucosTecnicosMT]
+  );
+
+  const diasComPoucosTecnicosSNLista = useMemo(
+    () => [...diasComPoucosTecnicosSN].sort((a, b) => a - b),
+    [diasComPoucosTecnicosSN]
   );
 
   const flushUpdates = useCallback(() => {
@@ -215,7 +243,6 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
           diasSemana={diasSemana}
           hoje={hoje}
           feriadosPorDia={feriadosPorDia}
-          diasSemCobertura={diasSemCobertura}
           rowIndex={currentIndex}
           arrastavel={arrastavel}
           comGrupo={comGrupo}
@@ -269,6 +296,18 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
               variant="outlined"
             />
           )}
+          {indisponivel.length > 0 && (
+            <Chip
+              label={
+                indisponivel.length === 1
+                  ? '1 indisponível para turno'
+                  : `${indisponivel.length} indisponíveis para turno`
+              }
+              size="small"
+              color="info"
+              variant="outlined"
+            />
+          )}
         </Stack>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {(updateMutation.isPending || atribuirGrupo.isPending || trocarEscala.isPending) && (
@@ -311,11 +350,43 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
         <Alert severity="error" icon={<WarningAmberIcon />} sx={{ borderRadius: 0 }}>
           {diasSemCoberturaLista.length === 1 ? (
             <>
-              O dia <strong>{diasSemCoberturaLista[0]}</strong> não possui nenhum turno MT ou SN escalado.
+              O dia <strong>{diasSemCoberturaLista[0]}</strong> não possui ao menos 1 técnico em MT e 1 técnico em SN.
             </>
           ) : (
             <>
-              Os dias <strong>{diasSemCoberturaLista.join(', ')}</strong> não possuem nenhum turno MT ou SN escalado.
+              Os dias <strong>{diasSemCoberturaLista.join(', ')}</strong> não possuem ao menos 1 técnico em MT e 1 técnico em SN.
+            </>
+          )}
+        </Alert>
+      )}
+
+      {diasComPoucosTecnicosMTLista.length > 0 && (
+        <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ borderRadius: 0 }}>
+          {diasComPoucosTecnicosMTLista.length === 1 ? (
+            <>
+              O setor não está totalmente coberto no turno <strong>MT</strong> (mínimo de {MIN_TECNICOS_POR_TURNO} técnicos) no dia{' '}
+              <strong>{diasComPoucosTecnicosMTLista[0]}</strong>.
+            </>
+          ) : (
+            <>
+              O setor não está totalmente coberto no turno <strong>MT</strong> (mínimo de {MIN_TECNICOS_POR_TURNO} técnicos). Dias:{' '}
+              <strong>{diasComPoucosTecnicosMTLista.join(', ')}</strong>.
+            </>
+          )}
+        </Alert>
+      )}
+
+      {diasComPoucosTecnicosSNLista.length > 0 && (
+        <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ borderRadius: 0 }}>
+          {diasComPoucosTecnicosSNLista.length === 1 ? (
+            <>
+              O setor não está totalmente coberto no turno <strong>SN</strong> (mínimo de {MIN_TECNICOS_POR_TURNO} técnicos) no dia{' '}
+              <strong>{diasComPoucosTecnicosSNLista[0]}</strong>.
+            </>
+          ) : (
+            <>
+              O setor não está totalmente coberto no turno <strong>SN</strong> (mínimo de {MIN_TECNICOS_POR_TURNO} técnicos). Dias:{' '}
+              <strong>{diasComPoucosTecnicosSNLista.join(', ')}</strong>.
             </>
           )}
         </Alert>
@@ -342,7 +413,7 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
                 const idx = dias.indexOf(dia);
                 const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
                 const feriadoNome = feriadosPorDia[dia] ?? null;
-                const semCobertura = diasSemCobertura.has(dia);
+                const semCobertura = diasComProblemaCobertura.has(dia);
                 return (
                   <th
                     key={dia}
@@ -357,7 +428,7 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
                     )}
                     title={
                       semCobertura
-                        ? 'Sem cobertura MT/SN'
+                        ? 'Cobertura insuficiente neste dia'
                         : feriadoNome ?? (isHoje ? 'Dia atual' : undefined)
                     }
                   >
@@ -385,7 +456,7 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
                 const isHoje = dia === hoje;
                 const isWeekend = ds === 'SAB' || ds === 'DOM';
                 const feriadoNome = feriadosPorDia[dia] ?? null;
-                const semCobertura = diasSemCobertura.has(dia);
+                const semCobertura = diasComProblemaCobertura.has(dia);
                 return (
                   <th
                     key={idx}
@@ -398,7 +469,11 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
                             colunaCalendarioClass({ isWeekend, feriadoNome, isHoje, parte: 'dow' })
                           )
                     )}
-                    title={feriadoNome ?? undefined}
+                    title={
+                      semCobertura
+                        ? 'Cobertura insuficiente neste dia'
+                        : feriadoNome ?? undefined
+                    }
                   >
                     {ds}
                   </th>
@@ -442,6 +517,52 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
                 </Fragment>
               );
             })}
+
+            {indisponivel.length > 0 && (
+              <>
+                <tr>
+                  <td colSpan={COLUNAS_FIXAS.length + dias.length} className="h-2 bg-slate-100/80 border-y" />
+                </tr>
+                <tr className="bg-sky-50/60">
+                  <td
+                    colSpan={COLUNAS_FIXAS.length}
+                    className="border-b border-r px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-sky-900 sticky left-0 z-10 bg-sky-50/60"
+                  >
+                    Indisponível para assumir turno
+                  </td>
+                  {dias.map((dia, idx) => {
+                    const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
+                    return (
+                      <td
+                        key={dia}
+                        className={cn(
+                          'border-b bg-sky-50/40',
+                          colunaCalendarioClass({
+                            isWeekend,
+                            feriadoNome: feriadosPorDia[dia],
+                            isHoje: dia === hoje,
+                          })
+                        )}
+                      />
+                    );
+                  })}
+                </tr>
+                {indisponivel.map((func) => {
+                  const currentIndex = rowIndex++;
+                  return (
+                    <LinhaIndisponivel
+                      key={func.id}
+                      funcionario={func}
+                      dias={dias}
+                      diasSemana={diasSemana}
+                      hoje={hoje}
+                      feriadosPorDia={feriadosPorDia}
+                      rowIndex={currentIndex}
+                    />
+                  );
+                })}
+              </>
+            )}
 
             {semAtribuicao.length > 0 && (
               <>

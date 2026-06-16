@@ -46,16 +46,15 @@ export function LegendaFeriados({ mes, ano }: LegendaFeriadosProps) {
         <Stack spacing={2}>
           <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
             <Chip
-              label="Fim de semana"
+              label="Fim de semana e feriado"
               size="small"
               variant="outlined"
-              sx={{ bgcolor: 'grey.100', borderColor: 'grey.300' }}
-            />
-            <Chip
-              label="Feriado"
-              size="small"
-              variant="outlined"
-              sx={{ bgcolor: '#fff1f2', color: '#9f1239', borderColor: '#fecdd3' }}
+              sx={{
+                bgcolor: 'white',
+                borderColor: 'grey.400',
+                borderStyle: 'dashed',
+                color: 'grey.700',
+              }}
             />
             <Chip
               label="Hoje"
