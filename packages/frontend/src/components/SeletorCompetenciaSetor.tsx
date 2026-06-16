@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -9,6 +10,7 @@ import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import type { TipoEscala } from '@escala/shared';
 import { api } from '@/api/client';
 
 const MESES = [
@@ -16,19 +18,26 @@ const MESES = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
 
+const CONFIG: Record<TipoEscala, { label: string; pathSegment: string }> = {
+  tecnico: { label: 'Técnicos', pathSegment: 'escala' },
+  enfermeiro: { label: 'Enfermeiros', pathSegment: 'escala-enfermeiros' },
+};
+
 interface SeletorCompetenciaSetorProps {
   setorId: number;
   setorNome: string;
+  tipoEscala: TipoEscala;
 }
 
-export function SeletorCompetenciaSetor({ setorId, setorNome }: SeletorCompetenciaSetorProps) {
+export function SeletorCompetenciaSetor({ setorId, setorNome, tipoEscala }: SeletorCompetenciaSetorProps) {
+  const config = CONFIG[tipoEscala];
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
   const { data: competencias = [], isLoading } = useQuery({
-    queryKey: ['competencias-setor', setorId],
-    queryFn: () => api.listCompetenciasSetor(setorId),
+    queryKey: ['competencias-setor', setorId, tipoEscala],
+    queryFn: () => api.listCompetenciasSetor(setorId, tipoEscala),
     enabled: open,
   });
 
@@ -47,21 +56,21 @@ export function SeletorCompetenciaSetor({ setorId, setorNome }: SeletorCompetenc
 
   const handleSelect = (mes: number, ano: number) => {
     handleClose();
-    navigate(`/setores/${setorId}/escala/${mes}/${ano}`);
+    navigate(`/setores/${setorId}/${config.pathSegment}/${mes}/${ano}`);
   };
 
   return (
     <>
-      <Tooltip title="Escolher competência e abrir a escala">
+      <Tooltip title={`Escolher competência de ${config.label.toLowerCase()} e abrir a escala`}>
         <Button
           size="small"
           variant="outlined"
           startIcon={<CalendarMonthIcon />}
           onClick={handleOpen}
-          aria-label={`Mostrar escalas de ${setorNome}`}
+          aria-label={`Mostrar escalas de ${config.label.toLowerCase()} — ${setorNome}`}
           sx={{ textTransform: 'none' }}
         >
-          Mostrar escalas
+          {config.label}
         </Button>
       </Tooltip>
 
@@ -75,7 +84,7 @@ export function SeletorCompetenciaSetor({ setorId, setorNome }: SeletorCompetenc
       >
         <MenuItem disabled sx={{ opacity: 1, py: 0.75 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-            {setorNome}
+            {setorNome} — {config.label}
           </Typography>
         </MenuItem>
         <Divider />
@@ -102,5 +111,30 @@ export function SeletorCompetenciaSetor({ setorId, setorNome }: SeletorCompetenc
           ))}
       </Menu>
     </>
+  );
+}
+
+interface SeletoresCompetenciaSetorProps {
+  setorId: number;
+  setorNome: string;
+  mostrarTecnicos: boolean;
+  mostrarEnfermeiros: boolean;
+}
+
+export function SeletoresCompetenciaSetor({
+  setorId,
+  setorNome,
+  mostrarTecnicos,
+  mostrarEnfermeiros,
+}: SeletoresCompetenciaSetorProps) {
+  return (
+    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+      {mostrarTecnicos && (
+        <SeletorCompetenciaSetor setorId={setorId} setorNome={setorNome} tipoEscala="tecnico" />
+      )}
+      {mostrarEnfermeiros && (
+        <SeletorCompetenciaSetor setorId={setorId} setorNome={setorNome} tipoEscala="enfermeiro" />
+      )}
+    </Stack>
   );
 }

@@ -85,7 +85,7 @@ async function seed() {
 
   const [comp] = await db
     .insert(competencias)
-    .values({ mes: 6, ano: 2026, setorId, observacoes: 'Escala de referência - Junho/2026' })
+    .values({ mes: 6, ano: 2026, setorId, tipo: 'tecnico', observacoes: 'Escala de referência - Junho/2026' })
     .onConflictDoNothing()
     .returning();
 

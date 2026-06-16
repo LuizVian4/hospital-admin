@@ -1,10 +1,11 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { db } from '../db';
 import { setores, competencias } from '../db/schema';
 import { findOrCreateCompetencia, listSetoresComEnfermeiros, listSetoresComTecnicosEnfermagem } from '../services/escala.service';
 import { getDashboardData } from '../services/dashboard.service';
+import type { TipoEscala } from '@escala/shared';
 
 const setorSchema = z.object({
   nome: z.string().min(1),
@@ -15,7 +16,12 @@ const setorSchema = z.object({
 const competenciaSchema = z.object({
   mes: z.number().int().min(1).max(12),
   ano: z.number().int().min(2000),
+  tipo: z.enum(['tecnico', 'enfermeiro']).optional(),
 });
+
+function parseTipoEscala(value?: string): TipoEscala {
+  return value === 'enfermeiro' ? 'enfermeiro' : 'tecnico';
+}
 
 export const setoresRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Querystring: { comTecnicos?: string; comEnfermeiros?: string } }>('/api/setores', async (request) => {
@@ -69,40 +75,44 @@ export const setoresRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Params: { id: string } }>('/api/setores/:id/competencias', async (request, reply) => {
     const setorId = parseInt(request.params.id, 10);
     const body = competenciaSchema.parse(request.body);
+    const tipo = body.tipo ?? 'tecnico';
 
     const existing = await db.query.competencias.findFirst({
       where: (c, { and, eq }) =>
-        and(eq(c.mes, body.mes), eq(c.ano, body.ano), eq(c.setorId, setorId)),
+        and(eq(c.mes, body.mes), eq(c.ano, body.ano), eq(c.setorId, setorId), eq(c.tipo, tipo)),
     });
 
     if (existing) {
       return reply.status(409).send({
-        error: `Competência ${body.mes}/${body.ano} já existe para este setor`,
+        error: `Competência ${body.mes}/${body.ano} já existe para este setor (${tipo})`,
         competenciaId: existing.id,
       });
     }
 
-    const comp = await findOrCreateCompetencia(body.mes, body.ano, setorId);
+    const comp = await findOrCreateCompetencia(body.mes, body.ano, setorId, tipo);
     return reply.status(201).send(comp);
   });
 
   app.get<{
     Params: { id: string };
-    Querystring: { mes?: string; ano?: string };
+    Querystring: { mes?: string; ano?: string; tipo?: string };
   }>('/api/setores/:id/competencias', async (request, reply) => {
     const setorId = parseInt(request.params.id, 10);
     const mes = request.query.mes ? parseInt(request.query.mes, 10) : undefined;
     const ano = request.query.ano ? parseInt(request.query.ano, 10) : undefined;
+    const tipo = parseTipoEscala(request.query.tipo);
 
     if (mes !== undefined && ano !== undefined) {
       const comp = await db.query.competencias.findFirst({
         where: (c, { and, eq }) =>
-          and(eq(c.mes, mes), eq(c.ano, ano), eq(c.setorId, setorId)),
+          and(eq(c.mes, mes), eq(c.ano, ano), eq(c.setorId, setorId), eq(c.tipo, tipo)),
       });
 
       if (!comp) return reply.status(404).send({ error: 'Competência não encontrada' });
       return comp;
     }
+
+    const tipoFiltro = request.query.tipo ? tipo : undefined;
 
     return db
       .select({
@@ -110,10 +120,15 @@ export const setoresRoutes: FastifyPluginAsync = async (app) => {
         mes: competencias.mes,
         ano: competencias.ano,
         setorId: competencias.setorId,
+        tipo: competencias.tipo,
         observacoes: competencias.observacoes,
       })
       .from(competencias)
-      .where(eq(competencias.setorId, setorId))
+      .where(
+        tipoFiltro
+          ? and(eq(competencias.setorId, setorId), eq(competencias.tipo, tipoFiltro))
+          : eq(competencias.setorId, setorId)
+      )
       .orderBy(desc(competencias.ano), desc(competencias.mes));
   });
 };

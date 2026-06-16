@@ -779,7 +779,7 @@ export async function exportEscalaMesCompletoExcel(
   const gruposEscala = getGruposPorTipoEscala(tipoEscala);
 
   const comps = await db.query.competencias.findMany({
-    where: and(eq(competencias.mes, mes), eq(competencias.ano, ano)),
+    where: and(eq(competencias.mes, mes), eq(competencias.ano, ano), eq(competencias.tipo, tipoEscala)),
     with: { setor: true },
   });
   const compBySetorId = new Map(comps.map((c) => [c.setorId, c]));

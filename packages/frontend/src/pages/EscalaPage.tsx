@@ -104,9 +104,9 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
 
       try {
         const [atual, anterior, proxima] = await Promise.all([
-          api.getCompetencia(setorIdNum, mesNum, anoNum),
-          api.getCompetencia(setorIdNum, mesAnterior, anoAnterior),
-          api.getCompetencia(setorIdNum, proxMesNum, proxAnoNum),
+          api.getCompetencia(setorIdNum, mesNum, anoNum, tipoEscala),
+          api.getCompetencia(setorIdNum, mesAnterior, anoAnterior, tipoEscala),
+          api.getCompetencia(setorIdNum, proxMesNum, proxAnoNum, tipoEscala),
         ]);
 
         if (cancelled) return;
@@ -126,7 +126,7 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [setorIdNum, mesNum, anoNum, mesAnterior, anoAnterior, proxMesNum, proxAnoNum]);
+  }, [setorIdNum, mesNum, anoNum, mesAnterior, anoAnterior, proxMesNum, proxAnoNum, tipoEscala]);
 
   const { data: escala, isLoading } = useEscala(competenciaId, tipoEscala);
   const updateObs = useUpdateObservacoes(competenciaId ?? 0);
@@ -181,7 +181,7 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
 
   const handleCriarCompetencia = async () => {
     try {
-      const created = await api.createCompetencia(setorIdNum, mesNum, anoNum);
+      const created = await api.createCompetencia(setorIdNum, mesNum, anoNum, tipoEscala);
       setCompetenciaId(created.id);
       toast.success(`Competência de ${periodoLabel} criada`);
     } catch {

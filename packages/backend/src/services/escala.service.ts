@@ -85,14 +85,16 @@ async function getIniciosPorCompetencia(
 async function getIniciosMesAnterior(
   setorId: number,
   mes: number,
-  ano: number
+  ano: number,
+  tipo: TipoEscala
 ): Promise<Map<number, EscalaInicio>> {
   const { mes: mesAnt, ano: anoAnt } = mesAnterior(mes, ano);
   const compAnt = await db.query.competencias.findFirst({
     where: and(
       eq(competencias.mes, mesAnt),
       eq(competencias.ano, anoAnt),
-      eq(competencias.setorId, setorId)
+      eq(competencias.setorId, setorId),
+      eq(competencias.tipo, tipo)
     ),
   });
   if (!compAnt) return new Map();
@@ -103,6 +105,7 @@ async function getTurnosMesAnterior(
   setorId: number,
   mes: number,
   ano: number,
+  tipo: TipoEscala,
   funcs: Array<{ id: number; categoria: string | null }>
 ): Promise<Map<number, Record<number, Turno | null>>> {
   const { mes: mesAnt, ano: anoAnt } = mesAnterior(mes, ano);
@@ -110,7 +113,8 @@ async function getTurnosMesAnterior(
     where: and(
       eq(competencias.mes, mesAnt),
       eq(competencias.ano, anoAnt),
-      eq(competencias.setorId, setorId)
+      eq(competencias.setorId, setorId),
+      eq(competencias.tipo, tipo)
     ),
   });
 
@@ -120,7 +124,7 @@ async function getTurnosMesAnterior(
   const totalDias = getDiasNoMes(mesAnt, anoAnt);
   const dias = Array.from({ length: totalDias }, (_, i) => i + 1);
   const inicios = await getIniciosPorCompetencia(compAnt.id);
-  const iniciosMesAnterior = await getIniciosMesAnterior(setorId, mesAnt, anoAnt);
+  const iniciosMesAnterior = await getIniciosMesAnterior(setorId, mesAnt, anoAnt, tipo);
   const trocas = await db.query.escalaTrocas.findMany({
     where: eq(escalaTrocas.competenciaId, compAnt.id),
   });
@@ -377,7 +381,7 @@ function getTurnoEfetivo(func: FuncionarioComTurnos, dia: number): Turno | null 
 
 export async function getGradeEscala(
   competenciaId: number,
-  tipoEscala: TipoEscala = 'tecnico'
+  tipoEscalaParam?: TipoEscala
 ): Promise<GradeEscalaResponse | null> {
   const comp = await db.query.competencias.findFirst({
     where: eq(competencias.id, competenciaId),
@@ -385,6 +389,8 @@ export async function getGradeEscala(
   });
 
   if (!comp || !comp.setor) return null;
+
+  const tipoEscala = tipoEscalaParam ?? (comp.tipo as TipoEscala) ?? 'tecnico';
 
   const totalDias = getDiasNoMes(comp.mes, comp.ano);
   const dias = Array.from({ length: totalDias }, (_, i) => i + 1);
@@ -419,8 +425,8 @@ export async function getGradeEscala(
     if (config) iniciosPorFunc.set(row.funcionarioId, config);
   }
 
-  const turnosMesAnterior = await getTurnosMesAnterior(comp.setorId!, comp.mes, comp.ano, funcs);
-  const iniciosMesAnterior = await getIniciosMesAnterior(comp.setorId!, comp.mes, comp.ano);
+  const turnosMesAnterior = await getTurnosMesAnterior(comp.setorId!, comp.mes, comp.ano, tipoEscala, funcs);
+  const iniciosMesAnterior = await getIniciosMesAnterior(comp.setorId!, comp.mes, comp.ano, tipoEscala);
   const { mes: mesAnt, ano: anoAnt } = mesAnterior(comp.mes, comp.ano);
   const diasNoMesAnterior = getDiasNoMes(mesAnt, anoAnt);
 
@@ -613,7 +619,8 @@ export async function getRelatorioFolgas(mes: number, ano: number, setorId?: num
 
   const results = [];
   for (const comp of comps) {
-    const grade = await getGradeEscala(comp.id);
+    const tipo = (comp.tipo as TipoEscala) ?? 'tecnico';
+    const grade = await getGradeEscala(comp.id, tipo);
     if (!grade) continue;
 
     const folgas: Array<{
@@ -655,7 +662,8 @@ export async function getRelatorioCargaHoraria(mes: number, ano: number) {
 
   const results = [];
   for (const comp of comps) {
-    const grade = await getGradeEscala(comp.id);
+    const tipo = (comp.tipo as TipoEscala) ?? 'tecnico';
+    const grade = await getGradeEscala(comp.id, tipo);
     if (!grade) continue;
 
     const porFunc = new Map<number, { nome: string; horas: number; contratado: string }>();
@@ -709,19 +717,25 @@ export async function listSetoresComEnfermeiros() {
   return listSetoresPorTipoEscala('enfermeiro');
 }
 
-export async function findOrCreateCompetencia(mes: number, ano: number, setorId: number) {
+export async function findOrCreateCompetencia(
+  mes: number,
+  ano: number,
+  setorId: number,
+  tipo: TipoEscala = 'tecnico'
+) {
   const existing = await db.query.competencias.findFirst({
     where: and(
       eq(competencias.mes, mes),
       eq(competencias.ano, ano),
-      eq(competencias.setorId, setorId)
+      eq(competencias.setorId, setorId),
+      eq(competencias.tipo, tipo)
     ),
   });
   if (existing) return existing;
 
   const [created] = await db
     .insert(competencias)
-    .values({ mes, ano, setorId })
+    .values({ mes, ano, setorId, tipo })
     .returning();
   return created;
 }
@@ -736,18 +750,19 @@ export interface SimularProximoMesResult {
 
 export async function simularProximoMes(
   competenciaId: number,
-  tipoEscala: TipoEscala = 'tecnico'
+  tipoEscalaParam: TipoEscala = 'tecnico'
 ): Promise<SimularProximoMesResult> {
-  const grade = await getGradeEscala(competenciaId, tipoEscala);
-  if (!grade) throw new Error('Competência não encontrada');
-
   const comp = await db.query.competencias.findFirst({
     where: eq(competencias.id, competenciaId),
   });
-  if (!comp?.setorId) throw new Error('Setor não encontrado');
+  if (!comp?.setorId) throw new Error('Competência não encontrada');
+
+  const tipoEscala = (comp.tipo as TipoEscala) ?? tipoEscalaParam;
+  const grade = await getGradeEscala(competenciaId, tipoEscala);
+  if (!grade) throw new Error('Competência não encontrada');
 
   const { mes: proxMes, ano: proxAno } = mesSeguinte(comp.mes, comp.ano);
-  const proxComp = await findOrCreateCompetencia(proxMes, proxAno, comp.setorId);
+  const proxComp = await findOrCreateCompetencia(proxMes, proxAno, comp.setorId, tipoEscala);
 
   let processados = 0;
   let ignorados = 0;

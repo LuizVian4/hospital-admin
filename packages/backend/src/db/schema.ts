@@ -41,11 +41,12 @@ export const competencias = pgTable(
     mes: integer('mes').notNull(),
     ano: integer('ano').notNull(),
     setorId: integer('setor_id').references(() => setores.id),
+    tipo: text('tipo').notNull().default('tecnico'),
     observacoes: text('observacoes'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (t) => ({
-    uniqueCompetencia: unique().on(t.mes, t.ano, t.setorId),
+    uniqueCompetencia: unique().on(t.mes, t.ano, t.setorId, t.tipo),
   })
 );
 

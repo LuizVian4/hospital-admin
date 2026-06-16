@@ -21,7 +21,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import type { Setor } from '@escala/shared';
 import type { DashboardData } from '@/api/client';
-import { SeletorCompetenciaSetor } from '@/components/SeletorCompetenciaSetor';
+import { SeletoresCompetenciaSetor } from '@/components/SeletorCompetenciaSetor';
 import { useCreateSetor, useUpdateSetor } from '@/hooks/useSetores';
 import { toast } from 'sonner';
 
@@ -204,12 +204,22 @@ function SetorResumoCard({
         </Stack>
 
         <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
-          <Chip
-            label={row.temCompetencia ? 'Competência aberta' : 'Sem competência'}
-            size="small"
-            color={row.temCompetencia ? 'success' : 'default'}
-            variant={row.temCompetencia ? 'filled' : 'outlined'}
-          />
+          {row.totalTecnicos > 0 && (
+            <Chip
+              label={row.temCompetenciaTecnico ? 'Comp. técnicos' : 'Sem comp. técnicos'}
+              size="small"
+              color={row.temCompetenciaTecnico ? 'success' : 'default'}
+              variant={row.temCompetenciaTecnico ? 'filled' : 'outlined'}
+            />
+          )}
+          {row.totalEnfermeiros > 0 && (
+            <Chip
+              label={row.temCompetenciaEnfermeiro ? 'Comp. enfermeiros' : 'Sem comp. enfermeiros'}
+              size="small"
+              color={row.temCompetenciaEnfermeiro ? 'success' : 'default'}
+              variant={row.temCompetenciaEnfermeiro ? 'filled' : 'outlined'}
+            />
+          )}
           {precisaAtencao && (
             <Chip
               icon={<WarningAmberIcon />}
@@ -237,7 +247,12 @@ function SetorResumoCard({
         </Grid>
 
         <Box sx={{ pt: 0.5 }}>
-          <SeletorCompetenciaSetor setorId={row.setorId} setorNome={row.setor} />
+          <SeletoresCompetenciaSetor
+            setorId={row.setorId}
+            setorNome={row.setor}
+            mostrarTecnicos={row.totalTecnicos > 0}
+            mostrarEnfermeiros={row.totalEnfermeiros > 0}
+          />
         </Box>
       </CardContent>
     </Card>
@@ -283,7 +298,10 @@ export function ResumoPorSetor({ resumo, setoresInfo }: ResumoPorSetorProps) {
       enfermeiros: acc.enfermeiros + s.totalEnfermeiros,
       enfermeirosComEscala: acc.enfermeirosComEscala + s.enfermeirosComEscala,
       semEscala: acc.semEscala + s.tecnicosSemEscala + s.enfermeirosSemEscala,
-      semCompetencia: acc.semCompetencia + (s.temCompetencia ? 0 : 1),
+      semCompetencia:
+        acc.semCompetencia +
+        (s.totalTecnicos > 0 && !s.temCompetenciaTecnico ? 1 : 0) +
+        (s.totalEnfermeiros > 0 && !s.temCompetenciaEnfermeiro ? 1 : 0),
     }),
     {
       tecnicos: 0,

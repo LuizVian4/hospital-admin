@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../db';
 import { competencias, escalaInicios, funcionarios, setores, statusEspeciais } from '../db/schema';
-import { DIA_INICIO_ESCALA, getPadraoEscala, resolverIndiceNoPadrao } from '@escala/shared';
+import { DIA_INICIO_ESCALA, getPadraoEscala, isEnfermeiro, resolverIndiceNoPadrao, type TipoEscala } from '@escala/shared';
 import {
   normalizeTurno,
   normalizeContrato,
@@ -12,6 +12,7 @@ import {
 } from '../utils/helpers';
 import type { Turno } from '@escala/shared';
 import { limitesMes, normalizarStatusEspecial } from '@escala/shared';
+import { findOrCreateCompetencia } from './escala.service';
 
 export interface ImportPreviewSetor {
   nome: string;
@@ -641,71 +642,71 @@ export async function persistImport(
       gerente: setorData.gerente,
     });
 
-    let competencia: typeof competencias.$inferSelect | null = null;
-    {
-      const mes = setorData.mes ?? defaultMes ?? new Date().getMonth() + 1;
-      const ano = setorData.ano ?? defaultAno ?? new Date().getFullYear();
+    const mesImport = setorData.mes ?? defaultMes ?? new Date().getMonth() + 1;
+    const anoImport = setorData.ano ?? defaultAno ?? new Date().getFullYear();
 
-      competencia =
-        (await db.query.competencias.findFirst({
-          where: and(
-            eq(competencias.mes, mes),
-            eq(competencias.ano, ano),
-            eq(competencias.setorId, setor.id)
-          ),
-        })) ?? null;
+    const competenciasExistentes = await db.query.competencias.findMany({
+      where: and(
+        eq(competencias.mes, mesImport),
+        eq(competencias.ano, anoImport),
+        eq(competencias.setorId, setor.id)
+      ),
+    });
 
-      if (competencia) {
-        await db.delete(escalaInicios).where(eq(escalaInicios.competenciaId, competencia.id));
-        await db.delete(statusEspeciais).where(eq(statusEspeciais.competenciaId, competencia.id));
-        if (setorData.observacoes !== undefined) {
-          await db
-            .update(competencias)
-            .set({ observacoes: setorData.observacoes })
-            .where(eq(competencias.id, competencia.id));
-        }
-      } else {
-        [competencia] = await db
-          .insert(competencias)
-          .values({
-            mes,
-            ano,
-            setorId: setor.id,
-            observacoes: setorData.observacoes,
-          })
-          .returning();
+    for (const comp of competenciasExistentes) {
+      await db.delete(escalaInicios).where(eq(escalaInicios.competenciaId, comp.id));
+      await db.delete(statusEspeciais).where(eq(statusEspeciais.competenciaId, comp.id));
+      if (setorData.observacoes !== undefined) {
+        await db
+          .update(competencias)
+          .set({ observacoes: setorData.observacoes })
+          .where(eq(competencias.id, comp.id));
       }
     }
 
-    const mesImport = setorData.mes ?? defaultMes ?? new Date().getMonth() + 1;
-    const anoImport = setorData.ano ?? defaultAno ?? new Date().getFullYear();
+    const compTecnico = await findOrCreateCompetencia(mesImport, anoImport, setor.id, 'tecnico');
+    const compEnfermeiro = await findOrCreateCompetencia(mesImport, anoImport, setor.id, 'enfermeiro');
+
+    if (setorData.observacoes !== undefined) {
+      await db
+        .update(competencias)
+        .set({ observacoes: setorData.observacoes })
+        .where(eq(competencias.id, compTecnico.id));
+      await db
+        .update(competencias)
+        .set({ observacoes: setorData.observacoes })
+        .where(eq(competencias.id, compEnfermeiro.id));
+    }
+
+    const competenciaPorTipo: Record<TipoEscala, typeof compTecnico> = {
+      tecnico: compTecnico,
+      enfermeiro: compEnfermeiro,
+    };
 
     for (const f of setorData.funcionarios) {
       const func = await upsertFuncionario(f, setor.id);
 
-      if (competencia) {
-        const padrao = getPadraoEscala(func.categoria ?? '');
-        const turnoInicio = f.turnos[DIA_INICIO_ESCALA];
-        if (padrao && turnoInicio) {
-          const indicePadrao = resolverIndiceNoPadrao(
-            padrao,
-            DIA_INICIO_ESCALA,
-            turnoInicio,
-            f.turnos
-          );
-          await db.insert(escalaInicios).values({
-            competenciaId: competencia.id,
-            funcionarioId: func.id,
-            mesInicio: mesImport,
-            anoInicio: anoImport,
-            turnoInicio,
-            indicePadrao,
-          });
-        }
-      }
-    }
+      const padrao = getPadraoEscala(func.categoria ?? '');
+      const turnoInicio = f.turnos[DIA_INICIO_ESCALA];
+      if (!padrao || !turnoInicio) continue;
 
-    if (!competencia) continue;
+      const tipo: TipoEscala = isEnfermeiro(func.categoria ?? '') ? 'enfermeiro' : 'tecnico';
+      const competencia = competenciaPorTipo[tipo];
+      const indicePadrao = resolverIndiceNoPadrao(
+        padrao,
+        DIA_INICIO_ESCALA,
+        turnoInicio,
+        f.turnos
+      );
+      await db.insert(escalaInicios).values({
+        competenciaId: competencia.id,
+        funcionarioId: func.id,
+        mesInicio: mesImport,
+        anoInicio: anoImport,
+        turnoInicio,
+        indicePadrao,
+      });
+    }
 
     for (const se of setorData.statusEspeciais) {
       let func = se.matricula
@@ -728,12 +729,15 @@ export async function persistImport(
           .returning();
       }
 
+      const tipoStatus: TipoEscala = isEnfermeiro(func.categoria ?? '') ? 'enfermeiro' : 'tecnico';
+      const competenciaStatus = competenciaPorTipo[tipoStatus];
+
       await db.insert(statusEspeciais).values({
-        competenciaId: competencia!.id,
+        competenciaId: competenciaStatus.id,
         funcionarioId: func.id,
         status: normalizarStatusEspecial(se.status),
-        dataInicio: limitesMes(competencia!.mes, competencia!.ano).inicio,
-        dataFim: limitesMes(competencia!.mes, competencia!.ano).fim,
+        dataInicio: limitesMes(competenciaStatus.mes, competenciaStatus.ano).inicio,
+        dataFim: limitesMes(competenciaStatus.mes, competenciaStatus.ano).fim,
       });
     }
   }

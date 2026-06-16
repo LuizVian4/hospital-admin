@@ -1,5 +1,5 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { getPadraoEscala, isEnfermeiro, isTecnicoEnfermagem } from '@escala/shared';
+import { getPadraoEscala, isEnfermeiro, isTecnicoEnfermagem, type TipoEscala } from '@escala/shared';
 import { db } from '../db';
 import { setores, funcionarios, competencias, escalaInicios, statusEspeciais } from '../db/schema';
 import { mapFuncionario, getDiasNoMes } from '../utils/helpers';
@@ -69,8 +69,18 @@ export async function getDashboardData(mes?: number, ano?: number) {
     .from(competencias)
     .where(and(eq(competencias.mes, mesAtual), eq(competencias.ano, anoAtual)));
 
+  const compBySetorTecnico = new Map<number, number>();
+  const compBySetorEnfermeiro = new Map<number, number>();
+  for (const c of comps) {
+    if (c.setorId == null) continue;
+    if (c.tipo === 'enfermeiro') {
+      compBySetorEnfermeiro.set(c.setorId, c.id);
+    } else {
+      compBySetorTecnico.set(c.setorId, c.id);
+    }
+  }
+
   const compIds = comps.map((c) => c.id);
-  const compBySetor = new Map(comps.map((c) => [c.setorId, c.id]));
 
   const statusPorSetor = new Map<number, Awaited<ReturnType<typeof listStatusPorSetorNoMes>>>();
   for (const setor of allSetores) {
@@ -85,13 +95,23 @@ export async function getDashboardData(mes?: number, ano?: number) {
           .where(inArray(escalaInicios.competenciaId, compIds))
       : [];
 
-  const funcComInicio = new Set(inicios.map((i) => i.funcionarioId));
+  const funcComInicioTecnico = new Set<number>();
+  const funcComInicioEnfermeiro = new Set<number>();
+  for (const inicio of inicios) {
+    const comp = comps.find((c) => c.id === inicio.competenciaId);
+    if (!comp) continue;
+    if (comp.tipo === 'enfermeiro') {
+      funcComInicioEnfermeiro.add(inicio.funcionarioId);
+    } else {
+      funcComInicioTecnico.add(inicio.funcionarioId);
+    }
+  }
 
   const coberturaTecnicos = calcularCobertura(
     allFuncs,
     isTecnicoEnfermagem,
-    funcComInicio,
-    compBySetor,
+    funcComInicioTecnico,
+    compBySetorTecnico,
     statusPorSetor,
     dias,
     mesAtual,
@@ -100,8 +120,8 @@ export async function getDashboardData(mes?: number, ano?: number) {
   const coberturaEnfermeiros = calcularCobertura(
     allFuncs,
     isEnfermeiro,
-    funcComInicio,
-    compBySetor,
+    funcComInicioEnfermeiro,
+    compBySetorEnfermeiro,
     statusPorSetor,
     dias,
     mesAtual,
@@ -113,7 +133,8 @@ export async function getDashboardData(mes?: number, ano?: number) {
   );
   const semEscalaTecnicosIds = new Set(coberturaTecnicos.semEscala.map((f) => f.id));
   const semEscalaEnfermeirosIds = new Set(coberturaEnfermeiros.semEscala.map((f) => f.id));
-  const setoresComCompetencia = new Set(comps.map((c) => c.setorId));
+  const setoresComCompetenciaTecnico = new Set(compBySetorTecnico.keys());
+  const setoresComCompetenciaEnfermeiro = new Set(compBySetorEnfermeiro.keys());
 
   const totalTecnicos = coberturaTecnicos.total;
   const comEscalaDefinida = coberturaTecnicos.comEscalaDefinida;
@@ -142,8 +163,19 @@ export async function getDashboardData(mes?: number, ano?: number) {
     .sort((a, b) => b.total - a.total);
 
   const setoresSemCompetencia = allSetores
-    .filter((s) => !setoresComCompetencia.has(s.id))
-    .map((s) => ({ setorId: s.id, setor: s.nome }));
+    .flatMap((s) => {
+      const funcsNoSetor = allFuncs.filter((f) => f.setorId === s.id);
+      const temTecnicos = funcsNoSetor.some((f) => isTecnicoEnfermagem(f.categoria ?? ''));
+      const temEnfermeiros = funcsNoSetor.some((f) => isEnfermeiro(f.categoria ?? ''));
+      const faltando: { setorId: number; setor: string; tipo: TipoEscala }[] = [];
+      if (temTecnicos && !setoresComCompetenciaTecnico.has(s.id)) {
+        faltando.push({ setorId: s.id, setor: s.nome, tipo: 'tecnico' });
+      }
+      if (temEnfermeiros && !setoresComCompetenciaEnfermeiro.has(s.id)) {
+        faltando.push({ setorId: s.id, setor: s.nome, tipo: 'enfermeiro' });
+      }
+      return faltando;
+    });
 
   const resumoEscalaSetores = allSetores
     .map((s) => {
@@ -170,7 +202,16 @@ export async function getDashboardData(mes?: number, ano?: number) {
           ? Math.round((enfermeirosComEscala / enfermeirosNoSetor.length) * 100)
           : 100;
 
-      const pendencias = tecnicosSemEscala + enfermeirosSemEscala + (setoresComCompetencia.has(s.id) ? 0 : 1);
+      const semCompetenciaTecnico =
+        tecnicosNoSetor.length > 0 && !setoresComCompetenciaTecnico.has(s.id);
+      const semCompetenciaEnfermeiro =
+        enfermeirosNoSetor.length > 0 && !setoresComCompetenciaEnfermeiro.has(s.id);
+
+      const pendencias =
+        tecnicosSemEscala +
+        enfermeirosSemEscala +
+        (semCompetenciaTecnico ? 1 : 0) +
+        (semCompetenciaEnfermeiro ? 1 : 0);
 
       return {
         setorId: s.id,
@@ -185,7 +226,8 @@ export async function getDashboardData(mes?: number, ano?: number) {
         enfermeirosSemEscala,
         coberturaTecnicosPercent,
         coberturaEnfermeirosPercent,
-        temCompetencia: setoresComCompetencia.has(s.id),
+        temCompetenciaTecnico: !semCompetenciaTecnico,
+        temCompetenciaEnfermeiro: !semCompetenciaEnfermeiro,
         pendencias,
       };
     })
@@ -228,7 +270,7 @@ export async function getDashboardData(mes?: number, ano?: number) {
     comEscalaDefinidaEnfermeiros,
     coberturaEscalaEnfermeirosPercent,
     funcionariosSemSetor,
-    setoresComCompetencia: setoresComCompetencia.size,
+    setoresComCompetencia: setoresComCompetenciaTecnico.size + setoresComCompetenciaEnfermeiro.size,
     setoresSemCompetencia,
     funcionariosPorCategoria,
     funcionariosPorContrato,

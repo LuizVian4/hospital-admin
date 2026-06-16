@@ -16,6 +16,7 @@ export interface Competencia {
   mes: number;
   ano: number;
   setorId: number | null;
+  tipo: TipoEscala;
   observacoes?: string | null;
 }
 
@@ -34,7 +35,7 @@ export interface DashboardData {
   coberturaEscalaEnfermeirosPercent: number;
   funcionariosSemSetor: number;
   setoresComCompetencia: number;
-  setoresSemCompetencia: { setorId: number; setor: string }[];
+  setoresSemCompetencia: { setorId: number; setor: string; tipo: TipoEscala }[];
   funcionariosPorCategoria: { categoria: string; total: number }[];
   funcionariosPorContrato: { tipo: string; total: number }[];
   resumoEscalaSetores: {
@@ -50,7 +51,8 @@ export interface DashboardData {
     enfermeirosSemEscala: number;
     coberturaTecnicosPercent: number;
     coberturaEnfermeirosPercent: number;
-    temCompetencia: boolean;
+    temCompetenciaTecnico: boolean;
+    temCompetenciaEnfermeiro: boolean;
     pendencias: number;
   }[];
   statusEspeciaisNoMes: { status: string; total: number }[];
@@ -117,11 +119,11 @@ export const api = {
   deleteStatusEspecial: (id: number) =>
     request<{ success: boolean }>(`/api/status-especiais/${id}`, { method: 'DELETE' }),
 
-  createCompetencia: async (setorId: number, mes: number, ano: number) => {
+  createCompetencia: async (setorId: number, mes: number, ano: number, tipo: TipoEscala = 'tecnico') => {
     const res = await fetch(`${API_URL}/api/setores/${setorId}/competencias`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mes, ano }),
+      body: JSON.stringify({ mes, ano, tipo }),
     });
     if (res.status === 409) {
       const data = await res.json();
@@ -134,17 +136,19 @@ export const api = {
     return res.json() as Promise<{ id: number }>;
   },
 
-  getCompetencia: async (setorId: number, mes: number, ano: number) => {
+  getCompetencia: async (setorId: number, mes: number, ano: number, tipo: TipoEscala = 'tecnico') => {
     const res = await fetch(
-      `${API_URL}/api/setores/${setorId}/competencias?mes=${mes}&ano=${ano}`
+      `${API_URL}/api/setores/${setorId}/competencias?mes=${mes}&ano=${ano}&tipo=${tipo}`
     );
     if (res.status === 404) return null;
     if (!res.ok) throw new Error('Erro ao buscar competência');
     return res.json() as Promise<Competencia>;
   },
 
-  listCompetenciasSetor: (setorId: number) =>
-    request<Competencia[]>(`/api/setores/${setorId}/competencias`),
+  listCompetenciasSetor: (setorId: number, tipo?: TipoEscala) =>
+    request<Competencia[]>(
+      `/api/setores/${setorId}/competencias${tipo ? `?tipo=${tipo}` : ''}`
+    ),
 
   getEscala: (competenciaId: number, tipo: TipoEscala = 'tecnico') =>
     request<GradeEscalaResponse>(

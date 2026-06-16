@@ -156,20 +156,23 @@ export function Dashboard() {
       {data.setoresSemCompetencia.length > 0 && (
         <Alert severity="warning" icon={<WarningAmberIcon />}>
           <Typography variant="body2" sx={{ fontWeight: 600 }} gutterBottom>
-            {data.setoresSemCompetencia.length} setor(es) sem competência em {periodoLabel}
+            {data.setoresSemCompetencia.length} competência(s) pendente(s) em {periodoLabel}
           </Typography>
           <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-            {data.setoresSemCompetencia.map((s) => (
-              <Chip
-                key={s.setorId}
-                label={s.setor}
-                size="small"
-                component={RouterLink}
-                to={`/setores/${s.setorId}/escala/${mes}/${ano}`}
-                clickable
-                variant="outlined"
-              />
-            ))}
+            {data.setoresSemCompetencia.map((s) => {
+              const pathSegment = s.tipo === 'enfermeiro' ? 'escala-enfermeiros' : 'escala';
+              return (
+                <Chip
+                  key={`${s.setorId}-${s.tipo}`}
+                  label={`${s.setor} (${s.tipo === 'enfermeiro' ? 'enfermeiros' : 'técnicos'})`}
+                  size="small"
+                  component={RouterLink}
+                  to={`/setores/${s.setorId}/${pathSegment}/${mes}/${ano}`}
+                  clickable
+                  variant="outlined"
+                />
+              );
+            })}
           </Stack>
         </Alert>
       )}
