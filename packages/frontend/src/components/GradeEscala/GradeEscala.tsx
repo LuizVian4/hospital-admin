@@ -12,8 +12,8 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import SyncIcon from '@mui/icons-material/Sync';
-import type { GradeEscalaResponse, Turno, EscalaDiaUpdate, FuncionarioComTurnos } from '@escala/shared';
-import { GRUPOS_ESCALA, mapFeriadosPorDia } from '@escala/shared';
+import type { GradeEscalaResponse, GrupoEscala, Turno, EscalaDiaUpdate, FuncionarioComTurnos, TipoEscala } from '@escala/shared';
+import { getGruposPorTipoEscala, mapFeriadosPorDia } from '@escala/shared';
 import { COLUNAS_FIXAS, stickyLeft, colunaCalendarioClass } from '@/constants/turnos';
 import { getDiasSemCoberturaMTSN } from '@/lib/escalaCobertura';
 import { listarFuncionarios, organizarPorGrupoEscala } from '@/lib/escalaGrupos';
@@ -28,13 +28,15 @@ import { toast } from 'sonner';
 
 interface GradeEscalaProps {
   data: GradeEscalaResponse;
+  tipoEscala?: TipoEscala;
 }
 
-export function GradeEscala({ data }: GradeEscalaProps) {
+export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) {
+  const gruposEscala = useMemo(() => getGruposPorTipoEscala(tipoEscala), [tipoEscala]);
   const { competencia, dias, diasSemana, grupos } = data;
   const updateMutation = useUpdateEscalaDia(competencia.id);
   const atribuirGrupo = useAtribuirGrupoEscala(competencia.id);
-  const trocarEscala = useTrocarEscalaDia(competencia.id);
+  const trocarEscala = useTrocarEscalaDia(competencia.id, tipoEscala);
   const pendingRef = useRef<Map<string, EscalaDiaUpdate>>(new Map());
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const [dragOverGrupo, setDragOverGrupo] = useState<number | null>(null);
@@ -48,8 +50,8 @@ export function GradeEscala({ data }: GradeEscalaProps) {
 
   const funcionarios = useMemo(() => listarFuncionarios(grupos), [grupos]);
   const { porGrupo, semAtribuicao, semPadrao, comPadrao } = useMemo(
-    () => organizarPorGrupoEscala(funcionarios),
-    [funcionarios]
+    () => organizarPorGrupoEscala(funcionarios, gruposEscala),
+    [funcionarios, gruposEscala]
   );
 
   const totalFuncionarios = funcionarios.length;
@@ -105,7 +107,7 @@ export function GradeEscala({ data }: GradeEscalaProps) {
 
   const handleAtribuirGrupo = useCallback(
     (funcionarioId: number, indicePadrao: number) => {
-      const grupo = GRUPOS_ESCALA.find((g) => g.indicePadrao === indicePadrao);
+      const grupo = gruposEscala.find((g) => g.indicePadrao === indicePadrao);
       if (!grupo) return;
 
       atribuirGrupo.mutate(
@@ -117,7 +119,7 @@ export function GradeEscala({ data }: GradeEscalaProps) {
       );
       setDragOverGrupo(null);
     },
-    [atribuirGrupo]
+    [atribuirGrupo, gruposEscala]
   );
 
   const cancelarTroca = useCallback(() => {
@@ -405,7 +407,7 @@ export function GradeEscala({ data }: GradeEscalaProps) {
             </tr>
           </thead>
           <tbody>
-            {GRUPOS_ESCALA.map((grupo, gi) => {
+            {gruposEscala.map((grupo, gi) => {
               const membros = porGrupo.get(grupo.indicePadrao) ?? [];
               return (
                 <Fragment key={grupo.id}>
@@ -481,6 +483,7 @@ export function GradeEscala({ data }: GradeEscalaProps) {
                       hoje={hoje}
                       feriadosPorDia={feriadosPorDia}
                       rowIndex={currentIndex}
+                      gruposEscala={gruposEscala}
                       onAtribuirGrupo={handleAtribuirGrupo}
                     />
                   );

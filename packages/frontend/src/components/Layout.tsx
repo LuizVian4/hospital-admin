@@ -13,12 +13,13 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import PeopleIcon from '@mui/icons-material/People';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { useSetores } from '@/hooks/useFuncionarios';
+import { useSetoresPorEscala } from '@/hooks/useFuncionarios';
 
 const DRAWER_WIDTH = 256;
 const DRAWER_COLLAPSED_WIDTH = 72;
@@ -55,22 +56,32 @@ const drawerPaperSx = (collapsed: boolean) => ({
 
 export function Layout() {
   const location = useLocation();
-  const { data: setores = [] } = useSetores();
+  const { data: setoresTecnicos = [] } = useSetoresPorEscala('tecnico');
+  const { data: setoresEnfermeiros = [] } = useSetoresPorEscala('enfermeiro');
   const [collapsed, setCollapsed] = useState(false);
 
   const now = new Date();
   const mes = now.getMonth() + 1;
   const ano = now.getFullYear();
-  const setorId = setores[0]?.id ?? 1;
-  const escalaTo = `/setores/${setorId}/escala/${mes}/${ano}`;
+  const setorTecnicosId = setoresTecnicos[0]?.id ?? 1;
+  const setorEnfermeirosId = setoresEnfermeiros[0]?.id ?? 1;
+  const escalaTecnicosTo = `/setores/${setorTecnicosId}/escala/${mes}/${ano}`;
+  const escalaEnfermeirosTo = `/setores/${setorEnfermeirosId}/escala-enfermeiros/${mes}/${ano}`;
 
   const nav = [
     staticNav[0],
     {
-      to: escalaTo,
-      label: 'Escala do Mês',
+      to: escalaTecnicosTo,
+      label: 'Escala de Técnicos',
       icon: CalendarMonthIcon,
-      isActive: (path: string) => path.includes('/escala/'),
+      isActive: (path: string) =>
+        path.includes('/escala/') && !path.includes('/escala-enfermeiros/'),
+    },
+    {
+      to: escalaEnfermeirosTo,
+      label: 'Escala de Enfermeiros',
+      icon: MedicalServicesIcon,
+      isActive: (path: string) => path.includes('/escala-enfermeiros/'),
     },
     ...staticNav.slice(1),
   ];

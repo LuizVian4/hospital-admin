@@ -27,6 +27,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import { api } from '@/api/client';
+import { isEnfermeiro } from '@escala/shared';
 import { SetoresEditor } from '@/components/SetoresEditor';
 import { SeletorCompetenciaSetor } from '@/components/SeletorCompetenciaSetor';
 
@@ -189,7 +190,7 @@ export function Dashboard() {
           <StatCard
             title="Sem escala definida"
             value={data.semEscalaDefinida.length}
-            subtitle={`Técnicos em ${periodoLabel}`}
+            subtitle={`Funcionários em ${periodoLabel}`}
             icon={<WarningAmberIcon />}
             color="warning"
           />
@@ -232,25 +233,50 @@ export function Dashboard() {
         </Alert>
       )}
 
-      <Card>
-        <CardContent>
-          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="h6">Cobertura de escala — técnicos de enfermagem</Typography>
-            <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700 }}>
-              {data.coberturaEscalaPercent}%
-            </Typography>
-          </Stack>
-          <LinearProgress
-            variant="determinate"
-            value={data.coberturaEscalaPercent}
-            sx={{ height: 10, borderRadius: 5 }}
-          />
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-            {data.comEscalaDefinida} de {data.totalTecnicos} técnicos com início de escala ou status especial
-            cobrindo o mês
-          </Typography>
-        </CardContent>
-      </Card>
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="h6">Cobertura de escala — técnicos de enfermagem</Typography>
+                <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700 }}>
+                  {data.coberturaEscalaPercent}%
+                </Typography>
+              </Stack>
+              <LinearProgress
+                variant="determinate"
+                value={data.coberturaEscalaPercent}
+                sx={{ height: 10, borderRadius: 5 }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                {data.comEscalaDefinida} de {data.totalTecnicos} técnicos com início de escala ou status
+                especial cobrindo o mês
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="h6">Cobertura de escala — enfermeiros</Typography>
+                <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700 }}>
+                  {data.coberturaEscalaEnfermeirosPercent}%
+                </Typography>
+              </Stack>
+              <LinearProgress
+                variant="determinate"
+                value={data.coberturaEscalaEnfermeirosPercent}
+                sx={{ height: 10, borderRadius: 5 }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                {data.comEscalaDefinidaEnfermeiros} de {data.totalEnfermeiros} enfermeiros com início de escala ou
+                status especial cobrindo o mês
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, lg: 7 }}>
@@ -388,7 +414,7 @@ export function Dashboard() {
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              Técnicos sem escala definida
+              Funcionários sem escala
               <Chip
                 label={data.semEscalaDefinida.length}
                 size="small"
@@ -413,6 +439,9 @@ export function Dashboard() {
                 <TableBody>
                   {data.semEscalaDefinida.map((f) => {
                     const setor = data.setores.find((s) => s.id === f.setorId);
+                    const escalaPath = isEnfermeiro(f.categoria ?? '')
+                      ? 'escala-enfermeiros'
+                      : 'escala';
                     return (
                       <TableRow key={f.id} hover>
                         <TableCell>{f.matricula}</TableCell>
@@ -422,7 +451,7 @@ export function Dashboard() {
                           {setor ? (
                             <Link
                               component={RouterLink}
-                              to={`/setores/${setor.id}/escala/${mes}/${ano}`}
+                              to={`/setores/${setor.id}/${escalaPath}/${mes}/${ano}`}
                               underline="hover"
                             >
                               {setor.nome}

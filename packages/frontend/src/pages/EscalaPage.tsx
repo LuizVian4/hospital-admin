@@ -34,7 +34,8 @@ import DialogContentText from '@mui/material/DialogContentText';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import { api } from '@/api/client';
 import { useEscala, useUpdateObservacoes, useSimularProximoMes } from '@/hooks/useEscala';
-import { useSetores } from '@/hooks/useFuncionarios';
+import { useSetoresPorEscala } from '@/hooks/useFuncionarios';
+import type { TipoEscala } from '@escala/shared';
 import { GradeEscala } from '@/components/GradeEscala/GradeEscala';
 import { GradeEscalaSkeleton } from '@/components/GradeEscala/GradeEscalaSkeleton';
 import { LegendaTurnos } from '@/components/GradeEscala/LegendaTurnos';
@@ -49,11 +50,32 @@ const MESES = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
 
+const ESCALA_CONFIG: Record<
+  TipoEscala,
+  { titulo: string; pathSegment: string; labelFuncionario: string }
+> = {
+  tecnico: {
+    titulo: 'Escala de Técnicos',
+    pathSegment: 'escala',
+    labelFuncionario: 'técnico',
+  },
+  enfermeiro: {
+    titulo: 'Escala de Enfermeiros',
+    pathSegment: 'escala-enfermeiros',
+    labelFuncionario: 'enfermeiro',
+  },
+};
+
 function formatDateBR(iso: string) {
   return iso.split('-').reverse().join('/');
 }
 
-export function EscalaPage() {
+interface EscalaPageProps {
+  tipoEscala?: TipoEscala;
+}
+
+export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
+  const config = ESCALA_CONFIG[tipoEscala];
   const { setorId, mes, ano } = useParams<{ setorId: string; mes: string; ano: string }>();
   const navigate = useNavigate();
   const [competenciaId, setCompetenciaId] = useState<number | undefined>();
@@ -61,6 +83,7 @@ export function EscalaPage() {
   const [temCompetenciaProxima, setTemCompetenciaProxima] = useState(false);
   const [competenciaLoading, setCompetenciaLoading] = useState(true);
   const [exportando, setExportando] = useState(false);
+  const [exportandoMesCompleto, setExportandoMesCompleto] = useState(false);
   const [confirmSimular, setConfirmSimular] = useState(false);
 
   const setorIdNum = parseInt(setorId || '1', 10);
@@ -72,7 +95,17 @@ export function EscalaPage() {
   const proxMesNum = useMemo(() => (mesNum === 12 ? 1 : mesNum + 1), [mesNum]);
   const proxAnoNum = useMemo(() => (mesNum === 12 ? anoNum + 1 : anoNum), [mesNum, anoNum]);
 
-  const { data: setores = [] } = useSetores();
+  const { data: setores = [], isLoading: setoresLoading } = useSetoresPorEscala(tipoEscala);
+
+  useEffect(() => {
+    if (setoresLoading || setores.length === 0) return;
+    if (!setores.some((s) => s.id === setorIdNum)) {
+      navigate(
+        `/setores/${setores[0].id}/${config.pathSegment}/${mesNum}/${anoNum}`,
+        { replace: true }
+      );
+    }
+  }, [setores, setoresLoading, setorIdNum, mesNum, anoNum, navigate, config.pathSegment]);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,21 +140,21 @@ export function EscalaPage() {
     };
   }, [setorIdNum, mesNum, anoNum, mesAnterior, anoAnterior, proxMesNum, proxAnoNum]);
 
-  const { data: escala, isLoading } = useEscala(competenciaId);
+  const { data: escala, isLoading } = useEscala(competenciaId, tipoEscala);
   const updateObs = useUpdateObservacoes(competenciaId ?? 0);
-  const simularProximoMes = useSimularProximoMes(competenciaId);
+  const simularProximoMes = useSimularProximoMes(competenciaId, tipoEscala);
 
   const setor = setores.find((s) => s.id === setorIdNum);
   const periodoLabel = `${MESES[mesNum - 1]} / ${anoNum}`;
   const proximoPeriodoLabel = `${MESES[proxMesNum - 1]} / ${proxAnoNum}`;
-  const podeSimularProximoMes = !!competenciaId && !temCompetenciaProxima;
+  const podeSimularProximoMes = !!competenciaId;
 
   const changeMes = (delta: number) => {
     let newMes = mesNum + delta;
     let newAno = anoNum;
     if (newMes < 1) { newMes = 12; newAno--; }
     if (newMes > 12) { newMes = 1; newAno++; }
-    navigate(`/setores/${setorIdNum}/escala/${newMes}/${newAno}`);
+    navigate(`/setores/${setorIdNum}/${config.pathSegment}/${newMes}/${newAno}`);
     setCompetenciaId(undefined);
   };
 
@@ -137,12 +170,24 @@ export function EscalaPage() {
     if (!competenciaId) return;
     setExportando(true);
     try {
-      await api.downloadEscalaExcel(competenciaId);
+      await api.downloadEscalaExcel(competenciaId, tipoEscala);
       toast.success('Planilha exportada');
     } catch {
       toast.error('Erro ao exportar planilha');
     } finally {
       setExportando(false);
+    }
+  };
+
+  const handleExportMesCompleto = async () => {
+    setExportandoMesCompleto(true);
+    try {
+      await api.downloadEscalaMesCompletoExcel(mesNum, anoNum, tipoEscala);
+      toast.success('Planilha do mês exportada');
+    } catch {
+      toast.error('Erro ao exportar planilha do mês');
+    } finally {
+      setExportandoMesCompleto(false);
     }
   };
 
@@ -162,11 +207,11 @@ export function EscalaPage() {
       onSuccess: (result) => {
         setConfirmSimular(false);
         toast.success(
-          `Escala de ${proximoPeriodoLabel} gerada para ${result.processados} técnico(s)${
+          `Escala de ${proximoPeriodoLabel} gerada para ${result.processados} ${config.labelFuncionario}(s)${
             result.ignorados > 0 ? ` (${result.ignorados} sem grupo ignorados)` : ''
           }`
         );
-        navigate(`/setores/${setorIdNum}/escala/${result.mes}/${result.ano}`);
+        navigate(`/setores/${setorIdNum}/${config.pathSegment}/${result.mes}/${result.ano}`);
         setCompetenciaId(result.competenciaId);
       },
       onError: (err) => {
@@ -181,7 +226,7 @@ export function EscalaPage() {
         <Stack direction="row" sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
           <CalendarMonthIcon color="primary" />
           <Typography variant="h4" component="h1">
-            Escala — {setor?.nome ?? 'Setor'}
+            {config.titulo} — {setor?.nome ?? 'Setor'}
           </Typography>
           <Chip icon={<CalendarMonthIcon />} label={periodoLabel} color="primary" variant="outlined" size="small" />
         </Stack>
@@ -205,7 +250,10 @@ export function EscalaPage() {
         >
           <SetorSelector
             value={setorIdNum}
-            onChange={(id) => navigate(`/setores/${id}/escala/${mesNum}/${anoNum}`)}
+            onChange={(id) =>
+              navigate(`/setores/${id}/${config.pathSegment}/${mesNum}/${anoNum}`)
+            }
+            tipoEscala={tipoEscala}
           />
 
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -249,9 +297,19 @@ export function EscalaPage() {
               size="small"
               startIcon={<DownloadIcon />}
               onClick={handleExportExcel}
-              disabled={!competenciaId || exportando || isLoading}
+              disabled={!competenciaId || exportando || exportandoMesCompleto || isLoading}
             >
-              {exportando ? 'Exportando...' : 'Exportar Excel'}
+              {exportando ? 'Exportando...' : 'Exportar Setor'}
+            </Button>
+
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<DownloadIcon />}
+              onClick={handleExportMesCompleto}
+              disabled={exportando || exportandoMesCompleto || isLoading}
+            >
+              {exportandoMesCompleto ? 'Exportando...' : 'Exportar mês completo'}
             </Button>
           </Stack>
         </Stack>
@@ -278,7 +336,7 @@ export function EscalaPage() {
         </Paper>
       )}
       {!competenciaLoading && isLoading && competenciaId && <GradeEscalaSkeleton />}
-      {escala && <GradeEscala data={escala} />}
+      {escala && <GradeEscala data={escala} tipoEscala={tipoEscala} />}
 
       {escala && escala.statusEspeciais.length > 0 && (
         <Card>
@@ -349,7 +407,7 @@ export function EscalaPage() {
               e grupo definidos em <strong>{periodoLabel}</strong>.
             </Typography>
             <Typography variant="body2" sx={{ mb: 2 }}>
-              Para cada técnico com grupo atribuído, o sistema irá:
+              Para cada {config.labelFuncionario} com grupo atribuído, o sistema irá:
             </Typography>
             <Box component="ul" sx={{ pl: 2.5, m: 0 }}>
               <Typography component="li" variant="body2">
@@ -363,7 +421,7 @@ export function EscalaPage() {
               </Typography>
             </Box>
             <Typography variant="body2" color="warning.main" sx={{ mt: 2 }}>
-              Escalas já existentes em {proximoPeriodoLabel} para esses técnicos serão substituídas.
+              Escalas já existentes em {proximoPeriodoLabel} para esses {config.labelFuncionario}s serão substituídas.
             </Typography>
           </DialogContentText>
         </DialogContent>

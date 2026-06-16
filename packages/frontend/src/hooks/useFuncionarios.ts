@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import type { Funcionario } from '@escala/shared';
+import type { Funcionario, TipoEscala } from '@escala/shared';
 
 export function useFuncionarios(filters?: Record<string, string>) {
   return useQuery({
@@ -14,6 +14,17 @@ export function useSetores() {
     queryKey: ['setores'],
     queryFn: api.getSetores,
   });
+}
+
+export function useSetoresPorEscala(tipo: TipoEscala) {
+  return useQuery({
+    queryKey: ['setores', 'escala', tipo],
+    queryFn: () => api.getSetoresPorEscala(tipo),
+  });
+}
+
+export function useSetoresEscala() {
+  return useSetoresPorEscala('tecnico');
 }
 
 export function useCreateFuncionario() {

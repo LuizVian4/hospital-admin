@@ -6,11 +6,18 @@ import {
   funcionarios,
   setores,
 } from '../db/schema';
-import type { EscalaInicio, FuncionarioComTurnos, GradeEscalaResponse, Turno } from '@escala/shared';
+import type {
+  EscalaInicio,
+  FuncionarioComTurnos,
+  GradeEscalaResponse,
+  TipoEscala,
+  Turno,
+} from '@escala/shared';
 import {
   appendObservacaoLista,
   formatObservacaoTrocaCompetencia,
   getPadraoEscala,
+  pertenceTipoEscala,
   projetarTurnosVazios,
   simularMesAPartirDeAncora,
   ancoraFromEscalaInicio,
@@ -241,7 +248,10 @@ function getTurnoEfetivo(func: FuncionarioComTurnos, dia: number): Turno | null 
   return func.turnos[dia] ?? func.turnosProjetados?.[dia] ?? null;
 }
 
-export async function getGradeEscala(competenciaId: number): Promise<GradeEscalaResponse | null> {
+export async function getGradeEscala(
+  competenciaId: number,
+  tipoEscala: TipoEscala = 'tecnico'
+): Promise<GradeEscalaResponse | null> {
   const comp = await db.query.competencias.findFirst({
     where: eq(competencias.id, competenciaId),
     with: { setor: true },
@@ -260,7 +270,7 @@ export async function getGradeEscala(competenciaId: number): Promise<GradeEscala
     .where(and(eq(funcionarios.setorId, comp.setorId!), eq(funcionarios.ativo, true)))
     .orderBy(funcionarios.ordemEscala, funcionarios.nome);
 
-  const funcs = allFuncs;
+  const funcs = allFuncs.filter((f) => pertenceTipoEscala(f.categoria ?? '', tipoEscala));
 
   const registrosEscala = await db
     .select()
@@ -349,7 +359,9 @@ export async function getGradeEscala(competenciaId: number): Promise<GradeEscala
     dias,
     diasSemana: getDiasSemana(comp.mes, comp.ano, dias.length),
     grupos,
-    statusEspeciais: statusList,
+    statusEspeciais: statusList.filter((se) =>
+      pertenceTipoEscala(se.funcionario.categoria ?? '', tipoEscala)
+    ),
     observacoes: comp.observacoes ?? undefined,
   };
 }
@@ -440,13 +452,14 @@ export async function trocarEscalaDia(
   funcionarioIdOrigem: number,
   diaOrigem: number,
   funcionarioIdDestino: number,
-  diaDestino: number
+  diaDestino: number,
+  tipoEscala: TipoEscala = 'tecnico'
 ) {
   if (funcionarioIdOrigem === funcionarioIdDestino && diaOrigem === diaDestino) {
     throw new Error('Selecione uma célula diferente para a troca');
   }
 
-  const grade = await getGradeEscala(competenciaId);
+  const grade = await getGradeEscala(competenciaId, tipoEscala);
   if (!grade) throw new Error('Competência não encontrada');
 
   const origem = findFuncionarioNaGrade(grade, funcionarioIdOrigem);
@@ -618,6 +631,31 @@ export async function getRelatorioCargaHoraria(mes: number, ano: number) {
   return results;
 }
 
+export async function listSetoresPorTipoEscala(tipo: TipoEscala) {
+  const allSetores = await db.select().from(setores).orderBy(setores.id);
+  const allFuncs = await db
+    .select({ setorId: funcionarios.setorId, categoria: funcionarios.categoria })
+    .from(funcionarios)
+    .where(eq(funcionarios.ativo, true));
+
+  const setoresCom = new Set<number>();
+  for (const f of allFuncs) {
+    if (f.setorId != null && pertenceTipoEscala(f.categoria ?? '', tipo)) {
+      setoresCom.add(f.setorId);
+    }
+  }
+
+  return allSetores.filter((s) => setoresCom.has(s.id));
+}
+
+export async function listSetoresComTecnicosEnfermagem() {
+  return listSetoresPorTipoEscala('tecnico');
+}
+
+export async function listSetoresComEnfermeiros() {
+  return listSetoresPorTipoEscala('enfermeiro');
+}
+
 export async function findOrCreateCompetencia(mes: number, ano: number, setorId: number) {
   const existing = await db.query.competencias.findFirst({
     where: and(
@@ -644,9 +682,10 @@ export interface SimularProximoMesResult {
 }
 
 export async function simularProximoMes(
-  competenciaId: number
+  competenciaId: number,
+  tipoEscala: TipoEscala = 'tecnico'
 ): Promise<SimularProximoMesResult> {
-  const grade = await getGradeEscala(competenciaId);
+  const grade = await getGradeEscala(competenciaId, tipoEscala);
   if (!grade) throw new Error('Competência não encontrada');
 
   const comp = await db.query.competencias.findFirst({
@@ -724,7 +763,8 @@ export async function simularProximoMes(
       'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
     ];
-    const nota = `Simulação gerada a partir de ${MESES[comp.mes - 1]}/${comp.ano}: ${processados} técnico(s) com escala e grupo atualizados para ${MESES[proxMes - 1]}/${proxAno}.`;
+    const label = tipoEscala === 'enfermeiro' ? 'enfermeiro(s)' : 'técnico(s)';
+    const nota = `Simulação gerada a partir de ${MESES[comp.mes - 1]}/${comp.ano}: ${processados} ${label} com escala e grupo atualizados para ${MESES[proxMes - 1]}/${proxAno}.`;
     await db
       .update(competencias)
       .set({ observacoes: appendObservacaoLista(proxComp.observacoes, nota) })

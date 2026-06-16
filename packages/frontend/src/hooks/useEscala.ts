@@ -1,11 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import type { EscalaDiaUpdate, TrocaEscalaRequest } from '@escala/shared';
+import type { EscalaDiaUpdate, TipoEscala, TrocaEscalaRequest } from '@escala/shared';
 
-export function useEscala(competenciaId: number | undefined) {
+export function useEscala(competenciaId: number | undefined, tipo: TipoEscala = 'tecnico') {
   return useQuery({
-    queryKey: ['escala', competenciaId],
-    queryFn: () => api.getEscala(competenciaId!),
+    queryKey: ['escala', competenciaId, tipo],
+    queryFn: () => api.getEscala(competenciaId!, tipo),
     enabled: !!competenciaId,
   });
 }
@@ -60,13 +60,13 @@ export function useAtribuirGrupoEscala(competenciaId: number) {
   });
 }
 
-export function useTrocarEscalaDia(competenciaId: number) {
+export function useTrocarEscalaDia(competenciaId: number, tipo: TipoEscala = 'tecnico') {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: TrocaEscalaRequest) => api.trocarEscalaDia(competenciaId, data),
+    mutationFn: (data: TrocaEscalaRequest) => api.trocarEscalaDia(competenciaId, data, tipo),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['escala', competenciaId] });
+      queryClient.invalidateQueries({ queryKey: ['escala', competenciaId, tipo] });
     },
   });
 }
@@ -82,14 +82,14 @@ export function useUpdateObservacoes(competenciaId: number) {
   });
 }
 
-export function useSimularProximoMes(competenciaId: number | undefined) {
+export function useSimularProximoMes(competenciaId: number | undefined, tipo: TipoEscala = 'tecnico') {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => api.simularProximoMes(competenciaId!),
+    mutationFn: () => api.simularProximoMes(competenciaId!, tipo),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['escala', competenciaId] });
-      queryClient.invalidateQueries({ queryKey: ['escala', result.competenciaId] });
+      queryClient.invalidateQueries({ queryKey: ['escala', competenciaId, tipo] });
+      queryClient.invalidateQueries({ queryKey: ['escala', result.competenciaId, tipo] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });

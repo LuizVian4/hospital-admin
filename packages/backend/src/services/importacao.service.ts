@@ -43,6 +43,8 @@ interface ParsedFuncionario {
   cargaHoraria: '180H' | '144H';
   turnos: Record<number, Turno | null>;
   ordem: number;
+  /** Setor informado na coluna SETOR da planilha EQUIPE */
+  setorNome?: string;
 }
 
 interface ParsedStatusEspecial {
@@ -51,8 +53,11 @@ interface ParsedStatusEspecial {
   status: string;
 }
 
+type ImportFormat = 'escala' | 'equipe';
+
 interface ParsedSetor {
   nome: string;
+  format: ImportFormat;
   empresa?: string;
   gerente?: string;
   mes?: number;
@@ -73,6 +78,47 @@ function cellStr(row: unknown[], col: number): string {
 
 function isMatricula(val: string): boolean {
   return /^\d{4,}$/.test(val);
+}
+
+function normalizeMatricula(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'number') return String(Math.trunc(value));
+  return String(value).trim();
+}
+
+function normalizeSetorNome(nome: string): string {
+  return nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[º°]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isEquipeFormat(rows: unknown[][]): boolean {
+  return findEquipeHeader(rows) != null;
+}
+
+function findEquipeHeader(rows: unknown[][]): { headerIdx: number; setorCol: number } | null {
+  for (let i = 0; i < Math.min(10, rows.length); i++) {
+    const header = rows[i] as unknown[];
+    const col0 = cellStr(header, 0).toUpperCase();
+    if (col0 !== 'MAT' && col0 !== 'MATRÍCULA' && col0 !== 'MATRICULA') continue;
+
+    for (let j = 0; j < header.length; j++) {
+      if (cellStr(header, j).toUpperCase() === 'SETOR') {
+        return { headerIdx: i, setorCol: j };
+      }
+    }
+  }
+  return null;
+}
+
+function parseCoren(row: unknown[], matricula: string): string | undefined {
+  const raw = normalizeMatricula(row[2]) || cellStr(row, 2);
+  if (!raw || raw === matricula) return undefined;
+  return raw;
 }
 
 function extractHeaderInfo(rows: unknown[][]): {
@@ -173,6 +219,95 @@ function getStatusFromRow(row: unknown[]): string {
   return 'FÉRIAS';
 }
 
+function parseEquipeSheet(rows: unknown[][]): ParsedSetor[] {
+  const headerInfo = findEquipeHeader(rows);
+  if (!headerInfo) {
+    return [
+      {
+        nome: 'EQUIPE',
+        format: 'equipe',
+        funcionarios: [],
+        statusEspeciais: [],
+        erros: ['Cabeçalho EQUIPE (MAT + SETOR) não encontrado'],
+      },
+    ];
+  }
+
+  const { headerIdx, setorCol } = headerInfo;
+  const erros: string[] = [];
+  const bySetor = new Map<string, ParsedFuncionario[]>();
+  const globalMatriculas = new Set<string>();
+  let ordem = 0;
+  const dataStartRow = headerIdx + 1;
+
+  for (let i = dataStartRow; i < rows.length; i++) {
+    const row = rows[i] as unknown[];
+    const matricula = normalizeMatricula(row[0]);
+    if (!matricula) continue;
+    if (!isMatricula(matricula)) continue;
+
+    const nome = cellStr(row, 1).replace(/\s+/g, ' ').trim();
+    const setorNome = cellStr(row, setorCol);
+    if (!nome) {
+      erros.push(`Linha ${i + 1}: matrícula ${matricula} sem nome`);
+      continue;
+    }
+    if (!setorNome) {
+      erros.push(`Matrícula ${matricula}: setor ausente na coluna SETOR`);
+      continue;
+    }
+
+    if (globalMatriculas.has(matricula)) {
+      erros.push(`Matrícula ${matricula} duplicada no arquivo`);
+      continue;
+    }
+    globalMatriculas.add(matricula);
+
+    const dataAdm = parseDate(row[5]);
+    if (row[5] && !dataAdm) {
+      erros.push(`Matrícula ${matricula}: data de admissão inválida (${row[5]})`);
+    }
+
+    const func: ParsedFuncionario = {
+      matricula,
+      nome,
+      coren: parseCoren(row, matricula),
+      categoria: cellStr(row, 3) || 'TÉC. DE ENFERMAGEM',
+      tipoContrato: normalizeContrato(row[4]),
+      dataAdmissao: dataAdm,
+      cargaHoraria: normalizeCargaHoraria(row[6]),
+      turnos: {},
+      ordem: ordem++,
+      setorNome,
+    };
+
+    if (!bySetor.has(setorNome)) bySetor.set(setorNome, []);
+    bySetor.get(setorNome)!.push(func);
+  }
+
+  if (bySetor.size === 0) {
+    return [
+      {
+        nome: 'EQUIPE',
+        format: 'equipe',
+        funcionarios: [],
+        statusEspeciais: [],
+        erros: erros.length > 0 ? erros : ['Nenhum funcionário encontrado na planilha EQUIPE'],
+      },
+    ];
+  }
+
+  return [...bySetor.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }))
+    .map(([nome, funcionarios], idx) => ({
+      nome,
+      format: 'equipe' as const,
+      funcionarios,
+      statusEspeciais: [],
+      erros: idx === 0 ? [...erros] : [],
+    }));
+}
+
 function parseSetorSheet(sheetName: string, rows: unknown[][]): ParsedSetor {
   const erros: string[] = [];
   const header = extractHeaderInfo(rows);
@@ -186,7 +321,14 @@ function parseSetorSheet(sheetName: string, rows: unknown[][]): ParsedSetor {
   const funcHeaderIdx = findFuncionarioHeaderIndex(rows);
   if (funcHeaderIdx === -1) {
     erros.push(`Aba "${sheetName}": cabeçalho de funcionários não encontrado`);
-    return { nome: setorNome, ...header, funcionarios, statusEspeciais: statusEspeciaisList, erros };
+    return {
+      nome: setorNome,
+      format: 'escala',
+      ...header,
+      funcionarios,
+      statusEspeciais: statusEspeciaisList,
+      erros,
+    };
   }
 
   const diaStartCol = findDiaStartCol(rows, funcHeaderIdx);
@@ -226,10 +368,10 @@ function parseSetorSheet(sheetName: string, rows: unknown[][]): ParsedSetor {
       }
     }
 
-    const matricula = isMatricula(col0) ? col0 : cellStr(row, 2);
+    const matricula = isMatricula(col0) ? col0 : normalizeMatricula(row[2]);
     if (!isMatricula(matricula)) continue;
 
-    const nome = col1;
+    const nome = col1.replace(/\s+/g, ' ').trim();
     if (!nome) {
       erros.push(`Matrícula ${matricula}: nome ausente`);
       continue;
@@ -246,14 +388,10 @@ function parseSetorSheet(sheetName: string, rows: unknown[][]): ParsedSetor {
       erros.push(`Matrícula ${matricula}: data de admissão inválida (${row[5]})`);
     }
 
-    const corenVal = cellStr(row, 2);
-    const coren = corenVal && corenVal !== matricula && !isMatricula(corenVal) ? corenVal : 
-                  (cellStr(row, 2) && !isMatricula(cellStr(row, 2)) ? cellStr(row, 2) : undefined);
-
     funcionarios.push({
       matricula,
       nome,
-      coren: coren || undefined,
+      coren: parseCoren(row, matricula),
       categoria: cellStr(row, 3) || 'TÉC. DE ENFERMAGEM',
       tipoContrato: normalizeContrato(row[4]),
       dataAdmissao: dataAdm,
@@ -272,6 +410,7 @@ function parseSetorSheet(sheetName: string, rows: unknown[][]): ParsedSetor {
 
   return {
     nome: setorNome,
+    format: 'escala',
     empresa: header.empresa,
     gerente: header.gerente,
     mes: header.mes,
@@ -285,8 +424,20 @@ function parseSetorSheet(sheetName: string, rows: unknown[][]): ParsedSetor {
 
 export function parseOdsBuffer(buffer: Buffer): ParsedSetor[] {
   const workbook = XLSX.read(buffer, { type: 'buffer', cellStyles: false, raw: true });
-  const result: ParsedSetor[] = [];
 
+  const equipeResults: ParsedSetor[] = [];
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' }) as unknown[][];
+    if (!rows.length || !isEquipeFormat(rows)) continue;
+    equipeResults.push(...parseEquipeSheet(rows));
+  }
+
+  if (equipeResults.length > 0) {
+    return mergeEquipeSetores(equipeResults);
+  }
+
+  const result: ParsedSetor[] = [];
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' });
@@ -295,6 +446,110 @@ export function parseOdsBuffer(buffer: Buffer): ParsedSetor[] {
   }
 
   return result;
+}
+
+function mergeEquipeSetores(parsed: ParsedSetor[]): ParsedSetor[] {
+  const merged = new Map<string, ParsedSetor>();
+
+  for (const setor of parsed) {
+    const existing = merged.get(setor.nome);
+    if (!existing) {
+      merged.set(setor.nome, { ...setor, funcionarios: [...setor.funcionarios] });
+      continue;
+    }
+    existing.funcionarios.push(...setor.funcionarios);
+    existing.erros.push(...setor.erros);
+  }
+
+  return [...merged.values()].sort((a, b) =>
+    a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' })
+  );
+}
+
+async function findSetorByNome(nome: string) {
+  const exact = await db.query.setores.findFirst({
+    where: eq(setores.nome, nome),
+  });
+  if (exact) return exact;
+
+  const normalized = normalizeSetorNome(nome);
+  const allSetores = await db.select().from(setores);
+  return allSetores.find((s) => normalizeSetorNome(s.nome) === normalized) ?? null;
+}
+
+async function findOrCreateSetor(
+  nome: string,
+  opts?: { empresa?: string; gerente?: string }
+) {
+  const existing = await findSetorByNome(nome);
+  if (existing) {
+    if (opts?.empresa || opts?.gerente) {
+      await db
+        .update(setores)
+        .set({
+          empresa: opts.empresa ?? existing.empresa,
+          gerente: opts.gerente ?? existing.gerente,
+        })
+        .where(eq(setores.id, existing.id));
+    }
+    return existing;
+  }
+
+  const [created] = await db
+    .insert(setores)
+    .values({
+      nome,
+      empresa: opts?.empresa,
+      gerente: opts?.gerente,
+    })
+    .returning();
+
+  return created;
+}
+
+async function upsertFuncionario(
+  f: ParsedFuncionario,
+  setorId: number
+): Promise<typeof funcionarios.$inferSelect> {
+  const existing = await db.query.funcionarios.findFirst({
+    where: eq(funcionarios.matricula, f.matricula),
+  });
+
+  if (existing) {
+    const [updated] = await db
+      .update(funcionarios)
+      .set({
+        nome: f.nome,
+        coren: f.coren,
+        categoria: f.categoria,
+        tipoContrato: f.tipoContrato,
+        dataAdmissao: f.dataAdmissao,
+        cargaHoraria: f.cargaHoraria,
+        setorId,
+        ordemEscala: f.ordem,
+        updatedAt: new Date(),
+      })
+      .where(eq(funcionarios.id, existing.id))
+      .returning();
+    return updated;
+  }
+
+  const [created] = await db
+    .insert(funcionarios)
+    .values({
+      matricula: f.matricula,
+      nome: f.nome,
+      coren: f.coren,
+      categoria: f.categoria,
+      tipoContrato: f.tipoContrato,
+      dataAdmissao: f.dataAdmissao,
+      cargaHoraria: f.cargaHoraria,
+      setorId,
+      ordemEscala: f.ordem,
+    })
+    .returning();
+
+  return created;
 }
 
 let lastPreview: ParsedSetor[] | null = null;
@@ -366,114 +621,83 @@ export async function persistImport(
   const preview = await buildPreviewFromParsed(parsed);
 
   for (const setorData of parsed) {
-    let setor = await db.query.setores.findFirst({
-      where: eq(setores.nome, setorData.nome),
-    });
+    const importaEscala = setorData.format === 'escala';
 
-    if (!setor) {
-      [setor] = await db
-        .insert(setores)
-        .values({
-          nome: setorData.nome,
+    if (!importaEscala) {
+      for (const f of setorData.funcionarios) {
+        const setorNome = f.setorNome ?? setorData.nome;
+        const setor = await findOrCreateSetor(setorNome, {
           empresa: setorData.empresa,
           gerente: setorData.gerente,
-        })
-        .returning();
-    } else {
-      await db
-        .update(setores)
-        .set({
-          empresa: setorData.empresa ?? setor.empresa,
-          gerente: setorData.gerente ?? setor.gerente,
-        })
-        .where(eq(setores.id, setor.id));
+        });
+        await upsertFuncionario(f, setor.id);
+      }
+      continue;
     }
 
-    const mes = setorData.mes ?? defaultMes ?? new Date().getMonth() + 1;
-    const ano = setorData.ano ?? defaultAno ?? new Date().getFullYear();
-
-    let competencia = await db.query.competencias.findFirst({
-      where: and(
-        eq(competencias.mes, mes),
-        eq(competencias.ano, ano),
-        eq(competencias.setorId, setor.id)
-      ),
+    const setor = await findOrCreateSetor(setorData.nome, {
+      empresa: setorData.empresa,
+      gerente: setorData.gerente,
     });
 
-    if (competencia) {
-      await db.delete(escalaDias).where(eq(escalaDias.competenciaId, competencia.id));
-      await db.delete(statusEspeciais).where(eq(statusEspeciais.competenciaId, competencia.id));
-      if (setorData.observacoes !== undefined) {
-        await db
-          .update(competencias)
-          .set({ observacoes: setorData.observacoes })
-          .where(eq(competencias.id, competencia.id));
+    let competencia: typeof competencias.$inferSelect | null = null;
+    {
+      const mes = setorData.mes ?? defaultMes ?? new Date().getMonth() + 1;
+      const ano = setorData.ano ?? defaultAno ?? new Date().getFullYear();
+
+      competencia =
+        (await db.query.competencias.findFirst({
+          where: and(
+            eq(competencias.mes, mes),
+            eq(competencias.ano, ano),
+            eq(competencias.setorId, setor.id)
+          ),
+        })) ?? null;
+
+      if (competencia) {
+        await db.delete(escalaDias).where(eq(escalaDias.competenciaId, competencia.id));
+        await db.delete(statusEspeciais).where(eq(statusEspeciais.competenciaId, competencia.id));
+        if (setorData.observacoes !== undefined) {
+          await db
+            .update(competencias)
+            .set({ observacoes: setorData.observacoes })
+            .where(eq(competencias.id, competencia.id));
+        }
+      } else {
+        [competencia] = await db
+          .insert(competencias)
+          .values({
+            mes,
+            ano,
+            setorId: setor.id,
+            observacoes: setorData.observacoes,
+          })
+          .returning();
       }
-    } else {
-      [competencia] = await db
-        .insert(competencias)
-        .values({
-          mes,
-          ano,
-          setorId: setor.id,
-          observacoes: setorData.observacoes,
-        })
-        .returning();
     }
 
     for (const f of setorData.funcionarios) {
-      let func = await db.query.funcionarios.findFirst({
-        where: eq(funcionarios.matricula, f.matricula),
-      });
+      const func = await upsertFuncionario(f, setor.id);
 
-      if (func) {
-        [func] = await db
-          .update(funcionarios)
-          .set({
-            nome: f.nome,
-            coren: f.coren,
-            categoria: f.categoria,
-            tipoContrato: f.tipoContrato,
-            dataAdmissao: f.dataAdmissao,
-            cargaHoraria: f.cargaHoraria,
-            setorId: setor.id,
-            ordemEscala: f.ordem,
-            updatedAt: new Date(),
-          })
-          .where(eq(funcionarios.id, func.id))
-          .returning();
-      } else {
-        [func] = await db
-          .insert(funcionarios)
-          .values({
-            matricula: f.matricula,
-            nome: f.nome,
-            coren: f.coren,
-            categoria: f.categoria,
-            tipoContrato: f.tipoContrato,
-            dataAdmissao: f.dataAdmissao,
-            cargaHoraria: f.cargaHoraria,
-            setorId: setor.id,
-            ordemEscala: f.ordem,
-          })
-          .returning();
-      }
+      if (competencia) {
+        const escalaValues = Object.entries(f.turnos)
+          .filter(([, turno]) => turno !== null)
+          .map(([dia, turno]) => ({
+            competenciaId: competencia.id,
+            funcionarioId: func.id,
+            tipoRegistro: 'turno' as const,
+            dia: parseInt(dia, 10),
+            turno,
+            ativo: true,
+          }));
 
-      const escalaValues = Object.entries(f.turnos)
-        .filter(([, turno]) => turno !== null)
-        .map(([dia, turno]) => ({
-          competenciaId: competencia!.id,
-          funcionarioId: func!.id,
-          tipoRegistro: 'turno' as const,
-          dia: parseInt(dia, 10),
-          turno,
-          ativo: true,
-        }));
-
-      if (escalaValues.length > 0) {
-        await db.insert(escalaDias).values(escalaValues);
+        if (escalaValues.length > 0) {
+          await db.insert(escalaDias).values(escalaValues);
+        }
       }
     }
+
+    if (!competencia) continue;
 
     for (const se of setorData.statusEspeciais) {
       let func = se.matricula

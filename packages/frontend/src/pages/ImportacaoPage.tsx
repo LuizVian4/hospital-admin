@@ -44,7 +44,7 @@ export function ImportacaoPage() {
     if (!file) return;
     setLoading(true);
     try {
-      const result = await api.importOds(file, true, 6, 2026);
+      const result = await api.importOds(file, true);
       setPreview(result);
       toast.success('Importação concluída com sucesso!');
     } catch (e) {
@@ -59,7 +59,7 @@ export function ImportacaoPage() {
       <div>
         <h1 className="text-2xl font-bold">Importação de Planilha</h1>
         <p className="text-muted-foreground">
-          Importe arquivos .ods com as escalas mensais dos setores
+          Importe planilhas de equipe (.xlsx) ou escalas mensais (.ods / .xlsx)
         </p>
       </div>
 
@@ -72,7 +72,7 @@ export function ImportacaoPage() {
         onDrop={handleDrop}
       >
         <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <p className="text-lg font-medium mb-2">Arraste o arquivo .ods aqui</p>
+        <p className="text-lg font-medium mb-2">Arraste o arquivo .xlsx ou .ods aqui</p>
         <p className="text-sm text-muted-foreground mb-4">ou clique para selecionar</p>
         <input
           type="file"

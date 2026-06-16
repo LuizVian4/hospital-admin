@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eq, desc } from 'drizzle-orm';
 import { db } from '../db';
 import { setores, competencias } from '../db/schema';
-import { findOrCreateCompetencia } from '../services/escala.service';
+import { findOrCreateCompetencia, listSetoresComEnfermeiros, listSetoresComTecnicosEnfermagem } from '../services/escala.service';
 import { getDashboardData } from '../services/dashboard.service';
 
 const setorSchema = z.object({
@@ -18,8 +18,14 @@ const competenciaSchema = z.object({
 });
 
 export const setoresRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/api/setores', async () => {
-    return db.select().from(setores).orderBy(setores.nome);
+  app.get<{ Querystring: { comTecnicos?: string; comEnfermeiros?: string } }>('/api/setores', async (request) => {
+    if (request.query.comTecnicos === 'true') {
+      return listSetoresComTecnicosEnfermagem();
+    }
+    if (request.query.comEnfermeiros === 'true') {
+      return listSetoresComEnfermeiros();
+    }
+    return db.select().from(setores).orderBy(setores.id);
   });
 
   app.post('/api/setores', async (request, reply) => {

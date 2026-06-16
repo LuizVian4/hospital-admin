@@ -3,6 +3,11 @@ import type { EscalaInicio, Turno } from './types';
 /** Ciclo padrão para Téc. de Enfermagem: MT → F → SN → / → F */
 export const PADRAO_TEC_ENFERMAGEM: Turno[] = ['MT', 'F', 'SN', '/', 'F'];
 
+/** Ciclo padrão para Enfermeiro: MT → SN → / → F */
+export const PADRAO_ENFERMEIRO: Turno[] = ['MT', 'SN', '/', 'F'];
+
+export type TipoEscala = 'tecnico' | 'enfermeiro';
+
 export interface GrupoEscala {
   id: number;
   label: string;
@@ -26,6 +31,7 @@ export function getGruposEscala(padrao: Turno[]): GrupoEscala[] {
 }
 
 export const GRUPOS_ESCALA = getGruposEscala(PADRAO_TEC_ENFERMAGEM);
+export const GRUPOS_ESCALA_ENFERMEIRO = getGruposEscala(PADRAO_ENFERMEIRO);
 
 export interface AncoraPadrao {
   dia: number;
@@ -47,7 +53,31 @@ export function getPadraoEscala(categoria: string): Turno[] | null {
   if (cat.includes('TEC') && cat.includes('ENFERM')) {
     return PADRAO_TEC_ENFERMAGEM;
   }
+  if (cat === 'ENFERMEIRO') {
+    return PADRAO_ENFERMEIRO;
+  }
   return null;
+}
+
+export function isTecnicoEnfermagem(categoria: string): boolean {
+  const cat = normalizarCategoria(categoria);
+  return cat.includes('TEC') && cat.includes('ENFERM');
+}
+
+export function isEnfermeiro(categoria: string): boolean {
+  return normalizarCategoria(categoria) === 'ENFERMEIRO';
+}
+
+export function pertenceTipoEscala(categoria: string, tipo: TipoEscala): boolean {
+  return tipo === 'tecnico' ? isTecnicoEnfermagem(categoria) : isEnfermeiro(categoria);
+}
+
+export function getPadraoPorTipoEscala(tipo: TipoEscala): Turno[] {
+  return tipo === 'tecnico' ? PADRAO_TEC_ENFERMAGEM : PADRAO_ENFERMEIRO;
+}
+
+export function getGruposPorTipoEscala(tipo: TipoEscala): GrupoEscala[] {
+  return getGruposEscala(getPadraoPorTipoEscala(tipo));
 }
 
 export function resolverIndiceNoPadrao(

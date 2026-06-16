@@ -24,6 +24,11 @@ export function parseDate(value: unknown): string | undefined {
     const year = y.length === 2 ? 2000 + parseInt(y, 10) : parseInt(y, 10);
     return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
+  const typoMatch = str.match(/^(\d{1,2})\/(\d{2})(\d{4})$/);
+  if (typoMatch) {
+    const [, d, m, y] = typoMatch;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
   const iso = new Date(str);
   if (!isNaN(iso.getTime())) return iso.toISOString().split('T')[0];
   return undefined;

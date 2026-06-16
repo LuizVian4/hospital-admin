@@ -22,7 +22,11 @@ export function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Dashboard />} />
-            <Route path="setores/:setorId/escala/:mes/:ano" element={<EscalaPage />} />
+            <Route path="setores/:setorId/escala/:mes/:ano" element={<EscalaPage tipoEscala="tecnico" />} />
+            <Route
+              path="setores/:setorId/escala-enfermeiros/:mes/:ano"
+              element={<EscalaPage tipoEscala="enfermeiro" />}
+            />
             <Route path="funcionarios" element={<FuncionariosPage />} />
             <Route path="importacao" element={<ImportacaoPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />

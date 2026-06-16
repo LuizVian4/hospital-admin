@@ -12,14 +12,14 @@ import {
   getRelatorioCargaHoraria,
   simularProximoMes,
 } from '../services/escala.service';
-import { exportEscalaExcel } from '../services/exportacao.service';
+import { exportEscalaExcel, exportEscalaMesCompletoExcel } from '../services/exportacao.service';
 import {
   criarStatusEspecial,
   listStatusPorFuncionario,
   listStatusPorSetorNoMes,
   removerStatusEspecial,
 } from '../services/statusEspecial.service';
-import { STATUS_ESPECIAIS_OPCOES, type StatusEspecial } from '@escala/shared';
+import { STATUS_ESPECIAIS_OPCOES, type StatusEspecial, type TipoEscala } from '@escala/shared';
 
 const escalaDiaBatchSchema = z.object({
   competenciaId: z.number().int(),
@@ -62,27 +62,59 @@ const statusEspecialSchema = z
     path: ['dataFim'],
   });
 
+function parseTipoEscala(value?: string): TipoEscala {
+  return value === 'enfermeiro' ? 'enfermeiro' : 'tecnico';
+}
+
 export const escalasRoutes: FastifyPluginAsync = async (app) => {
-  app.get<{ Params: { id: string } }>('/api/competencias/:id', async (request, reply) => {
+  app.get<{ Params: { id: string }; Querystring: { tipo?: string } }>(
+    '/api/competencias/:id',
+    async (request, reply) => {
     const id = parseInt(request.params.id, 10);
-    const grade = await getGradeEscala(id);
+    const tipo = parseTipoEscala(request.query.tipo);
+    const grade = await getGradeEscala(id, tipo);
     if (!grade) return reply.status(404).send({ error: 'Competência não encontrada' });
     return grade;
   });
 
-  app.get<{ Params: { id: string } }>('/api/competencias/:id/escala', async (request, reply) => {
+  app.get<{ Params: { id: string }; Querystring: { tipo?: string } }>(
+    '/api/competencias/:id/escala',
+    async (request, reply) => {
     const id = parseInt(request.params.id, 10);
-    const grade = await getGradeEscala(id);
+    const tipo = parseTipoEscala(request.query.tipo);
+    const grade = await getGradeEscala(id, tipo);
     if (!grade) return reply.status(404).send({ error: 'Competência não encontrada' });
     return grade;
   });
 
-  app.get<{ Params: { id: string } }>(
+  app.get<{ Params: { id: string }; Querystring: { tipo?: string } }>(
     '/api/competencias/:id/escala/export',
     async (request, reply) => {
       const id = parseInt(request.params.id, 10);
-      const result = await exportEscalaExcel(id);
+      const tipo = parseTipoEscala(request.query.tipo);
+      const result = await exportEscalaExcel(id, tipo);
       if (!result) return reply.status(404).send({ error: 'Competência não encontrada' });
+
+      return reply
+        .header(
+          'Content-Type',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        .header('Content-Disposition', `attachment; filename="${result.filename}"`)
+        .send(result.buffer);
+    }
+  );
+
+  app.get<{ Params: { mes: string; ano: string }; Querystring: { tipo?: string } }>(
+    '/api/escala/export/:mes/:ano',
+    async (request, reply) => {
+      const mes = parseInt(request.params.mes, 10);
+      const ano = parseInt(request.params.ano, 10);
+      const tipo = parseTipoEscala(request.query.tipo);
+      const result = await exportEscalaMesCompletoExcel(mes, ano, tipo);
+      if (!result) {
+        return reply.status(404).send({ error: 'Nenhuma competência encontrada para o período' });
+      }
 
       return reply
         .header(
@@ -111,13 +143,14 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  app.post<{ Params: { id: string } }>(
+  app.post<{ Params: { id: string }; Querystring: { tipo?: string } }>(
     '/api/competencias/:id/simular-proximo-mes',
     async (request, reply) => {
       const competenciaId = parseInt(request.params.id, 10);
+      const tipo = parseTipoEscala(request.query.tipo);
 
       try {
-        const result = await simularProximoMes(competenciaId);
+        const result = await simularProximoMes(competenciaId, tipo);
         return result;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao simular próximo mês';
@@ -144,10 +177,11 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  app.post<{ Params: { id: string } }>(
+  app.post<{ Params: { id: string }; Querystring: { tipo?: string } }>(
     '/api/competencias/:id/troca',
     async (request, reply) => {
       const competenciaId = parseInt(request.params.id, 10);
+      const tipo = parseTipoEscala(request.query.tipo);
       const body = trocaEscalaSchema.parse(request.body);
 
       try {
@@ -156,7 +190,8 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
           body.funcionarioIdOrigem,
           body.diaOrigem,
           body.funcionarioIdDestino,
-          body.diaDestino
+          body.diaDestino,
+          tipo
         );
         return result;
       } catch (err) {

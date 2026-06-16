@@ -1,5 +1,4 @@
-import type { FuncionarioComTurnos } from '@escala/shared';
-import { GRUPOS_ESCALA } from '@escala/shared';
+import type { FuncionarioComTurnos, GrupoEscala } from '@escala/shared';
 import { COLUNAS_FIXAS, stickyLeft, statusEspecialCellClass, colunaCalendarioClass } from '@/constants/turnos';
 import { cn } from '@/lib/utils';
 import { FuncionarioInfoPopover } from './FuncionarioInfoPopover';
@@ -19,6 +18,7 @@ interface LinhaSemGrupoProps {
   hoje: number | null;
   feriadosPorDia: Record<number, string>;
   rowIndex: number;
+  gruposEscala: GrupoEscala[];
   onAtribuirGrupo: (funcionarioId: number, indicePadrao: number) => void;
 }
 
@@ -29,6 +29,7 @@ export function LinhaSemGrupo({
   hoje,
   feriadosPorDia,
   rowIndex,
+  gruposEscala,
   onAtribuirGrupo,
 }: LinhaSemGrupoProps) {
   const isEven = rowIndex % 2 === 0;
@@ -43,7 +44,7 @@ export function LinhaSemGrupo({
 
   const handleGrupoChange = (value: string) => {
     const grupoId = Number(value);
-    const grupo = GRUPOS_ESCALA.find((g) => g.id === grupoId);
+    const grupo = gruposEscala.find((g) => g.id === grupoId);
     if (!grupo) return;
     onAtribuirGrupo(funcionario.id, grupo.indicePadrao);
   };
@@ -87,7 +88,7 @@ export function LinhaSemGrupo({
             <SelectValue placeholder="Selecionar grupo..." />
           </SelectTrigger>
           <SelectContent align="start" className="min-w-[280px]">
-            {GRUPOS_ESCALA.map((grupo) => (
+            {gruposEscala.map((grupo) => (
               <SelectItem key={grupo.id} value={String(grupo.id)} className="py-2">
                 <span className="flex flex-col items-start gap-0.5">
                   <span className="font-semibold">{grupo.label}</span>

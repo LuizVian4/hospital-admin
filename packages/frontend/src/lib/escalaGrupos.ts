@@ -1,5 +1,5 @@
-import type { FuncionarioComTurnos, GrupoTurno } from '@escala/shared';
-import { GRUPOS_ESCALA, getPadraoEscala } from '@escala/shared';
+import type { FuncionarioComTurnos, GrupoEscala, GrupoTurno } from '@escala/shared';
+import { getPadraoEscala } from '@escala/shared';
 
 export function listarFuncionarios(grupos: GrupoTurno[]): FuncionarioComTurnos[] {
   const map = new Map<number, FuncionarioComTurnos>();
@@ -13,11 +13,14 @@ export function listarFuncionarios(grupos: GrupoTurno[]): FuncionarioComTurnos[]
   );
 }
 
-export function organizarPorGrupoEscala(funcionarios: FuncionarioComTurnos[]) {
+export function organizarPorGrupoEscala(
+  funcionarios: FuncionarioComTurnos[],
+  gruposEscala: GrupoEscala[]
+) {
   const comPadrao: FuncionarioComTurnos[] = [];
   const semPadrao: FuncionarioComTurnos[] = [];
   const porGrupo = new Map<number, FuncionarioComTurnos[]>(
-    GRUPOS_ESCALA.map((g) => [g.indicePadrao, []])
+    gruposEscala.map((g) => [g.indicePadrao, []])
   );
   const semAtribuicao: FuncionarioComTurnos[] = [];
 
