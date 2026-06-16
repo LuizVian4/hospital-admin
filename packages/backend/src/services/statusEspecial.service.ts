@@ -57,26 +57,48 @@ export async function listStatusPorFuncionario(funcionarioId: number) {
     .filter((item): item is StatusEspecialItem => item != null);
 }
 
-export async function listStatusPorSetorNoMes(setorId: number, mes: number, ano: number) {
+export async function listStatusPorSetoresNoMes(
+  setorIds: number[],
+  mes: number,
+  ano: number
+): Promise<Map<number, StatusEspecialItem[]>> {
+  const result = new Map<number, StatusEspecialItem[]>();
+  for (const setorId of setorIds) {
+    result.set(setorId, []);
+  }
+  if (setorIds.length === 0) return result;
+
   const funcs = await db
-    .select({ id: funcionarios.id })
+    .select({ id: funcionarios.id, setorId: funcionarios.setorId })
     .from(funcionarios)
-    .where(and(eq(funcionarios.setorId, setorId), eq(funcionarios.ativo, true)));
+    .where(and(inArray(funcionarios.setorId, setorIds), eq(funcionarios.ativo, true)));
 
   const funcIds = funcs.map((f) => f.id);
-  if (funcIds.length === 0) return [];
+  if (funcIds.length === 0) return result;
+
+  const setorPorFuncionario = new Map(funcs.map((f) => [f.id, f.setorId!]));
 
   const rows = await db.query.statusEspeciais.findMany({
     where: inArray(statusEspeciais.funcionarioId, funcIds),
     with: { funcionario: true, competencia: true },
   });
 
-  return rows
-    .map((row) => mapStatusEspecialItem(row, row.funcionario, row.competencia))
-    .filter((item): item is StatusEspecialItem => {
-      if (!item) return false;
-      return intervaloSobrepoeMes(item.dataInicio, item.dataFim, mes, ano);
-    });
+  for (const row of rows) {
+    const item = mapStatusEspecialItem(row, row.funcionario, row.competencia);
+    if (!item) continue;
+    if (!intervaloSobrepoeMes(item.dataInicio, item.dataFim, mes, ano)) continue;
+
+    const setorId = setorPorFuncionario.get(row.funcionarioId);
+    if (setorId == null) continue;
+    result.get(setorId)!.push(item);
+  }
+
+  return result;
+}
+
+export async function listStatusPorSetorNoMes(setorId: number, mes: number, ano: number) {
+  const porSetor = await listStatusPorSetoresNoMes([setorId], mes, ano);
+  return porSetor.get(setorId) ?? [];
 }
 
 export function montarStatusPorDia(

@@ -53,29 +53,31 @@ export async function syncBancoHorasCompetencia(competenciaId: number): Promise<
   const funcionarioIds = resumos.map((r) => r.funcionarioId);
   const now = new Date();
 
-  for (const r of resumos) {
+  if (resumos.length > 0) {
     await db
       .insert(bancoHoras)
-      .values({
-        competenciaId,
-        funcionarioId: r.funcionarioId,
-        cargaContratada: r.cargaContratada,
-        horasContratadas: r.horasContratadas,
-        horasTrabalhadas: r.horasTrabalhadas,
-        turnosTrabalhados: r.turnosTrabalhados,
-        saldoHoras: r.saldoHoras,
-        status: r.status,
-        updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: [bancoHoras.competenciaId, bancoHoras.funcionarioId],
-        set: {
+      .values(
+        resumos.map((r) => ({
+          competenciaId,
+          funcionarioId: r.funcionarioId,
           cargaContratada: r.cargaContratada,
           horasContratadas: r.horasContratadas,
           horasTrabalhadas: r.horasTrabalhadas,
           turnosTrabalhados: r.turnosTrabalhados,
           saldoHoras: r.saldoHoras,
           status: r.status,
+          updatedAt: now,
+        }))
+      )
+      .onConflictDoUpdate({
+        target: [bancoHoras.competenciaId, bancoHoras.funcionarioId],
+        set: {
+          cargaContratada: sql`excluded.carga_contratada`,
+          horasContratadas: sql`excluded.horas_contratadas`,
+          horasTrabalhadas: sql`excluded.horas_trabalhadas`,
+          turnosTrabalhados: sql`excluded.turnos_trabalhados`,
+          saldoHoras: sql`excluded.saldo_horas`,
+          status: sql`excluded.status`,
           updatedAt: now,
         },
       });

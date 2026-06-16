@@ -1,10 +1,16 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { getPadraoEscala, isEnfermeiro, isTecnicoEnfermagem, type TipoEscala } from '@escala/shared';
+import {
+  getPadraoEscala,
+  isEnfermeiro,
+  isTecnicoEnfermagem,
+  type StatusEspecialItem,
+  type TipoEscala,
+} from '@escala/shared';
 import { db } from '../db';
 import { setores, funcionarios, competencias, escalaInicios, statusEspeciais } from '../db/schema';
 import { mapFuncionario, getDiasNoMes } from '../utils/helpers';
 import { listBancoHorasPendentes } from './bancoHoras.service';
-import { listStatusPorSetorNoMes, montarStatusPorDia } from './statusEspecial.service';
+import { listStatusPorSetoresNoMes, montarStatusPorDia } from './statusEspecial.service';
 
 type FuncionarioRow = typeof funcionarios.$inferSelect;
 
@@ -12,7 +18,7 @@ function isSemEscalaDefinida(
   f: FuncionarioRow,
   funcComInicio: Set<number>,
   compBySetor: Map<number, number>,
-  statusPorSetor: Map<number, Awaited<ReturnType<typeof listStatusPorSetorNoMes>>>,
+  statusPorSetor: Map<number, StatusEspecialItem[]>,
   dias: number[],
   mesAtual: number,
   anoAtual: number
@@ -35,7 +41,7 @@ function calcularCobertura(
   filtroCategoria: (categoria: string) => boolean,
   funcComInicio: Set<number>,
   compBySetor: Map<number, number>,
-  statusPorSetor: Map<number, Awaited<ReturnType<typeof listStatusPorSetorNoMes>>>,
+  statusPorSetor: Map<number, StatusEspecialItem[]>,
   dias: number[],
   mesAtual: number,
   anoAtual: number
@@ -83,10 +89,11 @@ export async function getDashboardData(mes?: number, ano?: number) {
 
   const compIds = comps.map((c) => c.id);
 
-  const statusPorSetor = new Map<number, Awaited<ReturnType<typeof listStatusPorSetorNoMes>>>();
-  for (const setor of allSetores) {
-    statusPorSetor.set(setor.id, await listStatusPorSetorNoMes(setor.id, mesAtual, anoAtual));
-  }
+  const statusPorSetor = await listStatusPorSetoresNoMes(
+    allSetores.map((s) => s.id),
+    mesAtual,
+    anoAtual
+  );
 
   const inicios =
     compIds.length > 0

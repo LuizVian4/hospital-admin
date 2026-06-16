@@ -1,4 +1,4 @@
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and, or, inArray } from 'drizzle-orm';
 import { db } from '../db';
 import {
   competencias,
@@ -532,29 +532,60 @@ export async function batchUpdateEscalaDias(
   });
   if (!comp) return;
 
+  const iniciosPorFuncionario = new Map<
+    number,
+    { turno: Turno; indicePadrao?: number }
+  >();
+
   for (const item of items) {
     if (!item.definirInicio || !item.turno) continue;
-
-    const func = await db.query.funcionarios.findFirst({
-      where: eq(funcionarios.id, item.funcionarioId),
+    const turno = normalizeTurno(item.turno);
+    if (!turno) continue;
+    iniciosPorFuncionario.set(item.funcionarioId, {
+      turno,
+      indicePadrao: item.indicePadrao,
     });
+  }
+
+  if (iniciosPorFuncionario.size === 0) return;
+
+  const funcionarioIds = [...iniciosPorFuncionario.keys()];
+  const funcs = await db
+    .select()
+    .from(funcionarios)
+    .where(inArray(funcionarios.id, funcionarioIds));
+  const funcPorId = new Map(funcs.map((f) => [f.id, f]));
+
+  const inicios: (typeof escalaInicios.$inferInsert)[] = [];
+  for (const [funcionarioId, { turno, indicePadrao }] of iniciosPorFuncionario) {
+    const func = funcPorId.get(funcionarioId);
     if (!func) continue;
 
     const padrao = getPadraoEscala(func.categoria ?? 'TÉC. DE ENFERMAGEM');
     if (!padrao) continue;
 
-    const turno = normalizeTurno(item.turno);
-    if (!turno) continue;
-
-    await criarInicioAtivo(
+    inicios.push({
       competenciaId,
-      item.funcionarioId,
-      comp.mes,
-      comp.ano,
-      turno,
-      item.indicePadrao
-    );
+      funcionarioId,
+      mesInicio: comp.mes,
+      anoInicio: comp.ano,
+      turnoInicio: turno,
+      indicePadrao: indicePadrao ?? null,
+    });
   }
+
+  if (inicios.length === 0) return;
+
+  const idsComInicio = inicios.map((i) => i.funcionarioId);
+  await db
+    .delete(escalaInicios)
+    .where(
+      and(
+        eq(escalaInicios.competenciaId, competenciaId),
+        inArray(escalaInicios.funcionarioId, idsComInicio)
+      )
+    );
+  await db.insert(escalaInicios).values(inicios);
 }
 
 export async function trocarEscalaDia(
