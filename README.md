@@ -1,18 +1,25 @@
-# Escala Hospital — Sistema de Gestão de Escala de Técnicos de Enfermagem
+# Escala Hospital — Sistema de Gestão de Escala
 
-Sistema web para gerenciar a escala mensal de técnicos de enfermagem do **Hospital Teresa de Lisieux**, digitalizando o controle atualmente feito em planilhas `.ods`.
+Sistema web para gerenciar a escala mensal de **técnicos de enfermagem** e **enfermeiros** do **Hospital Teresa de Lisieux**, digitalizando o controle atualmente feito em planilhas `.ods` / `.xlsx`.
 
 ## Funcionalidades
 
 | Módulo | Descrição |
 |--------|-----------|
-| **Dashboard** | Visão geral do mês: cobertura de escala, funcionários sem início definido, setores sem competência, status especiais ativos e resumo por setor |
-| **Escala do mês** | Grade interativa por setor/competência, com feriados de Salvador, troca de turnos, observações da competência, exportação Excel e simulação do próximo mês |
-| **Funcionários** | Cadastro, edição e inativação de funcionários; gestão de status especiais (férias, licença gestacional, INSS) por período |
-| **Importação ODS** | Upload de planilha legada com preview antes de confirmar; upsert de setores, funcionários e escalas |
+| **Dashboard** | Visão geral do mês: cobertura por setor (técnicos e enfermeiros), funcionários sem setor, competências pendentes, status especiais ativos, resumo por categoria e gráfico de banco de horas |
+| **Escala de técnicos** | Grade interativa por setor/competência, com feriados de Salvador, troca de turnos, ocorrências (plantão extra e falta), observações, exportação Excel, resumo de carga horária e simulação do próximo mês |
+| **Escala de enfermeiros** | Mesma grade interativa, com padrão rotacional próprio (`MT → SN → / → F`) e competências separadas por setor |
+| **Banco de horas** | Saldo de carga horária por funcionário e competência (horas contratadas vs. trabalhadas), com visão mensal e acumulado geral; sincronizado automaticamente ao editar a escala |
+| **Funcionários** | Cadastro, edição e inativação; perfil individual com histórico de status especiais e calendário do mês; gestão de férias, licença gestacional e INSS por período |
+| **Importação** | Dois fluxos separados: **equipe** (cadastro de funcionários) e **escala** (turnos mensais), com templates `.xlsx` e preview antes de confirmar |
 | **Setores** | Criação e edição de setores diretamente no dashboard |
 
-A escala segue o padrão rotacional **MT → F → SN → / → F**, com cinco grupos de início e suporte a âncora de início por funcionário em qualquer dia do mês.
+Cada tipo de escala segue seu padrão rotacional, com grupos de início e suporte a âncora de início por funcionário em qualquer dia do mês:
+
+| Tipo | Padrão | Grupos |
+|------|--------|--------|
+| Técnicos | MT → F → SN → / → F | 5 |
+| Enfermeiros | MT → SN → / → F | 4 |
 
 ## Stack
 
@@ -28,7 +35,7 @@ A escala segue o padrão rotacional **MT → F → SN → / → F**, com cinco g
 ```
 escala-hospital/
 ├── packages/
-│   ├── shared/      # Tipos, padrões de escala, feriados de Salvador
+│   ├── shared/      # Tipos, padrões de escala, feriados de Salvador, carga horária
 │   ├── backend/     # API Fastify + migrations Drizzle
 │   └── frontend/    # React + Vite
 ├── docker-compose.yml
@@ -103,19 +110,31 @@ npm run dev
 
 | Rota | Página |
 |------|--------|
-| `/` | Dashboard com indicadores e gestão de setores |
-| `/setores/:setorId/escala/:mes/:ano` | Grade de escala do setor/competência |
-| `/funcionarios` | Cadastro e status especiais |
-| `/importacao` | Importação de planilha `.ods` |
+| `/` | Dashboard com indicadores, banco de horas e gestão de setores |
+| `/setores/:setorId/escala/:mes/:ano` | Grade de escala de técnicos |
+| `/setores/:setorId/escala-enfermeiros/:mes/:ano` | Grade de escala de enfermeiros |
+| `/funcionarios` | Listagem e cadastro de funcionários |
+| `/funcionarios/:id` | Perfil do funcionário (dados, status e calendário do mês) |
+| `/banco-horas` | Saldo de carga horária por competência ou acumulado geral |
+| `/importacao` | Importação de equipe e de escala |
 
-## Importação de planilha ODS
+## Importação de planilhas
 
-1. Acesse http://localhost:5173/importacao
-2. Arraste o arquivo da escala (ex.: `ESCALA_TECNICOS_JUNHO_2026.ods`)
-3. Revise o preview (setores, funcionários, status especiais e erros)
-4. Clique em **Confirmar Importação**
+Acesse http://localhost:5173/importacao. Há dois fluxos independentes:
 
-O parser:
+### Equipe (cadastro)
+
+1. Baixe o template em **Importação de equipe**
+2. Preencha as colunas: MAT, NOME, COREN, CAT, CTRT, ADM, CH e SETOR
+3. Envie o `.xlsx`, revise o preview e confirme
+
+### Escala (turnos mensais)
+
+1. Baixe o template em **Importação de escala** (ou use a planilha legada `.ods`)
+2. Uma aba por setor, com cabeçalho (EMPRESA, GERENTE, SETOR, COMPETÊNCIA) e colunas de dias 1–31
+3. Envie `.xlsx` ou `.ods`, revise o preview e confirme
+
+O parser de escala:
 
 - Processa cada aba como um setor/andar
 - Faz upsert de funcionários por matrícula
@@ -123,27 +142,55 @@ O parser:
 - Substitui a escala do mês se já existir
 - Converte datas serializadas do Excel automaticamente
 
+## Banco de horas
+
+O banco de horas compara a **carga contratada** de cada funcionário (ex.: 180H) com as **horas efetivamente trabalhadas** no mês, considerando turnos da escala, status especiais e ocorrências (plantão extra conta como horas; falta não).
+
+| Status | Significado |
+|--------|-------------|
+| `atingiu` | Saldo zerado — carga cumprida |
+| `devendo` | Horas abaixo do contratado |
+| `excedeu` | Horas acima do contratado |
+
+Os saldos são recalculados automaticamente ao editar a escala, registrar ocorrências ou alterar status especiais. No dashboard, funcionários com saldo pendente aparecem no gráfico resumido; a página **Banco de horas** oferece tabela completa por competência ou visão acumulada geral.
+
+## Ocorrências na escala
+
+Além do turno base, cada célula pode registrar:
+
+| Tipo | Descrição |
+|------|-----------|
+| **Plantão extra** | Turno adicional MT ou SN; em dias com MT/SN na escala, o extra deve ser o turno complementar |
+| **Falta** | Ausência no dia; não conta horas trabalhadas |
+
+Plantões extras podem ser vinculados a outro funcionário (ex.: cobertura de colega).
+
 ## API principal
 
 ```
 GET    /api/dashboard
-GET    /api/setores
+GET    /api/setores?comTecnicos=&comEnfermeiros=
 POST   /api/setores
 PUT    /api/setores/:id
 GET    /api/setores/:id/funcionarios
-GET    /api/setores/:id/competencias?mes=&ano=
+GET    /api/setores/:id/competencias?mes=&ano=&tipo=
 POST   /api/setores/:id/competencias
 
-GET    /api/competencias/:id/escala
-GET    /api/competencias/:id/escala/export
+GET    /api/competencias/:id/escala?tipo=
+GET    /api/competencias/:id/escala/export?tipo=
 PUT    /api/competencias/:id/observacoes
-POST   /api/competencias/:id/simular-proximo-mes
-POST   /api/competencias/:id/troca
-DELETE /api/competencias/:id/escala/:funcionarioId
+POST   /api/competencias/:id/simular-proximo-mes?tipo=
+POST   /api/competencias/:id/troca?tipo=
+DELETE /api/competencias/:id/escala/:funcionarioId?tipo=
 PUT    /api/escala-dias
-PUT    /api/escala-dias/:id
+POST   /api/escala-ocorrencias
+DELETE /api/escala-ocorrencias/:id
+
+GET    /api/banco-horas?mes=&ano=&pendentes=&geral=
+GET    /api/competencias/:id/banco-horas
 
 GET    /api/funcionarios?setor=&nome=&contrato=&ativo=
+GET    /api/funcionarios/:id
 POST   /api/funcionarios
 PUT    /api/funcionarios/:id
 DELETE /api/funcionarios/:id
@@ -153,7 +200,8 @@ GET    /api/status-especiais/:competencia_id
 POST   /api/status-especiais
 DELETE /api/status-especiais/:id
 
-POST   /api/importacao/ods?confirmar=true&mes=&ano=
+GET    /api/importacao/template/:tipo          # equipe | escala
+POST   /api/importacao/ods?confirmar=&mes=&ano=&tipo=
 GET    /api/importacao/preview
 
 GET    /api/relatorios/folgas-mes?mes=&ano=&setorId=
