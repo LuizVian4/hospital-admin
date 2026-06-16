@@ -271,7 +271,29 @@ function mapEscalaTrocaRow(row: {
   };
 }
 
-export async function removerTrocaCelula(
+function aplicarTrocaNaGrade(
+  grade: GradeEscalaResponse,
+  funcionarioIdOrigem: number,
+  diaOrigem: number,
+  turnoDestino: Turno,
+  funcionarioIdDestino: number,
+  diaDestino: number,
+  turnoOrigem: Turno
+): GradeEscalaResponse {
+  for (const grupo of grade.grupos) {
+    for (const func of grupo.funcionarios) {
+      if (func.id === funcionarioIdOrigem) {
+        func.turnos[diaOrigem] = turnoDestino;
+      }
+      if (func.id === funcionarioIdDestino) {
+        func.turnos[diaDestino] = turnoOrigem;
+      }
+    }
+  }
+  return grade;
+}
+
+async function removerTrocaCelulaNoDb(
   competenciaId: number,
   funcionarioId: number,
   dia: number
@@ -298,6 +320,16 @@ export async function removerTrocaCelula(
         )
       );
   }
+}
+
+export async function removerTrocaCelula(
+  competenciaId: number,
+  funcionarioId: number,
+  dia: number,
+  tipoEscala?: TipoEscala
+): Promise<GradeEscalaResponse | null> {
+  await removerTrocaCelulaNoDb(competenciaId, funcionarioId, dia);
+  return getGradeEscala(competenciaId, tipoEscala);
 }
 
 async function registrarTrocaEscala(
@@ -526,11 +558,11 @@ export async function batchUpdateEscalaDias(
     definirInicio?: boolean;
     indicePadrao?: number;
   }[]
-) {
+): Promise<GradeEscalaResponse | null> {
   const comp = await db.query.competencias.findFirst({
     where: eq(competencias.id, competenciaId),
   });
-  if (!comp) return;
+  if (!comp) return null;
 
   const iniciosPorFuncionario = new Map<
     number,
@@ -547,7 +579,7 @@ export async function batchUpdateEscalaDias(
     });
   }
 
-  if (iniciosPorFuncionario.size === 0) return;
+  if (iniciosPorFuncionario.size === 0) return null;
 
   const funcionarioIds = [...iniciosPorFuncionario.keys()];
   const funcs = await db
@@ -574,7 +606,7 @@ export async function batchUpdateEscalaDias(
     });
   }
 
-  if (inicios.length === 0) return;
+  if (inicios.length === 0) return null;
 
   const idsComInicio = inicios.map((i) => i.funcionarioId);
   await db
@@ -586,6 +618,8 @@ export async function batchUpdateEscalaDias(
       )
     );
   await db.insert(escalaInicios).values(inicios);
+
+  return getGradeEscala(competenciaId, comp.tipo as TipoEscala);
 }
 
 export async function trocarEscalaDia(
@@ -617,8 +651,8 @@ export async function trocarEscalaDia(
     throw new Error('Ambas as células precisam ter turno para realizar a troca');
   }
 
-  await removerTrocaCelula(competenciaId, funcionarioIdOrigem, diaOrigem);
-  await removerTrocaCelula(competenciaId, funcionarioIdDestino, diaDestino);
+  await removerTrocaCelulaNoDb(competenciaId, funcionarioIdOrigem, diaOrigem);
+  await removerTrocaCelulaNoDb(competenciaId, funcionarioIdDestino, diaDestino);
 
   await registrarTrocaEscala(
     competenciaId,
@@ -638,14 +672,27 @@ export async function trocarEscalaDia(
     funcionarioIdOrigem
   );
 
-  return { success: true };
+  const gradeAtualizada = aplicarTrocaNaGrade(
+    grade,
+    funcionarioIdOrigem,
+    diaOrigem,
+    turnoDestino,
+    funcionarioIdDestino,
+    diaDestino,
+    turnoOrigem
+  );
+
+  return { success: true as const, grade: gradeAtualizada };
 }
 
-export async function zerarEscalaFuncionario(competenciaId: number, funcionarioId: number) {
+export async function zerarEscalaFuncionario(
+  competenciaId: number,
+  funcionarioId: number
+): Promise<GradeEscalaResponse | null> {
   const comp = await db.query.competencias.findFirst({
     where: eq(competencias.id, competenciaId),
   });
-  if (!comp) return false;
+  if (!comp) return null;
 
   await db
     .delete(escalaTrocas)
@@ -661,7 +708,7 @@ export async function zerarEscalaFuncionario(competenciaId: number, funcionarioI
 
   await removerInicio(competenciaId, funcionarioId);
 
-  return true;
+  return getGradeEscala(competenciaId, comp.tipo as TipoEscala);
 }
 
 export async function getRelatorioFolgas(mes: number, ano: number, setorId?: number) {
@@ -805,6 +852,7 @@ export interface SimularProximoMesResult {
   ano: number;
   processados: number;
   ignorados: number;
+  grade?: GradeEscalaResponse;
 }
 
 export async function simularProximoMes(
@@ -881,11 +929,15 @@ export async function simularProximoMes(
       .where(eq(competencias.id, proxComp.id));
   }
 
+  const gradeProx =
+    processados > 0 ? await getGradeEscala(proxComp.id, tipoEscala) : null;
+
   return {
     competenciaId: proxComp.id,
     mes: proxMes,
     ano: proxAno,
     processados,
     ignorados,
+    ...(gradeProx ? { grade: gradeProx } : {}),
   };
 }

@@ -5,6 +5,7 @@ import {
   type BancoHorasAgregado,
   type BancoHorasComDetalhes,
   type CargaHoraria,
+  type GradeEscalaResponse,
   type StatusBancoHoras,
   type TipoEscala,
 } from '@escala/shared';
@@ -51,9 +52,14 @@ export async function markBancoHorasDirty(competenciaIds: number | number[]): Pr
     .where(inArray(competencias.id, ids));
 }
 
+export type SyncBancoHorasOptions = {
+  force?: boolean;
+  grade?: GradeEscalaResponse;
+};
+
 export async function syncBancoHorasCompetencia(
   competenciaId: number,
-  options?: { force?: boolean }
+  options?: SyncBancoHorasOptions
 ): Promise<void> {
   const comp = await db.query.competencias.findFirst({
     where: eq(competencias.id, competenciaId),
@@ -61,8 +67,14 @@ export async function syncBancoHorasCompetencia(
   if (!comp) return;
   if (!comp.bancoHorasDirty && !options?.force) return;
 
-  const { getGradeEscala } = await import('./escala.service');
-  const grade = await getGradeEscala(competenciaId, comp.tipo as TipoEscala);
+  const tipoEscala = comp.tipo as TipoEscala;
+  const grade =
+    options?.grade?.competencia.id === competenciaId
+      ? options.grade
+      : await (async () => {
+          const { getGradeEscala } = await import('./escala.service');
+          return getGradeEscala(competenciaId, tipoEscala);
+        })();
   if (!grade) return;
 
   const resumos = montarResumoCargaHoraria(grade);
@@ -118,9 +130,12 @@ export async function syncBancoHorasCompetencia(
     .where(eq(competencias.id, competenciaId));
 }
 
-export async function invalidateAndSyncBancoHorasCompetencia(competenciaId: number): Promise<void> {
+export async function invalidateAndSyncBancoHorasCompetencia(
+  competenciaId: number,
+  options?: Pick<SyncBancoHorasOptions, 'grade'>
+): Promise<void> {
   await markBancoHorasDirty(competenciaId);
-  await syncBancoHorasCompetencia(competenciaId, { force: true });
+  await syncBancoHorasCompetencia(competenciaId, { force: true, grade: options?.grade });
 }
 
 async function invalidateAndSyncBancoHorasCompetencias(competenciaIds: number[]): Promise<void> {

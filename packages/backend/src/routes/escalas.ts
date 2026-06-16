@@ -167,7 +167,9 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
 
       try {
         const result = await simularProximoMes(competenciaId, tipo);
-        await invalidateAndSyncBancoHorasCompetencia(result.competenciaId);
+        await invalidateAndSyncBancoHorasCompetencia(result.competenciaId, {
+          grade: result.grade,
+        });
         return result;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao simular próximo mês';
@@ -178,8 +180,8 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
 
   app.put('/api/escala-dias', async (request) => {
     const body = escalaDiaBatchSchema.parse(request.body);
-    await batchUpdateEscalaDias(body.competenciaId, body.items);
-    await invalidateAndSyncBancoHorasCompetencia(body.competenciaId);
+    const grade = await batchUpdateEscalaDias(body.competenciaId, body.items);
+    await invalidateAndSyncBancoHorasCompetencia(body.competenciaId, { grade: grade ?? undefined });
     return { success: true, updated: body.items.length };
   });
 
@@ -190,7 +192,8 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
         ...body,
         tipo: body.tipo as 'PLANTAO_EXTRA' | 'FALTA',
       });
-      await invalidateAndSyncBancoHorasCompetencia(body.competenciaId);
+      const grade = await getGradeEscala(body.competenciaId);
+      await invalidateAndSyncBancoHorasCompetencia(body.competenciaId, { grade: grade ?? undefined });
       return reply.status(201).send(created);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao registrar ocorrência';
@@ -205,7 +208,12 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
     });
     const ok = await removerOcorrenciaEscala(id);
     if (!ok) return reply.status(404).send({ error: 'Ocorrência não encontrada' });
-    if (existing) await invalidateAndSyncBancoHorasCompetencia(existing.competenciaId);
+    if (existing) {
+      const grade = await getGradeEscala(existing.competenciaId);
+      await invalidateAndSyncBancoHorasCompetencia(existing.competenciaId, {
+        grade: grade ?? undefined,
+      });
+    }
     return { success: true };
   });
 
@@ -215,9 +223,9 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
       const competenciaId = parseInt(request.params.id, 10);
       const funcionarioId = parseInt(request.params.funcionarioId, 10);
 
-      const ok = await zerarEscalaFuncionario(competenciaId, funcionarioId);
-      if (!ok) return reply.status(404).send({ error: 'Competência não encontrada' });
-      await invalidateAndSyncBancoHorasCompetencia(competenciaId);
+      const grade = await zerarEscalaFuncionario(competenciaId, funcionarioId);
+      if (!grade) return reply.status(404).send({ error: 'Competência não encontrada' });
+      await invalidateAndSyncBancoHorasCompetencia(competenciaId, { grade });
       return { success: true };
     }
   );
@@ -238,8 +246,8 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
           body.diaDestino,
           tipo
         );
-        await invalidateAndSyncBancoHorasCompetencia(competenciaId);
-        return result;
+        await invalidateAndSyncBancoHorasCompetencia(competenciaId, { grade: result.grade });
+        return { success: result.success };
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao realizar troca';
         return reply.status(400).send({ error: message });
@@ -259,8 +267,13 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
       });
       if (!comp) return reply.status(404).send({ error: 'Competência não encontrada' });
 
-      await removerTrocaCelula(competenciaId, funcionarioId, dia);
-      await invalidateAndSyncBancoHorasCompetencia(competenciaId);
+      const grade = await removerTrocaCelula(
+        competenciaId,
+        funcionarioId,
+        dia,
+        comp.tipo as TipoEscala
+      );
+      await invalidateAndSyncBancoHorasCompetencia(competenciaId, { grade: grade ?? undefined });
       return { success: true };
     }
   );
