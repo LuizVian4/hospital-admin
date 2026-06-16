@@ -57,9 +57,9 @@ export const escalaDias = pgTable('escala_dias', {
   funcionarioId: integer('funcionario_id')
     .notNull()
     .references(() => funcionarios.id),
-  /** 'turno' = célula diária; 'inicio' = configuração de início da escala no mês */
+  /** 'turno' = célula diária manual; 'troca' = célula com troca confirmada; 'inicio' = configuração de início da escala no mês */
   tipoRegistro: text('tipo_registro').notNull().default('turno'),
-  /** Dia do mês (1–31) — apenas para tipo_registro = 'turno' */
+  /** Dia do mês (1–31) — para tipo_registro = 'turno' ou 'troca' */
   dia: integer('dia'),
   turno: text('turno'),
   observacao: text('observacao'),

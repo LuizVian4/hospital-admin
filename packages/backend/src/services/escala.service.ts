@@ -1,4 +1,4 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 import { db } from '../db';
 import {
   competencias,
@@ -19,7 +19,6 @@ import {
   getPadraoEscala,
   pertenceTipoEscala,
   projetarTurnosVazios,
-  simularMesAPartirDeAncora,
   ancoraFromEscalaInicio,
   calcularTurnoProjetado,
   calcularIndiceNoDia,
@@ -129,7 +128,7 @@ async function getTurnosMesAnterior(
     .select()
     .from(escalaDias)
     .where(
-      and(eq(escalaDias.competenciaId, compAnt.id), eq(escalaDias.tipoRegistro, 'turno'))
+      and(eq(escalaDias.competenciaId, compAnt.id), inArray(escalaDias.tipoRegistro, ['turno', 'troca']))
     );
 
   for (const d of diasAnt) {
@@ -224,6 +223,41 @@ async function upsertTurnoDia(
   }
 }
 
+async function upsertTrocaDia(
+  competenciaId: number,
+  funcionarioId: number,
+  dia: number,
+  turno: Turno,
+  observacao: string
+) {
+  const existing = await db.query.escalaDias.findFirst({
+    where: and(
+      eq(escalaDias.competenciaId, competenciaId),
+      eq(escalaDias.funcionarioId, funcionarioId),
+      eq(escalaDias.dia, dia),
+      eq(escalaDias.tipoRegistro, 'troca')
+    ),
+  });
+
+  if (existing) {
+    await db
+      .update(escalaDias)
+      .set({ turno, observacao })
+      .where(eq(escalaDias.id, existing.id));
+    return;
+  }
+
+  await db.insert(escalaDias).values({
+    competenciaId,
+    funcionarioId,
+    tipoRegistro: 'troca',
+    dia,
+    turno,
+    observacao,
+    ativo: true,
+  });
+}
+
 export function formatObservacaoTroca(
   nomeOutro: string,
   diaOutro: number,
@@ -287,16 +321,17 @@ export async function getGradeEscala(
       if (config) iniciosPorFunc.set(d.funcionarioId, config);
       continue;
     }
-    if (d.tipoRegistro !== 'turno' || !d.dia) continue;
-    if (!diasPorFunc.has(d.funcionarioId)) {
-      diasPorFunc.set(d.funcionarioId, {});
-    }
-    diasPorFunc.get(d.funcionarioId)![d.dia] = normalizeTurno(d.turno) ?? null;
-    if (d.observacao) {
-      if (!observacoesPorFunc.has(d.funcionarioId)) {
-        observacoesPorFunc.set(d.funcionarioId, {});
+    if ((d.tipoRegistro === 'turno' || d.tipoRegistro === 'troca') && d.dia) {
+      if (!diasPorFunc.has(d.funcionarioId)) {
+        diasPorFunc.set(d.funcionarioId, {});
       }
-      observacoesPorFunc.get(d.funcionarioId)![d.dia] = d.observacao;
+      diasPorFunc.get(d.funcionarioId)![d.dia] = normalizeTurno(d.turno) ?? null;
+      if (d.observacao) {
+        if (!observacoesPorFunc.has(d.funcionarioId)) {
+          observacoesPorFunc.set(d.funcionarioId, {});
+        }
+        observacoesPorFunc.get(d.funcionarioId)![d.dia] = d.observacao;
+      }
     }
   }
 
@@ -381,11 +416,8 @@ export async function batchUpdateEscalaDias(
   });
   if (!comp) return;
 
-  const totalDias = getDiasNoMes(comp.mes, comp.ano);
-  const dias = Array.from({ length: totalDias }, (_, i) => i + 1);
-
   const iniciosAtivos = await getIniciosAtivos(competenciaId);
-  const expandedItems = [...items];
+  const celulasInicio = new Set<string>();
 
   for (const item of items) {
     if (!item.turno) continue;
@@ -418,30 +450,17 @@ export async function batchUpdateEscalaDias(
       turno,
       item.indicePadrao
     );
-
-    const simulados = simularMesAPartirDeAncora(
-      padrao,
-      item.dia,
-      turno,
-      dias,
-      item.indicePadrao,
-      item.definirInicio === true
-    );
-    for (const [diaStr, turnoSimulado] of Object.entries(simulados)) {
-      expandedItems.push({
-        funcionarioId: item.funcionarioId,
-        dia: Number(diaStr),
-        turno: turnoSimulado,
-      });
-    }
+    celulasInicio.add(`${item.funcionarioId}:${item.dia}`);
   }
 
   const deduped = new Map<string, { funcionarioId: number; dia: number; turno: Turno | null }>();
-  for (const item of expandedItems) {
+  for (const item of items) {
     deduped.set(`${item.funcionarioId}:${item.dia}`, item);
   }
 
   for (const item of deduped.values()) {
+    if (celulasInicio.has(`${item.funcionarioId}:${item.dia}`)) continue;
+
     const turno = item.turno ? normalizeTurno(item.turno) : null;
     await upsertTurnoDia(competenciaId, item.funcionarioId, item.dia, turno);
   }
@@ -476,7 +495,7 @@ export async function trocarEscalaDia(
     throw new Error('Ambas as células precisam ter turno para realizar a troca');
   }
 
-  await upsertTurnoDia(
+  await upsertTrocaDia(
     competenciaId,
     funcionarioIdOrigem,
     diaOrigem,
@@ -484,7 +503,7 @@ export async function trocarEscalaDia(
     formatObservacaoTroca(destino.nome, diaDestino, turnoOrigem, turnoDestino)
   );
 
-  await upsertTurnoDia(
+  await upsertTrocaDia(
     competenciaId,
     funcionarioIdDestino,
     diaDestino,
@@ -525,27 +544,11 @@ export async function zerarEscalaFuncionario(competenciaId: number, funcionarioI
       and(
         eq(escalaDias.competenciaId, competenciaId),
         eq(escalaDias.funcionarioId, funcionarioId),
-        eq(escalaDias.tipoRegistro, 'turno')
+        inArray(escalaDias.tipoRegistro, ['turno', 'troca'])
       )
     );
 
   await desativarInicioAtivo(competenciaId, funcionarioId);
-
-  const totalDias = getDiasNoMes(comp.mes, comp.ano);
-  const dias = Array.from({ length: totalDias }, (_, i) => i + 1);
-
-  if (dias.length > 0) {
-    await db.insert(escalaDias).values(
-      dias.map((dia) => ({
-        competenciaId,
-        funcionarioId,
-        tipoRegistro: 'turno' as const,
-        dia,
-        turno: null,
-        ativo: true,
-      }))
-    );
-  }
 
   return true;
 }
@@ -576,7 +579,7 @@ export async function getRelatorioFolgas(mes: number, ano: number, setorId?: num
       .where(
         and(
           eq(escalaDias.competenciaId, comp.id),
-          eq(escalaDias.tipoRegistro, 'turno'),
+          inArray(escalaDias.tipoRegistro, ['turno', 'troca']),
           eq(escalaDias.turno, 'F')
         )
       )
@@ -606,7 +609,12 @@ export async function getRelatorioCargaHoraria(mes: number, ano: number) {
       })
       .from(escalaDias)
       .innerJoin(funcionarios, eq(escalaDias.funcionarioId, funcionarios.id))
-      .where(and(eq(escalaDias.competenciaId, comp.id), eq(escalaDias.tipoRegistro, 'turno')));
+      .where(
+        and(
+          eq(escalaDias.competenciaId, comp.id),
+          inArray(escalaDias.tipoRegistro, ['turno', 'troca'])
+        )
+      );
 
     const porFunc = new Map<number, { nome: string; horas: number; contratado: string }>();
     for (const d of dias) {
@@ -696,9 +704,6 @@ export async function simularProximoMes(
   const { mes: proxMes, ano: proxAno } = mesSeguinte(comp.mes, comp.ano);
   const proxComp = await findOrCreateCompetencia(proxMes, proxAno, comp.setorId);
 
-  const totalDiasProx = getDiasNoMes(proxMes, proxAno);
-  const diasProx = Array.from({ length: totalDiasProx }, (_, i) => i + 1);
-
   let processados = 0;
   let ignorados = 0;
   const funcionariosVistos = new Set<number>();
@@ -740,19 +745,6 @@ export async function simularProximoMes(
         turnoDia1,
         indiceDia1
       );
-
-      const simulados = simularMesAPartirDeAncora(
-        padrao,
-        1,
-        turnoDia1,
-        diasProx,
-        indiceDia1,
-        true
-      );
-
-      for (const [diaStr, turnoSimulado] of Object.entries(simulados)) {
-        await upsertTurnoDia(proxComp.id, func.id, Number(diaStr), turnoSimulado);
-      }
 
       processados++;
     }
