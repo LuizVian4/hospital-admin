@@ -1,3 +1,4 @@
+import type { VirtualItem } from '@tanstack/react-virtual';
 import type { FuncionarioComTurnos, TipoEscala, TipoOcorrenciaEscala, Turno } from '@escala/shared';
 import { COLUNAS_FIXAS, stickyLeft } from '@/constants/turnos';
 import { cn } from '@/lib/utils';
@@ -5,6 +6,7 @@ import { CelulaEscala, type EscalaCellChangeOptions } from './CelulaEscala';
 import type { CelulaTroca } from './ConfirmarTrocaDialog';
 import { FuncionarioInfoPopover } from './FuncionarioInfoPopover';
 import { ZerarEscalaButton } from './ZerarEscalaButton';
+import { DiasVirtualizados } from './DiasVirtualizados';
 import { GripVertical } from 'lucide-react';
 
 interface LinhaTurnoProps {
@@ -16,6 +18,9 @@ interface LinhaTurnoProps {
   hoje: number | null;
   feriadosPorDia: Record<number, string>;
   rowIndex: number;
+  virtualColumns: VirtualItem[];
+  diasPadStart: number;
+  diasPadEnd: number;
   arrastavel?: boolean;
   comGrupo?: boolean;
   somenteLeitura?: boolean;
@@ -52,6 +57,9 @@ export function LinhaTurno({
   somenteLeitura = false,
   trocaOrigem = null,
   modoSelecaoTroca = false,
+  virtualColumns,
+  diasPadStart,
+  diasPadEnd,
   onIniciarTroca,
   onSelecionarDestinoTroca,
   onSolicitarOcorrencia,
@@ -113,53 +121,56 @@ export function LinhaTurno({
       >
         {funcionario.categoria || '—'}
       </td>
-      {dias.map((dia, idx) => {
-        const turno = funcionario.turnos[dia] ?? null;
-        const turnoProjetado = funcionario.turnosProjetados?.[dia] ?? null;
-        const exibicao = turno ?? turnoProjetado;
-        const isTrocaOrigem =
-          trocaOrigem?.funcionarioId === funcionario.id && trocaOrigem.dia === dia;
-        const elegivelDestinoTroca =
-          modoSelecaoTroca &&
-          comGrupo &&
-          exibicao != null &&
-          !funcionario.statusPorDia?.[dia] &&
-          funcionario.id !== trocaOrigem?.funcionarioId &&
-          !isTrocaOrigem;
+      <DiasVirtualizados
+        virtualColumns={virtualColumns}
+        padStart={diasPadStart}
+        padEnd={diasPadEnd}
+        dias={dias}
+        renderDia={(dia, idx, width) => {
+          const turno = funcionario.turnos[dia] ?? null;
+          const turnoProjetado = funcionario.turnosProjetados?.[dia] ?? null;
+          const exibicao = turno ?? turnoProjetado;
+          const isTrocaOrigem =
+            trocaOrigem?.funcionarioId === funcionario.id && trocaOrigem.dia === dia;
+          const elegivelDestinoTroca =
+            modoSelecaoTroca &&
+            comGrupo &&
+            exibicao != null &&
+            !funcionario.statusPorDia?.[dia] &&
+            funcionario.id !== trocaOrigem?.funcionarioId &&
+            !isTrocaOrigem;
 
-        const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
-        const feriadoNome = feriadosPorDia[dia] ?? null;
-
-        return (
-          <CelulaEscala
-            key={dia}
-            competenciaId={competenciaId}
-            tipoEscala={tipoEscala}
-            funcionarioId={funcionario.id}
-            dia={dia}
-            turno={turno}
-            turnoProjetado={turnoProjetado}
-            observacao={funcionario.observacoesDia?.[dia] ?? null}
-            ocorrencia={funcionario.ocorrenciasPorDia?.[dia] ?? null}
-            statusEspecial={funcionario.statusPorDia?.[dia] ?? null}
-            feriadoNome={feriadoNome}
-            modoSomenteTroca={comGrupo && !somenteLeitura}
-            modoSelecaoTroca={modoSelecaoTroca}
-            somenteLeitura={somenteLeitura}
-            isTrocaOrigem={isTrocaOrigem}
-            elegivelDestinoTroca={elegivelDestinoTroca}
-            isWeekend={diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM'}
-            isHoje={dia === hoje}
-            rowBg={rowBg}
-            onChange={onCellChange ?? (() => {})}
-            onIniciarTroca={onIniciarTroca}
-            onSelecionarDestinoTroca={onSelecionarDestinoTroca}
-            onSolicitarOcorrencia={(tipo) =>
-              onSolicitarOcorrencia?.(funcionario.id, funcionario.nome, dia, exibicao, tipo)
-            }
-          />
-        );
-      })}
+          return (
+            <CelulaEscala
+              cellWidth={width}
+              competenciaId={competenciaId}
+              tipoEscala={tipoEscala}
+              funcionarioId={funcionario.id}
+              dia={dia}
+              turno={turno}
+              turnoProjetado={turnoProjetado}
+              observacao={funcionario.observacoesDia?.[dia] ?? null}
+              ocorrencia={funcionario.ocorrenciasPorDia?.[dia] ?? null}
+              statusEspecial={funcionario.statusPorDia?.[dia] ?? null}
+              feriadoNome={feriadosPorDia[dia] ?? null}
+              modoSomenteTroca={comGrupo && !somenteLeitura}
+              modoSelecaoTroca={modoSelecaoTroca}
+              somenteLeitura={somenteLeitura}
+              isTrocaOrigem={isTrocaOrigem}
+              elegivelDestinoTroca={elegivelDestinoTroca}
+              isWeekend={diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM'}
+              isHoje={dia === hoje}
+              rowBg={rowBg}
+              onChange={onCellChange ?? (() => {})}
+              onIniciarTroca={onIniciarTroca}
+              onSelecionarDestinoTroca={onSelecionarDestinoTroca}
+              onSolicitarOcorrencia={(tipo) =>
+                onSolicitarOcorrencia?.(funcionario.id, funcionario.nome, dia, exibicao, tipo)
+              }
+            />
+          );
+        }}
+      />
     </tr>
   );
 }

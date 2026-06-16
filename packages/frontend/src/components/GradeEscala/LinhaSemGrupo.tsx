@@ -1,7 +1,9 @@
+import type { VirtualItem } from '@tanstack/react-virtual';
 import type { FuncionarioComTurnos, GrupoEscala } from '@escala/shared';
 import { COLUNAS_FIXAS, stickyLeft, statusEspecialCellClass, colunaCalendarioClass } from '@/constants/turnos';
 import { cn } from '@/lib/utils';
 import { FuncionarioInfoPopover } from './FuncionarioInfoPopover';
+import { DiasVirtualizados, DiaVazio } from './DiasVirtualizados';
 import { GripVertical } from 'lucide-react';
 import {
   Select,
@@ -19,6 +21,9 @@ interface LinhaSemGrupoProps {
   feriadosPorDia: Record<number, string>;
   rowIndex: number;
   gruposEscala: GrupoEscala[];
+  virtualColumns: VirtualItem[];
+  diasPadStart: number;
+  diasPadEnd: number;
   onAtribuirGrupo: (funcionarioId: number, indicePadrao: number) => void;
 }
 
@@ -30,6 +35,9 @@ export function LinhaSemGrupo({
   feriadosPorDia,
   rowIndex,
   gruposEscala,
+  virtualColumns,
+  diasPadStart,
+  diasPadEnd,
   onAtribuirGrupo,
 }: LinhaSemGrupoProps) {
   const isEven = rowIndex % 2 === 0;
@@ -101,28 +109,34 @@ export function LinhaSemGrupo({
           </SelectContent>
         </Select>
       </td>
-      {dias.map((dia, idx) => {
-        const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
-        const isHoje = dia === hoje;
-        const feriadoNome = feriadosPorDia[dia] ?? null;
-        const status = funcionario.statusPorDia?.[dia];
-        const turno = funcionario.turnos[dia] ?? funcionario.turnosProjetados?.[dia] ?? null;
+      <DiasVirtualizados
+        virtualColumns={virtualColumns}
+        padStart={diasPadStart}
+        padEnd={diasPadEnd}
+        dias={dias}
+        renderDia={(dia, idx, width) => {
+          const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
+          const isHoje = dia === hoje;
+          const feriadoNome = feriadosPorDia[dia] ?? null;
+          const status = funcionario.statusPorDia?.[dia];
+          const turno = funcionario.turnos[dia] ?? funcionario.turnosProjetados?.[dia] ?? null;
 
-        return (
-          <td
-            key={dia}
-            title={status ? `Status especial: ${status}` : feriadoNome ?? undefined}
-            className={cn(
-              'border-b px-0 py-0 text-center text-xs min-w-[40px] h-9',
-              rowBg,
-              status ? statusEspecialCellClass(status) : 'text-muted-foreground/30',
-              colunaCalendarioClass({ isWeekend, feriadoNome, isHoje })
-            )}
-          >
-            {status ? (turno ?? '·') : '·'}
-          </td>
-        );
-      })}
+          return (
+            <DiaVazio
+              width={width}
+              title={status ? `Status especial: ${status}` : feriadoNome ?? undefined}
+              className={cn(
+                'text-center text-xs h-9',
+                rowBg,
+                status ? statusEspecialCellClass(status) : 'text-muted-foreground/30',
+                colunaCalendarioClass({ isWeekend, feriadoNome, isHoje })
+              )}
+            >
+              {status ? (turno ?? '·') : '·'}
+            </DiaVazio>
+          );
+        }}
+      />
     </tr>
   );
 }

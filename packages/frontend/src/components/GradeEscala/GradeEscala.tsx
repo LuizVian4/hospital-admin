@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -12,22 +12,21 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import SyncIcon from '@mui/icons-material/Sync';
-import type { GradeEscalaResponse, GrupoEscala, FuncionarioComTurnos, TipoEscala, TipoOcorrenciaEscala, Turno } from '@escala/shared';
+import type { GradeEscalaResponse, TipoEscala, TipoOcorrenciaEscala, Turno } from '@escala/shared';
 import { getGruposPorTipoEscala, mapFeriadosPorDia } from '@escala/shared';
-import { COLUNAS_FIXAS, stickyLeft, colunaCalendarioClass } from '@/constants/turnos';
+import { LARGURA_COLUNAS_FIXAS } from '@/constants/turnos';
 import { getDiasSemCoberturaMTSN, getDiasComPoucosTecnicosMT, getDiasComPoucosTecnicosSN, MIN_TECNICOS_POR_TURNO } from '@/lib/escalaCobertura';
 import { listarFuncionarios, organizarPorGrupoEscala } from '@/lib/escalaGrupos';
-import { cn } from '@/lib/utils';
-import { LinhaTurno } from './LinhaTurno';
-import { LinhaGrupoEscala } from './LinhaGrupoEscala';
-import { LinhaSemGrupo } from './LinhaSemGrupo';
-import { LinhaIndisponivel } from './LinhaIndisponivel';
+import { buildGradeEscalaRows } from '@/lib/gradeEscalaRows';
 import { ConfirmarTrocaDialog, type CelulaTroca } from './ConfirmarTrocaDialog';
 import {
   OcorrenciaEscalaDialog,
   type OcorrenciaEscalaDialogState,
 } from './OcorrenciaEscalaDialog';
 import { useAtribuirGrupoEscala, useTrocarEscalaDia } from '@/hooks/useEscala';
+import { useGradeEscalaVirtual } from './useGradeEscalaVirtual';
+import { CabecalhoGradeEscala } from './CabecalhoGradeEscala';
+import { GradeEscalaCorpoVirtual } from './GradeEscalaCorpoVirtual';
 import { toast } from 'sonner';
 
 interface GradeEscalaProps {
@@ -225,38 +224,44 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
     [funcionarios]
   );
 
-  const renderLinhas = (
-    lista: FuncionarioComTurnos[],
-    arrastavel: boolean,
-    comGrupo = false,
-    somenteLeitura = false
-  ) =>
-    lista.map((func) => {
-      const currentIndex = rowIndex++;
-      return (
-        <LinhaTurno
-          key={func.id}
-          competenciaId={competencia.id}
-          tipoEscala={tipoEscala}
-          funcionario={func}
-          dias={dias}
-          diasSemana={diasSemana}
-          hoje={hoje}
-          feriadosPorDia={feriadosPorDia}
-          rowIndex={currentIndex}
-          arrastavel={arrastavel}
-          comGrupo={comGrupo}
-          somenteLeitura={somenteLeitura}
-          trocaOrigem={trocaOrigem}
-          modoSelecaoTroca={modoSelecaoTroca}
-          onIniciarTroca={comGrupo ? handleIniciarTroca : undefined}
-          onSelecionarDestinoTroca={comGrupo ? handleSelecionarDestinoTroca : undefined}
-          onSolicitarOcorrencia={comGrupo ? handleSolicitarOcorrencia : undefined}
-        />
-      );
-    });
+  const flatRows = useMemo(
+    () =>
+      buildGradeEscalaRows({
+        gruposEscala,
+        porGrupo,
+        indisponivel,
+        semAtribuicao,
+        semPadrao,
+      }),
+    [gruposEscala, porGrupo, indisponivel, semAtribuicao, semPadrao]
+  );
 
-  let rowIndex = 0;
+  const {
+    scrollRef,
+    table,
+    virtualColumns,
+    virtualRows,
+    totalDiasWidth,
+    paddingTop,
+    paddingBottom,
+    diasPadStart,
+    diasPadEnd,
+  } = useGradeEscalaVirtual(dias, flatRows);
+
+  const handleDragOverGrupo = useCallback((indicePadrao: number, e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverGrupo(indicePadrao);
+  }, []);
+
+  const handleDropGrupo = useCallback(
+    (indicePadrao: number, e: React.DragEvent) => {
+      e.preventDefault();
+      const funcionarioId = Number(e.dataTransfer.getData('funcionarioId'));
+      if (funcionarioId) handleAtribuirGrupo(funcionarioId, indicePadrao);
+    },
+    [handleAtribuirGrupo]
+  );
 
   return (
     <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
@@ -393,259 +398,48 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
         </Alert>
       )}
 
-      <div className="overflow-auto max-h-[calc(100vh-320px)]">
-        <table className="border-collapse text-sm w-max min-w-full">
-          <thead className="sticky top-0 z-20">
-            <tr className="bg-slate-100">
-              {COLUNAS_FIXAS.map((col, i) => (
-                <th
-                  key={col.key}
-                  className={cn(
-                    'border-b border-r px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600 sticky z-30 bg-slate-100 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]',
-                    col.key === 'nome' && 'text-left'
-                  )}
-                  style={{ left: stickyLeft(i), minWidth: col.width, width: col.width }}
-                >
-                  {col.label}
-                </th>
-              ))}
-              {dias.map((dia) => {
-                const isHoje = dia === hoje;
-                const idx = dias.indexOf(dia);
-                const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
-                const feriadoNome = feriadosPorDia[dia] ?? null;
-                const semCobertura = diasComProblemaCobertura.has(dia);
-                return (
-                  <th
-                    key={dia}
-                    className={cn(
-                      'border-b px-1 py-2 text-xs min-w-[40px] text-center font-semibold',
-                      semCobertura
-                        ? 'dia-sem-cobertura-header'
-                        : cn(
-                            'bg-slate-100 text-slate-700',
-                            colunaCalendarioClass({ isWeekend, feriadoNome, isHoje, parte: 'header' })
-                          )
-                    )}
-                    title={
-                      semCobertura
-                        ? 'Cobertura insuficiente neste dia'
-                        : feriadoNome ?? (isHoje ? 'Dia atual' : undefined)
-                    }
-                  >
-                    {isHoje && !semCobertura ? (
-                      <span className="flex flex-col items-center gap-0.5 leading-none">
-                        <span className="text-[9px] font-bold uppercase tracking-wider opacity-90">Hoje</span>
-                        <span className="text-sm tabular-nums">{dia}</span>
-                      </span>
-                    ) : (
-                      dia
-                    )}
-                  </th>
-                );
-              })}
-            </tr>
-            <tr className="bg-slate-50">
-              <th
-                colSpan={COLUNAS_FIXAS.length}
-                className="border-b border-r px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-slate-500 sticky left-0 z-30 bg-slate-50 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)] text-left"
-              >
-                Escala
-              </th>
-              {diasSemana.map((ds, idx) => {
-                const dia = dias[idx];
-                const isHoje = dia === hoje;
-                const isWeekend = ds === 'SAB' || ds === 'DOM';
-                const feriadoNome = feriadosPorDia[dia] ?? null;
-                const semCobertura = diasComProblemaCobertura.has(dia);
-                return (
-                  <th
-                    key={idx}
-                    className={cn(
-                      'border-b px-1 py-1 text-[10px] font-medium min-w-[40px] text-center',
-                      semCobertura
-                        ? 'dia-sem-cobertura-header'
-                        : cn(
-                            'bg-slate-50 text-slate-400',
-                            colunaCalendarioClass({ isWeekend, feriadoNome, isHoje, parte: 'dow' })
-                          )
-                    )}
-                    title={
-                      semCobertura
-                        ? 'Cobertura insuficiente neste dia'
-                        : feriadoNome ?? undefined
-                    }
-                  >
-                    {ds}
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {gruposEscala.map((grupo, gi) => {
-              const membros = porGrupo.get(grupo.indicePadrao) ?? [];
-              return (
-                <Fragment key={grupo.id}>
-                  {gi > 0 && (
-                    <tr>
-                      <td
-                        colSpan={COLUNAS_FIXAS.length + dias.length}
-                        className="h-1 bg-slate-200/60 border-y"
-                      />
-                    </tr>
-                  )}
-                  <LinhaGrupoEscala
-                    grupo={grupo}
-                    dias={dias}
-                    diasSemana={diasSemana}
-                    hoje={hoje}
-                    feriadosPorDia={feriadosPorDia}
-                    isDragOver={dragOverGrupo === grupo.indicePadrao}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = 'move';
-                      setDragOverGrupo(grupo.indicePadrao);
-                    }}
-                    onDragLeave={() => setDragOverGrupo(null)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const funcionarioId = Number(e.dataTransfer.getData('funcionarioId'));
-                      if (funcionarioId) handleAtribuirGrupo(funcionarioId, grupo.indicePadrao);
-                    }}
-                  />
-                  {renderLinhas(membros, true, true)}
-                </Fragment>
-              );
-            })}
-
-            {indisponivel.length > 0 && (
-              <>
-                <tr>
-                  <td colSpan={COLUNAS_FIXAS.length + dias.length} className="h-2 bg-slate-100/80 border-y" />
-                </tr>
-                <tr className="bg-sky-50/60">
-                  <td
-                    colSpan={COLUNAS_FIXAS.length}
-                    className="border-b border-r px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-sky-900 sticky left-0 z-10 bg-sky-50/60"
-                  >
-                    Indisponível para assumir turno
-                  </td>
-                  {dias.map((dia, idx) => {
-                    const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
-                    return (
-                      <td
-                        key={dia}
-                        className={cn(
-                          'border-b bg-sky-50/40',
-                          colunaCalendarioClass({
-                            isWeekend,
-                            feriadoNome: feriadosPorDia[dia],
-                            isHoje: dia === hoje,
-                          })
-                        )}
-                      />
-                    );
-                  })}
-                </tr>
-                {indisponivel.map((func) => {
-                  const currentIndex = rowIndex++;
-                  return (
-                    <LinhaIndisponivel
-                      key={func.id}
-                      funcionario={func}
-                      dias={dias}
-                      diasSemana={diasSemana}
-                      hoje={hoje}
-                      feriadosPorDia={feriadosPorDia}
-                      rowIndex={currentIndex}
-                    />
-                  );
-                })}
-              </>
-            )}
-
-            {semAtribuicao.length > 0 && (
-              <>
-                <tr>
-                  <td colSpan={COLUNAS_FIXAS.length + dias.length} className="h-2 bg-slate-100/80 border-y" />
-                </tr>
-                <tr className="bg-amber-50/60">
-                  <td
-                    colSpan={COLUNAS_FIXAS.length}
-                    className="border-b border-r px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800 sticky left-0 z-10 bg-amber-50/60"
-                  >
-                    Sem atribuição — selecione um grupo ou arraste para cima
-                  </td>
-                  {dias.map((dia, idx) => {
-                    const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
-                    return (
-                      <td
-                        key={dia}
-                        className={cn(
-                          'border-b bg-amber-50/40',
-                          colunaCalendarioClass({
-                            isWeekend,
-                            feriadoNome: feriadosPorDia[dia],
-                            isHoje: dia === hoje,
-                          })
-                        )}
-                      />
-                    );
-                  })}
-                </tr>
-                {semAtribuicao.map((func) => {
-                  const currentIndex = rowIndex++;
-                  return (
-                    <LinhaSemGrupo
-                      key={func.id}
-                      funcionario={func}
-                      dias={dias}
-                      diasSemana={diasSemana}
-                      hoje={hoje}
-                      feriadosPorDia={feriadosPorDia}
-                      rowIndex={currentIndex}
-                      gruposEscala={gruposEscala}
-                      onAtribuirGrupo={handleAtribuirGrupo}
-                    />
-                  );
-                })}
-              </>
-            )}
-
-            {semPadrao.length > 0 && (
-              <>
-                <tr>
-                  <td colSpan={COLUNAS_FIXAS.length + dias.length} className="h-2 bg-slate-100/80 border-y" />
-                </tr>
-                <tr className="bg-slate-100/70">
-                  <td
-                    colSpan={COLUNAS_FIXAS.length}
-                    className="border-b border-r px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600 sticky left-0 z-10 bg-slate-100/70"
-                  >
-                    Outras categorias
-                  </td>
-                  {dias.map((dia, idx) => {
-                    const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
-                    return (
-                      <td
-                        key={dia}
-                        className={cn(
-                          'border-b bg-slate-100/50',
-                          colunaCalendarioClass({
-                            isWeekend,
-                            feriadoNome: feriadosPorDia[dia],
-                            isHoje: dia === hoje,
-                          })
-                        )}
-                      />
-                    );
-                  })}
-                </tr>
-                {renderLinhas(semPadrao, false, false, true)}
-              </>
-            )}
-          </tbody>
+      <div ref={scrollRef} className="overflow-auto max-h-[calc(100vh-320px)]">
+        <table
+          className="border-collapse text-sm w-max min-w-full"
+          style={{ minWidth: LARGURA_COLUNAS_FIXAS + totalDiasWidth }}
+        >
+          <CabecalhoGradeEscala
+            table={table}
+            dias={dias}
+            diasSemana={diasSemana}
+            hoje={hoje}
+            feriadosPorDia={feriadosPorDia}
+            diasComProblemaCobertura={diasComProblemaCobertura}
+            virtualColumns={virtualColumns}
+            diasPadStart={diasPadStart}
+            diasPadEnd={diasPadEnd}
+          />
+          <GradeEscalaCorpoVirtual
+            flatRows={flatRows}
+            virtualRows={virtualRows}
+            paddingTop={paddingTop}
+            paddingBottom={paddingBottom}
+            virtualColumns={virtualColumns}
+            diasPadStart={diasPadStart}
+            diasPadEnd={diasPadEnd}
+            competenciaId={competencia.id}
+            tipoEscala={tipoEscala}
+            dias={dias}
+            diasSemana={diasSemana}
+            hoje={hoje}
+            feriadosPorDia={feriadosPorDia}
+            gruposEscala={gruposEscala}
+            dragOverGrupo={dragOverGrupo}
+            trocaOrigem={trocaOrigem}
+            modoSelecaoTroca={modoSelecaoTroca}
+            onDragOverGrupo={handleDragOverGrupo}
+            onDragLeaveGrupo={() => setDragOverGrupo(null)}
+            onDropGrupo={handleDropGrupo}
+            onAtribuirGrupo={handleAtribuirGrupo}
+            onIniciarTroca={handleIniciarTroca}
+            onSelecionarDestinoTroca={handleSelecionarDestinoTroca}
+            onSolicitarOcorrencia={handleSolicitarOcorrencia}
+          />
         </table>
       </div>
 

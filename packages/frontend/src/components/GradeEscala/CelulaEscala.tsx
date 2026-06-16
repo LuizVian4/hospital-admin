@@ -53,6 +53,7 @@ interface CelulaEscalaProps {
   onIniciarTroca?: (funcionarioId: number, dia: number) => void;
   onSelecionarDestinoTroca?: (funcionarioId: number, dia: number) => void;
   onSolicitarOcorrencia?: (tipo: TipoOcorrenciaEscala) => void;
+  cellWidth?: number;
 }
 
 function ConteudoTurno({
@@ -155,6 +156,7 @@ export function CelulaEscala({
   onIniciarTroca,
   onSelecionarDestinoTroca,
   onSolicitarOcorrencia,
+  cellWidth,
 }: CelulaEscalaProps) {
   const [saving, setSaving] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -327,6 +329,11 @@ export function CelulaEscala({
   return (
     <td
       onClick={modoSelecaoTroca && elegivelDestinoTroca ? handleCelulaClick : undefined}
+      style={
+        cellWidth != null
+          ? { width: cellWidth, minWidth: cellWidth, maxWidth: cellWidth }
+          : undefined
+      }
       className={cn(
         'border-b px-0 py-0 text-center text-xs min-w-[40px] h-9 relative transition-colors',
         temTroca && !isTrocaOrigem && 'celula-com-troca',

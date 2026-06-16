@@ -28,6 +28,10 @@ export const COLUNAS_FIXAS = [
   { key: 'cat', label: 'CATEGORIA', width: 120 },
 ] as const;
 
+export const LARGURA_COLUNA_DIA = 40;
+
+export const LARGURA_COLUNAS_FIXAS = COLUNAS_FIXAS.reduce((sum, col) => sum + col.width, 0);
+
 export function stickyLeft(index: number): number {
   return COLUNAS_FIXAS.slice(0, index).reduce((sum, col) => sum + col.width, 0);
 }

@@ -1,6 +1,8 @@
+import type { VirtualItem } from '@tanstack/react-virtual';
 import type { GrupoEscala } from '@escala/shared';
 import { COLUNAS_FIXAS, colunaCalendarioClass } from '@/constants/turnos';
 import { cn } from '@/lib/utils';
+import { DiasVirtualizados, DiaVazio } from './DiasVirtualizados';
 import { GripVertical } from 'lucide-react';
 
 interface LinhaGrupoEscalaProps {
@@ -10,6 +12,9 @@ interface LinhaGrupoEscalaProps {
   hoje: number | null;
   feriadosPorDia: Record<number, string>;
   isDragOver: boolean;
+  virtualColumns: VirtualItem[];
+  diasPadStart: number;
+  diasPadEnd: number;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
@@ -22,6 +27,9 @@ export function LinhaGrupoEscala({
   hoje,
   feriadosPorDia,
   isDragOver,
+  virtualColumns,
+  diasPadStart,
+  diasPadEnd,
   onDragOver,
   onDragLeave,
   onDrop,
@@ -52,23 +60,28 @@ export function LinhaGrupoEscala({
           </div>
         </div>
       </td>
-      {dias.map((dia, idx) => {
-        const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
-        return (
-          <td
-            key={dia}
-            className={cn(
-              'border-b',
-              isDragOver ? 'bg-primary/5' : 'bg-slate-100/60',
-              colunaCalendarioClass({
-                isWeekend,
-                feriadoNome: feriadosPorDia[dia],
-                isHoje: dia === hoje,
-              })
-            )}
-          />
-        );
-      })}
+      <DiasVirtualizados
+        virtualColumns={virtualColumns}
+        padStart={diasPadStart}
+        padEnd={diasPadEnd}
+        dias={dias}
+        renderDia={(dia, idx, width) => {
+          const isWeekend = diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM';
+          return (
+            <DiaVazio
+              width={width}
+              className={cn(
+                isDragOver ? 'bg-primary/5' : 'bg-slate-100/60',
+                colunaCalendarioClass({
+                  isWeekend,
+                  feriadoNome: feriadosPorDia[dia],
+                  isHoje: dia === hoje,
+                })
+              )}
+            />
+          );
+        }}
+      />
     </tr>
   );
 }
