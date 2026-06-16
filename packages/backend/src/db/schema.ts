@@ -87,6 +87,28 @@ export const escalaTrocas = pgTable('escala_trocas', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
+export const escalaOcorrencias = pgTable(
+  'escala_ocorrencias',
+  {
+    id: serial('id').primaryKey(),
+    competenciaId: integer('competencia_id')
+      .notNull()
+      .references(() => competencias.id, { onDelete: 'cascade' }),
+    funcionarioId: integer('funcionario_id')
+      .notNull()
+      .references(() => funcionarios.id),
+    dia: integer('dia').notNull(),
+    tipo: text('tipo').notNull(),
+    turno: text('turno'),
+    funcionarioVinculoId: integer('funcionario_vinculo_id').references(() => funcionarios.id),
+    observacao: text('observacao'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    uniqueOcorrencia: unique().on(t.competenciaId, t.funcionarioId, t.dia),
+  })
+);
+
 export const statusEspeciais = pgTable('status_especiais', {
   id: serial('id').primaryKey(),
   competenciaId: integer('competencia_id').references(() => competencias.id, {
@@ -110,6 +132,8 @@ export const funcionariosRelations = relations(funcionarios, ({ one, many }) => 
   escalaInicios: many(escalaInicios),
   escalaTrocas: many(escalaTrocas),
   escalaTrocasComoParceiro: many(escalaTrocas, { relationName: 'trocaParceiro' }),
+  escalaOcorrencias: many(escalaOcorrencias),
+  escalaOcorrenciasVinculo: many(escalaOcorrencias, { relationName: 'ocorrenciaVinculo' }),
   statusEspeciais: many(statusEspeciais),
 }));
 
@@ -117,6 +141,7 @@ export const competenciasRelations = relations(competencias, ({ one, many }) => 
   setor: one(setores, { fields: [competencias.setorId], references: [setores.id] }),
   escalaInicios: many(escalaInicios),
   escalaTrocas: many(escalaTrocas),
+  escalaOcorrencias: many(escalaOcorrencias),
   statusEspeciais: many(statusEspeciais),
 }));
 
@@ -144,6 +169,22 @@ export const escalaTrocasRelations = relations(escalaTrocas, ({ one }) => ({
     fields: [escalaTrocas.funcionarioTrocaId],
     references: [funcionarios.id],
     relationName: 'trocaParceiro',
+  }),
+}));
+
+export const escalaOcorrenciasRelations = relations(escalaOcorrencias, ({ one }) => ({
+  competencia: one(competencias, {
+    fields: [escalaOcorrencias.competenciaId],
+    references: [competencias.id],
+  }),
+  funcionario: one(funcionarios, {
+    fields: [escalaOcorrencias.funcionarioId],
+    references: [funcionarios.id],
+  }),
+  funcionarioVinculo: one(funcionarios, {
+    fields: [escalaOcorrencias.funcionarioVinculoId],
+    references: [funcionarios.id],
+    relationName: 'ocorrenciaVinculo',
   }),
 }));
 

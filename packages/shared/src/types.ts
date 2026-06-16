@@ -68,12 +68,42 @@ export interface EscalaTroca {
   createdAt?: string;
 }
 
+export type TipoOcorrenciaEscala = 'PLANTAO_EXTRA' | 'FALTA';
+
+export const TIPOS_OCORRENCIA_ESCALA: TipoOcorrenciaEscala[] = ['PLANTAO_EXTRA', 'FALTA'];
+
+export interface EscalaOcorrencia {
+  id: number;
+  competenciaId: number;
+  funcionarioId: number;
+  dia: number;
+  tipo: TipoOcorrenciaEscala;
+  turno?: Turno | null;
+  funcionarioVinculoId?: number | null;
+  funcionarioVinculo?: Pick<Funcionario, 'id' | 'nome' | 'matricula'>;
+  observacao?: string | null;
+  createdAt?: string;
+}
+
+export interface EscalaOcorrenciaRequest {
+  competenciaId: number;
+  funcionarioId: number;
+  dia: number;
+  tipo: TipoOcorrenciaEscala;
+  turno?: Turno | null;
+  funcionarioVinculoId?: number | null;
+  observacao?: string | null;
+  /** Turno da escala no dia — usado para validar plantão extra complementar */
+  turnoBase?: Turno | null;
+}
+
 export interface GradeEscalaResponse {
   competencia: { id: number; mes: number; ano: number; setor: string };
   dias: number[];
   diasSemana: string[];
   grupos: GrupoTurno[];
   statusEspeciais: StatusEspecialItem[];
+  ocorrencias?: EscalaOcorrencia[];
   trocas?: EscalaTroca[];
   observacoes?: string;
 }
@@ -92,6 +122,8 @@ export interface FuncionarioComTurnos extends Funcionario {
   observacoesDia?: Record<number, string>;
   /** Status especial ativo no dia (ex.: férias, licença) */
   statusPorDia?: Record<number, StatusEspecial>;
+  /** Falta ou plantão extra registrado no dia */
+  ocorrenciasPorDia?: Record<number, EscalaOcorrencia>;
 }
 
 export interface StatusEspecialItem {

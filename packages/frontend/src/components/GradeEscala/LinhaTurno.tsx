@@ -1,4 +1,4 @@
-import type { FuncionarioComTurnos, Turno } from '@escala/shared';
+import type { FuncionarioComTurnos, TipoEscala, TipoOcorrenciaEscala, Turno } from '@escala/shared';
 import { COLUNAS_FIXAS, stickyLeft } from '@/constants/turnos';
 import { cn } from '@/lib/utils';
 import { CelulaEscala, type EscalaCellChangeOptions } from './CelulaEscala';
@@ -9,6 +9,7 @@ import { GripVertical } from 'lucide-react';
 
 interface LinhaTurnoProps {
   competenciaId: number;
+  tipoEscala: TipoEscala;
   funcionario: FuncionarioComTurnos;
   dias: number[];
   diasSemana: string[];
@@ -22,6 +23,13 @@ interface LinhaTurnoProps {
   modoSelecaoTroca?: boolean;
   onIniciarTroca?: (funcionarioId: number, dia: number) => void;
   onSelecionarDestinoTroca?: (funcionarioId: number, dia: number) => void;
+  onSolicitarOcorrencia?: (
+    funcionarioId: number,
+    funcionarioNome: string,
+    dia: number,
+    turno: Turno | null,
+    tipo: TipoOcorrenciaEscala
+  ) => void;
   onCellChange?: (
     funcionarioId: number,
     dia: number,
@@ -32,6 +40,7 @@ interface LinhaTurnoProps {
 
 export function LinhaTurno({
   competenciaId,
+  tipoEscala,
   funcionario,
   dias,
   diasSemana,
@@ -45,6 +54,7 @@ export function LinhaTurno({
   modoSelecaoTroca = false,
   onIniciarTroca,
   onSelecionarDestinoTroca,
+  onSolicitarOcorrencia,
   onCellChange,
 }: LinhaTurnoProps) {
   const isEven = rowIndex % 2 === 0;
@@ -123,11 +133,14 @@ export function LinhaTurno({
         return (
           <CelulaEscala
             key={dia}
+            competenciaId={competenciaId}
+            tipoEscala={tipoEscala}
             funcionarioId={funcionario.id}
             dia={dia}
             turno={turno}
             turnoProjetado={turnoProjetado}
             observacao={funcionario.observacoesDia?.[dia] ?? null}
+            ocorrencia={funcionario.ocorrenciasPorDia?.[dia] ?? null}
             statusEspecial={funcionario.statusPorDia?.[dia] ?? null}
             feriadoNome={feriadoNome}
             modoSomenteTroca={comGrupo && !somenteLeitura}
@@ -141,6 +154,9 @@ export function LinhaTurno({
             onChange={onCellChange ?? (() => {})}
             onIniciarTroca={onIniciarTroca}
             onSelecionarDestinoTroca={onSelecionarDestinoTroca}
+            onSolicitarOcorrencia={(tipo) =>
+              onSolicitarOcorrencia?.(funcionario.id, funcionario.nome, dia, exibicao, tipo)
+            }
           />
         );
       })}

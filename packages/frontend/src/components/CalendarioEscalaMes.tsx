@@ -1,4 +1,5 @@
 import type { FuncionarioComTurnos, StatusEspecial, Turno } from '@escala/shared';
+import { formatarExibicaoComPlantaoExtra } from '@escala/shared';
 import { turnoCellClass, statusEspecialCellClass } from '@/constants/turnos';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -10,6 +11,7 @@ export interface DiaEscalaInfo {
   turno: Turno | null;
   status: StatusEspecial | null;
   isProjetado: boolean;
+  label: string;
 }
 
 interface CalendarioEscalaMesProps {
@@ -42,12 +44,20 @@ function getDiaInfo(funcionario: FuncionarioComTurnos, dia: number): DiaEscalaIn
   const isProjetado =
     funcionario.turnos[dia] == null && funcionario.turnosProjetados?.[dia] != null;
   const status = funcionario.statusPorDia?.[dia] ?? null;
-  return { turno, status, isProjetado };
-}
+  const ocorrencia = funcionario.ocorrenciasPorDia?.[dia];
 
-function labelTurno(info: DiaEscalaInfo): string {
-  if (info.status) return info.status === 'FÉRIAS' ? 'FF' : info.status.slice(0, 3);
-  return info.turno ?? '·';
+  let label: string;
+  if (status) {
+    label = status === 'FÉRIAS' ? 'FF' : status.slice(0, 3);
+  } else if (ocorrencia?.tipo === 'PLANTAO_EXTRA') {
+    label = formatarExibicaoComPlantaoExtra(turno, ocorrencia.turno);
+  } else if (ocorrencia?.tipo === 'FALTA') {
+    label = 'FALTA';
+  } else {
+    label = turno ?? '·';
+  }
+
+  return { turno, status, isProjetado, label };
 }
 
 export function CalendarioEscalaMes({
@@ -170,7 +180,7 @@ export function CalendarioEscalaMes({
                       maxWidth: '100%',
                     }}
                   >
-                    {labelTurno(info)}
+                    {info.label}
                   </Typography>
                 </Box>
               );

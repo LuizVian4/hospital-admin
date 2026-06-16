@@ -44,6 +44,10 @@ export {
   type FuncionarioComTurnos,
   type StatusEspecialItem,
   type StatusEspecialRequest,
+  type TipoOcorrenciaEscala,
+  type EscalaOcorrencia,
+  type EscalaOcorrenciaRequest,
+  TIPOS_OCORRENCIA_ESCALA,
   type ImportPreviewSetor,
   type ImportPreview,
 } from './types';
@@ -74,3 +78,10 @@ export {
   isObservacaoTroca,
   formatObservacaoTrocaCompetencia,
 } from './observacoesCompetencia';
+export {
+  getTurnosPlantaoExtraPermitidos,
+  getTurnoPlantaoExtraSugerido,
+  validarTurnoPlantaoExtra,
+  formatarExibicaoComPlantaoExtra,
+  isTurnoFolgaOuPlantao,
+} from './plantaoExtra';

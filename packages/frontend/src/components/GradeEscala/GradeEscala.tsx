@@ -12,7 +12,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import SyncIcon from '@mui/icons-material/Sync';
-import type { GradeEscalaResponse, GrupoEscala, FuncionarioComTurnos, TipoEscala } from '@escala/shared';
+import type { GradeEscalaResponse, GrupoEscala, FuncionarioComTurnos, TipoEscala, TipoOcorrenciaEscala, Turno } from '@escala/shared';
 import { getGruposPorTipoEscala, mapFeriadosPorDia } from '@escala/shared';
 import { COLUNAS_FIXAS, stickyLeft, colunaCalendarioClass } from '@/constants/turnos';
 import { getDiasSemCoberturaMTSN, getDiasComPoucosTecnicosMT, getDiasComPoucosTecnicosSN, MIN_TECNICOS_POR_TURNO } from '@/lib/escalaCobertura';
@@ -23,6 +23,10 @@ import { LinhaGrupoEscala } from './LinhaGrupoEscala';
 import { LinhaSemGrupo } from './LinhaSemGrupo';
 import { LinhaIndisponivel } from './LinhaIndisponivel';
 import { ConfirmarTrocaDialog, type CelulaTroca } from './ConfirmarTrocaDialog';
+import {
+  OcorrenciaEscalaDialog,
+  type OcorrenciaEscalaDialogState,
+} from './OcorrenciaEscalaDialog';
 import { useAtribuirGrupoEscala, useTrocarEscalaDia } from '@/hooks/useEscala';
 import { toast } from 'sonner';
 
@@ -42,6 +46,9 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
     origem: CelulaTroca;
     destino: CelulaTroca;
   } | null>(null);
+  const [ocorrenciaDialog, setOcorrenciaDialog] = useState<OcorrenciaEscalaDialogState | null>(
+    null
+  );
 
   const modoSelecaoTroca = trocaOrigem != null && trocaConfirmacao == null;
 
@@ -197,6 +204,27 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
     );
   }, [trocaConfirmacao, trocarEscala, cancelarTroca]);
 
+  const handleSolicitarOcorrencia = useCallback(
+    (
+      funcionarioId: number,
+      funcionarioNome: string,
+      dia: number,
+      turno: Turno | null,
+      tipo: TipoOcorrenciaEscala
+    ) => {
+      const func = funcionarios.find((f) => f.id === funcionarioId);
+      setOcorrenciaDialog({
+        funcionarioId,
+        funcionarioNome,
+        dia,
+        turnoPadrao: turno,
+        tipo,
+        ocorrenciaExistente: func?.ocorrenciasPorDia?.[dia] ?? null,
+      });
+    },
+    [funcionarios]
+  );
+
   const renderLinhas = (
     lista: FuncionarioComTurnos[],
     arrastavel: boolean,
@@ -209,6 +237,7 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
         <LinhaTurno
           key={func.id}
           competenciaId={competencia.id}
+          tipoEscala={tipoEscala}
           funcionario={func}
           dias={dias}
           diasSemana={diasSemana}
@@ -222,6 +251,7 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
           modoSelecaoTroca={modoSelecaoTroca}
           onIniciarTroca={comGrupo ? handleIniciarTroca : undefined}
           onSelecionarDestinoTroca={comGrupo ? handleSelecionarDestinoTroca : undefined}
+          onSolicitarOcorrencia={comGrupo ? handleSolicitarOcorrencia : undefined}
         />
       );
     });
@@ -629,6 +659,15 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
           onConfirm={handleConfirmTroca}
         />
       )}
+
+      <OcorrenciaEscalaDialog
+        open={ocorrenciaDialog != null}
+        onOpenChange={(open) => !open && setOcorrenciaDialog(null)}
+        competenciaId={competencia.id}
+        tipoEscala={tipoEscala}
+        state={ocorrenciaDialog}
+        funcionariosVinculo={funcionarios}
+      />
     </Paper>
   );
 }

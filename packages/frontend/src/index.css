@@ -124,3 +124,13 @@
   pointer-events: none;
   z-index: 1;
 }
+
+.celula-falta {
+  @apply ring-2 ring-inset ring-red-400/80;
+  box-shadow: inset 0 0 0 9999px rgba(239, 68, 68, 0.12);
+}
+
+.celula-plantao-extra {
+  @apply ring-2 ring-inset ring-emerald-500/80;
+  box-shadow: inset 0 0 0 9999px rgba(16, 185, 129, 0.12);
+}

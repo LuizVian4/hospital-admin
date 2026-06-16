@@ -11,6 +11,7 @@ import {
   getRelatorioFolgas,
   getRelatorioCargaHoraria,
   simularProximoMes,
+  removerTrocaCelula,
 } from '../services/escala.service';
 import { exportEscalaExcel, exportEscalaMesCompletoExcel } from '../services/exportacao.service';
 import {
@@ -19,7 +20,11 @@ import {
   listStatusPorSetorNoMes,
   removerStatusEspecial,
 } from '../services/statusEspecial.service';
-import { STATUS_ESPECIAIS_OPCOES, type StatusEspecial, type TipoEscala } from '@escala/shared';
+import {
+  removerOcorrenciaEscala,
+  salvarOcorrenciaEscala,
+} from '../services/escalaOcorrencia.service';
+import { STATUS_ESPECIAIS_OPCOES, TIPOS_OCORRENCIA_ESCALA, type StatusEspecial, type TipoEscala } from '@escala/shared';
 
 const escalaDiaBatchSchema = z.object({
   competenciaId: z.number().int(),
@@ -57,6 +62,17 @@ const statusEspecialSchema = z
     message: 'A data de fim deve ser igual ou posterior à data de início',
     path: ['dataFim'],
   });
+
+const escalaOcorrenciaSchema = z.object({
+  competenciaId: z.number().int(),
+  funcionarioId: z.number().int(),
+  dia: z.number().int().min(1).max(31),
+  tipo: z.enum(TIPOS_OCORRENCIA_ESCALA as [string, ...string[]]),
+  turno: z.enum(['MT', 'SN']),
+  funcionarioVinculoId: z.number().int().nullable().optional(),
+  observacao: z.string().nullable().optional(),
+  turnoBase: z.string().nullable().optional(),
+});
 
 function parseTipoEscala(value?: string): TipoEscala {
   return value === 'enfermeiro' ? 'enfermeiro' : 'tecnico';
@@ -161,6 +177,27 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
     return { success: true, updated: body.items.length };
   });
 
+  app.post('/api/escala-ocorrencias', async (request, reply) => {
+    const body = escalaOcorrenciaSchema.parse(request.body);
+    try {
+      const created = await salvarOcorrenciaEscala({
+        ...body,
+        tipo: body.tipo as 'PLANTAO_EXTRA' | 'FALTA',
+      });
+      return reply.status(201).send(created);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro ao registrar ocorrência';
+      return reply.status(400).send({ error: message });
+    }
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/escala-ocorrencias/:id', async (request, reply) => {
+    const id = parseInt(request.params.id, 10);
+    const ok = await removerOcorrenciaEscala(id);
+    if (!ok) return reply.status(404).send({ error: 'Ocorrência não encontrada' });
+    return { success: true };
+  });
+
   app.delete<{ Params: { id: string; funcionarioId: string } }>(
     '/api/competencias/:id/escala/:funcionarioId',
     async (request, reply) => {
@@ -194,6 +231,23 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
         const message = err instanceof Error ? err.message : 'Erro ao realizar troca';
         return reply.status(400).send({ error: message });
       }
+    }
+  );
+
+  app.delete<{ Params: { id: string; funcionarioId: string; dia: string } }>(
+    '/api/competencias/:id/troca/:funcionarioId/:dia',
+    async (request, reply) => {
+      const competenciaId = parseInt(request.params.id, 10);
+      const funcionarioId = parseInt(request.params.funcionarioId, 10);
+      const dia = parseInt(request.params.dia, 10);
+
+      const comp = await db.query.competencias.findFirst({
+        where: eq(competencias.id, competenciaId),
+      });
+      if (!comp) return reply.status(404).send({ error: 'Competência não encontrada' });
+
+      await removerTrocaCelula(competenciaId, funcionarioId, dia);
+      return { success: true };
     }
   );
 

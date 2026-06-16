@@ -37,6 +37,10 @@ import {
   listStatusPorSetorNoMes,
   montarStatusPorDia,
 } from './statusEspecial.service';
+import {
+  getOcorrenciasPorFuncionarioMap,
+  listOcorrenciasPorCompetencia,
+} from './escalaOcorrencia.service';
 
 function mesAnterior(mes: number, ano: number): { mes: number; ano: number } {
   if (mes === 1) return { mes: 12, ano: ano - 1 };
@@ -267,7 +271,7 @@ function mapEscalaTrocaRow(row: {
   };
 }
 
-async function removerTrocasCelula(
+export async function removerTrocaCelula(
   competenciaId: number,
   funcionarioId: number,
   dia: number
@@ -431,9 +435,12 @@ export async function getGradeEscala(
   const diasNoMesAnterior = getDiasNoMes(mesAnt, anoAnt);
 
   const observacoesPorFunc = montarObservacoesPorTrocas(trocasRegistradas);
+  const ocorrenciasList = await listOcorrenciasPorCompetencia(competenciaId);
+  const ocorrenciasPorFunc = getOcorrenciasPorFuncionarioMap(ocorrenciasList);
 
   const funcionariosComTurnos = funcs.map((f) => {
     const observacoesDia = observacoesPorFunc.get(f.id);
+    const ocorrenciasDia = ocorrenciasPorFunc.get(f.id);
     const escalaInicio = iniciosPorFunc.get(f.id);
     const statusPorDia = montarStatusPorDia(statusList, f.id, comp.mes, comp.ano, dias);
     const padrao = getPadraoEscala(f.categoria ?? 'TÉC. DE ENFERMAGEM');
@@ -465,6 +472,7 @@ export async function getGradeEscala(
         ? { turnosProjetados }
         : {}),
       ...(observacoesDia && Object.keys(observacoesDia).length > 0 ? { observacoesDia } : {}),
+      ...(ocorrenciasDia && Object.keys(ocorrenciasDia).length > 0 ? { ocorrenciasPorDia: ocorrenciasDia } : {}),
       ...(Object.keys(statusPorDia).length > 0 ? { statusPorDia } : {}),
     };
   });
@@ -484,6 +492,7 @@ export async function getGradeEscala(
     statusEspeciais: statusList.filter((se) =>
       pertenceTipoEscala(se.funcionario.categoria ?? '', tipoEscala)
     ),
+    ocorrencias: ocorrenciasList,
     trocas: trocasRegistradas.map(mapEscalaTrocaRow),
     observacoes: comp.observacoes ?? undefined,
   };
@@ -558,8 +567,8 @@ export async function trocarEscalaDia(
     throw new Error('Ambas as células precisam ter turno para realizar a troca');
   }
 
-  await removerTrocasCelula(competenciaId, funcionarioIdOrigem, diaOrigem);
-  await removerTrocasCelula(competenciaId, funcionarioIdDestino, diaDestino);
+  await removerTrocaCelula(competenciaId, funcionarioIdOrigem, diaOrigem);
+  await removerTrocaCelula(competenciaId, funcionarioIdDestino, diaDestino);
 
   await registrarTrocaEscala(
     competenciaId,

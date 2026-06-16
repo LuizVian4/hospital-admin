@@ -92,6 +92,13 @@
       "when": 1719436800000,
       "tag": "0012_competencia_tipo",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1719523200000,
+      "tag": "0013_escala_ocorrencias",
+      "breakpoints": true
     }
   ]
 }

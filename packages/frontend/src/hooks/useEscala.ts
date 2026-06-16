@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import { DIA_INICIO_ESCALA, type EscalaDiaUpdate, type TipoEscala, type TrocaEscalaRequest } from '@escala/shared';
+import { DIA_INICIO_ESCALA, type EscalaDiaUpdate, type EscalaOcorrenciaRequest, type TipoEscala, type TrocaEscalaRequest } from '@escala/shared';
 
 export function useEscala(competenciaId: number | undefined, tipo: TipoEscala = 'tecnico') {
   return useQuery({
@@ -90,6 +90,43 @@ export function useSimularProximoMes(competenciaId: number | undefined, tipo: Ti
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['escala', competenciaId, tipo] });
       queryClient.invalidateQueries({ queryKey: ['escala', result.competenciaId, tipo] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useSalvarOcorrenciaEscala(competenciaId: number, tipo: TipoEscala = 'tecnico') {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: EscalaOcorrenciaRequest) => api.salvarOcorrenciaEscala(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['escala', competenciaId, tipo] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useRemoverOcorrenciaEscala(competenciaId: number, tipo: TipoEscala = 'tecnico') {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => api.removerOcorrenciaEscala(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['escala', competenciaId, tipo] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useRemoverTrocaCelula(competenciaId: number, tipo: TipoEscala = 'tecnico') {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ funcionarioId, dia }: { funcionarioId: number; dia: number }) =>
+      api.removerTrocaCelula(competenciaId, funcionarioId, dia),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['escala', competenciaId, tipo] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });

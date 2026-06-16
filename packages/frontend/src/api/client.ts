@@ -8,6 +8,8 @@ import type {
   TrocaEscalaRequest,
   StatusEspecialItem,
   StatusEspecialRequest,
+  EscalaOcorrencia,
+  EscalaOcorrenciaRequest,
   ImportPreview,
 } from '@escala/shared';
 
@@ -120,6 +122,21 @@ export const api = {
 
   deleteStatusEspecial: (id: number) =>
     request<{ success: boolean }>(`/api/status-especiais/${id}`, { method: 'DELETE' }),
+
+  salvarOcorrenciaEscala: (data: EscalaOcorrenciaRequest) =>
+    request<EscalaOcorrencia>('/api/escala-ocorrencias', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  removerOcorrenciaEscala: (id: number) =>
+    request<{ success: boolean }>(`/api/escala-ocorrencias/${id}`, { method: 'DELETE' }),
+
+  removerTrocaCelula: (competenciaId: number, funcionarioId: number, dia: number) =>
+    request<{ success: boolean }>(
+      `/api/competencias/${competenciaId}/troca/${funcionarioId}/${dia}`,
+      { method: 'DELETE' }
+    ),
 
   createCompetencia: async (setorId: number, mes: number, ano: number, tipo: TipoEscala = 'tecnico') => {
     const res = await fetch(`${API_URL}/api/setores/${setorId}/competencias`, {

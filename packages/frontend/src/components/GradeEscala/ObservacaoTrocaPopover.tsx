@@ -1,10 +1,17 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeftRight } from 'lucide-react';
+import type { TipoEscala } from '@escala/shared';
+import { useRemoverTrocaCelula } from '@/hooks/useEscala';
+import { Button } from '@/components/ui/button';
+import { ArrowLeftRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface ObservacaoTrocaPopoverProps {
   observacao: string;
+  competenciaId: number;
+  funcionarioId: number;
+  tipoEscala: TipoEscala;
   dia: number;
   turno?: string | null;
   children: ReactNode;
@@ -13,6 +20,9 @@ interface ObservacaoTrocaPopoverProps {
 
 export function ObservacaoTrocaPopover({
   observacao,
+  competenciaId,
+  funcionarioId,
+  tipoEscala,
   dia,
   turno,
   children,
@@ -22,6 +32,7 @@ export function ObservacaoTrocaPopover({
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout>>();
+  const remover = useRemoverTrocaCelula(competenciaId, tipoEscala);
 
   const show = useCallback(() => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -39,6 +50,19 @@ export function ObservacaoTrocaPopover({
   const cancelHide = useCallback(() => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
   }, []);
+
+  const handleRemover = () => {
+    remover.mutate(
+      { funcionarioId, dia },
+      {
+        onSuccess: () => {
+          toast.success('Troca removida');
+          setOpen(false);
+        },
+        onError: (err) => toast.error(err.message),
+      }
+    );
+  };
 
   return (
     <>
@@ -75,6 +99,26 @@ export function ObservacaoTrocaPopover({
               </div>
             </div>
             <p className="px-3 py-2.5 text-xs leading-relaxed text-foreground">{observacao}</p>
+            <div className="border-t px-3 py-2">
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="w-full h-8 text-xs"
+                disabled={remover.isPending}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={handleRemover}
+              >
+                {remover.isPending ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    Removendo...
+                  </>
+                ) : (
+                  'Remover troca'
+                )}
+              </Button>
+            </div>
           </div>,
           document.body
         )}
