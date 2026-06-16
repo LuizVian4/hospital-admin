@@ -17,4 +17,4 @@ WORKDIR /app/packages/backend
 
 EXPOSE 3001
 
-CMD ["npm", "run", "dev"]
+CMD ["sh", "-c", "npm run db:migrate && npm run dev"]
