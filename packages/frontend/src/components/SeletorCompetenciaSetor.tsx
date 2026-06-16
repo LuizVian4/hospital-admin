@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import IconButton from '@mui/material/IconButton';
+import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import { api } from '@/api/client';
 
 const MESES = [
@@ -52,10 +52,17 @@ export function SeletorCompetenciaSetor({ setorId, setorNome }: SeletorCompetenc
 
   return (
     <>
-      <Tooltip title="Abrir escala do setor">
-        <IconButton size="small" onClick={handleOpen} aria-label={`Abrir escala de ${setorNome}`}>
-          <OpenInNewIcon fontSize="small" />
-        </IconButton>
+      <Tooltip title="Escolher competência e abrir a escala">
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<CalendarMonthIcon />}
+          onClick={handleOpen}
+          aria-label={`Mostrar escalas de ${setorNome}`}
+          sx={{ textTransform: 'none' }}
+        >
+          Mostrar escalas
+        </Button>
       </Tooltip>
 
       <Menu

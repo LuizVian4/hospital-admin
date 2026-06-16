@@ -42,8 +42,16 @@ export interface DashboardData {
     setor: string;
     totalFuncionarios: number;
     totalTecnicos: number;
+    totalEnfermeiros: number;
+    totalOutros: number;
+    tecnicosComEscala: number;
+    enfermeirosComEscala: number;
     tecnicosSemEscala: number;
+    enfermeirosSemEscala: number;
+    coberturaTecnicosPercent: number;
+    coberturaEnfermeirosPercent: number;
     temCompetencia: boolean;
+    pendencias: number;
   }[];
   statusEspeciaisNoMes: { status: string; total: number }[];
   totalStatusEspeciaisNoMes: number;

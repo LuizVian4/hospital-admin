@@ -111,7 +111,8 @@ export async function getDashboardData(mes?: number, ano?: number) {
   const semEscalaDefinida = [...coberturaTecnicos.semEscala, ...coberturaEnfermeiros.semEscala].sort(
     (a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' })
   );
-  const semEscalaIds = new Set(coberturaTecnicos.semEscala.map((f) => f.id));
+  const semEscalaTecnicosIds = new Set(coberturaTecnicos.semEscala.map((f) => f.id));
+  const semEscalaEnfermeirosIds = new Set(coberturaEnfermeiros.semEscala.map((f) => f.id));
   const setoresComCompetencia = new Set(comps.map((c) => c.setorId));
 
   const totalTecnicos = coberturaTecnicos.total;
@@ -144,19 +145,51 @@ export async function getDashboardData(mes?: number, ano?: number) {
     .filter((s) => !setoresComCompetencia.has(s.id))
     .map((s) => ({ setorId: s.id, setor: s.nome }));
 
-  const resumoEscalaSetores = allSetores.map((s) => {
-    const funcsNoSetor = allFuncs.filter((f) => f.setorId === s.id);
-    const tecnicosNoSetor = funcsNoSetor.filter((f) => isTecnicoEnfermagem(f.categoria ?? ''));
-    const tecnicosSemEscala = tecnicosNoSetor.filter((f) => semEscalaIds.has(f.id)).length;
-    return {
-      setorId: s.id,
-      setor: s.nome,
-      totalFuncionarios: funcsNoSetor.length,
-      totalTecnicos: tecnicosNoSetor.length,
-      tecnicosSemEscala,
-      temCompetencia: setoresComCompetencia.has(s.id),
-    };
-  });
+  const resumoEscalaSetores = allSetores
+    .map((s) => {
+      const funcsNoSetor = allFuncs.filter((f) => f.setorId === s.id);
+      const tecnicosNoSetor = funcsNoSetor.filter((f) => isTecnicoEnfermagem(f.categoria ?? ''));
+      const enfermeirosNoSetor = funcsNoSetor.filter((f) => isEnfermeiro(f.categoria ?? ''));
+      const tecnicosSemEscala = tecnicosNoSetor.filter((f) =>
+        semEscalaTecnicosIds.has(f.id)
+      ).length;
+      const enfermeirosSemEscala = enfermeirosNoSetor.filter((f) =>
+        semEscalaEnfermeirosIds.has(f.id)
+      ).length;
+      const tecnicosComEscala = tecnicosNoSetor.length - tecnicosSemEscala;
+      const enfermeirosComEscala = enfermeirosNoSetor.length - enfermeirosSemEscala;
+      const totalOutros =
+        funcsNoSetor.length - tecnicosNoSetor.length - enfermeirosNoSetor.length;
+
+      const coberturaTecnicosPercent =
+        tecnicosNoSetor.length > 0
+          ? Math.round((tecnicosComEscala / tecnicosNoSetor.length) * 100)
+          : 100;
+      const coberturaEnfermeirosPercent =
+        enfermeirosNoSetor.length > 0
+          ? Math.round((enfermeirosComEscala / enfermeirosNoSetor.length) * 100)
+          : 100;
+
+      const pendencias = tecnicosSemEscala + enfermeirosSemEscala + (setoresComCompetencia.has(s.id) ? 0 : 1);
+
+      return {
+        setorId: s.id,
+        setor: s.nome,
+        totalFuncionarios: funcsNoSetor.length,
+        totalTecnicos: tecnicosNoSetor.length,
+        totalEnfermeiros: enfermeirosNoSetor.length,
+        totalOutros,
+        tecnicosComEscala,
+        enfermeirosComEscala,
+        tecnicosSemEscala,
+        enfermeirosSemEscala,
+        coberturaTecnicosPercent,
+        coberturaEnfermeirosPercent,
+        temCompetencia: setoresComCompetencia.has(s.id),
+        pendencias,
+      };
+    })
+    .sort((a, b) => a.setorId - b.setorId);
 
   const inicioMes = new Date(anoAtual, mesAtual - 1, 1);
   const fimMes = new Date(anoAtual, mesAtual, 0);

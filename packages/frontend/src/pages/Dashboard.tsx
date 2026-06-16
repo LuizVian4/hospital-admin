@@ -28,8 +28,7 @@ import PersonOffIcon from '@mui/icons-material/PersonOff';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import { api } from '@/api/client';
 import { isEnfermeiro } from '@escala/shared';
-import { SetoresEditor } from '@/components/SetoresEditor';
-import { SeletorCompetenciaSetor } from '@/components/SeletorCompetenciaSetor';
+import { ResumoPorSetor } from '@/components/dashboard/ResumoPorSetor';
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -138,7 +137,7 @@ export function Dashboard() {
       <Box>
         <Stack direction="row" sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
           <Typography variant="h4" component="h1">
-            Dashboard
+            Dashboard Administrativo
           </Typography>
           <Chip
             icon={<CalendarMonthIcon />}
@@ -153,58 +152,6 @@ export function Dashboard() {
         </Typography>
       </Box>
 
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
-          <StatCard
-            title="Funcionários ativos"
-            value={data.totalFuncionarios}
-            icon={<PeopleIcon />}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
-          <StatCard
-            title="Setores"
-            value={totalSetores}
-            icon={<BusinessIcon />}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
-          <StatCard
-            title="Escalas do mês"
-            value={`${data.setoresComCompetencia}/${totalSetores}`}
-            subtitle="Setores com competência aberta"
-            icon={<CheckCircleIcon />}
-            color="success"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
-          <StatCard
-            title="Técnicos com escala"
-            value={data.comEscalaDefinida}
-            subtitle={`de ${data.totalTecnicos} técnicos`}
-            icon={<CheckCircleIcon />}
-            color="info"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
-          <StatCard
-            title="Sem escala definida"
-            value={data.semEscalaDefinida.length}
-            subtitle={`Funcionários em ${periodoLabel}`}
-            icon={<WarningAmberIcon />}
-            color="warning"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
-          <StatCard
-            title="Status especiais"
-            value={data.totalStatusEspeciaisNoMes}
-            subtitle="Férias e licenças no mês"
-            icon={<BeachAccessIcon />}
-            color="primary"
-          />
-        </Grid>
-      </Grid>
 
       {data.setoresSemCompetencia.length > 0 && (
         <Alert severity="warning" icon={<WarningAmberIcon />}>
@@ -237,9 +184,86 @@ export function Dashboard() {
         <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
-              <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="h6">Cobertura de escala — técnicos de enfermagem</Typography>
-                <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700 }}>
+              <Typography variant="h6" gutterBottom>
+                Por categoria
+              </Typography>
+              <Stack spacing={1}>
+                {data.funcionariosPorCategoria.slice(0, 6).map((item) => (
+                  <Box key={item.categoria}>
+                    <Stack direction="row" sx={{ justifyContent: 'space-between', mb: 0.25 }}>
+                      <Typography variant="body2" noWrap sx={{ maxWidth: '75%' }}>
+                        {item.categoria}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {item.total}
+                      </Typography>
+                    </Stack>
+                    <LinearProgress
+                      variant="determinate"
+                      value={(item.total / data.totalFuncionarios) * 100}
+                      sx={{ height: 4, borderRadius: 2 }}
+                    />
+                  </Box>
+                ))}
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Por tipo de contrato
+              </Typography>
+              <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
+                {data.funcionariosPorContrato.map((item) => (
+                  <Chip
+                    key={item.tipo}
+                    label={`${item.tipo}: ${item.total}`}
+                    color={contratoColor(item.tipo)}
+                    variant="outlined"
+                  />
+                ))}
+              </Stack>
+
+              {data.statusEspeciaisNoMes.length > 0 && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="subtitle2" gutterBottom>
+                    Status especiais em {periodoLabel}
+                  </Typography>
+                  <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
+                    {data.statusEspeciaisNoMes.map((item) => (
+                      <Chip
+                        key={item.status}
+                        label={`${item.status}: ${item.total}`}
+                        size="small"
+                        icon={<BeachAccessIcon />}
+                      />
+                    ))}
+                  </Stack>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Cobertura de escala
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Profissionais com início de escala ou status especial cobrindo o mês
+          </Typography>
+
+          <Stack spacing={2.5}>
+            <Box>
+              <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
+                <Typography variant="subtitle2">Técnicos de enfermagem</Typography>
+                <Typography variant="subtitle2" color="primary.main" sx={{ fontWeight: 700 }}>
                   {data.coberturaEscalaPercent}%
                 </Typography>
               </Stack>
@@ -248,19 +272,17 @@ export function Dashboard() {
                 value={data.coberturaEscalaPercent}
                 sx={{ height: 10, borderRadius: 5 }}
               />
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                {data.comEscalaDefinida} de {data.totalTecnicos} técnicos com início de escala ou status
-                especial cobrindo o mês
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.75, display: 'block' }}>
+                {data.comEscalaDefinida} de {data.totalTecnicos} técnicos
               </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="h6">Cobertura de escala — enfermeiros</Typography>
-                <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700 }}>
+            </Box>
+
+            <Divider />
+
+            <Box>
+              <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
+                <Typography variant="subtitle2">Enfermeiros</Typography>
+                <Typography variant="subtitle2" color="primary.main" sx={{ fontWeight: 700 }}>
                   {data.coberturaEscalaEnfermeirosPercent}%
                 </Typography>
               </Stack>
@@ -269,146 +291,15 @@ export function Dashboard() {
                 value={data.coberturaEscalaEnfermeirosPercent}
                 sx={{ height: 10, borderRadius: 5 }}
               />
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                {data.comEscalaDefinidaEnfermeiros} de {data.totalEnfermeiros} enfermeiros com início de escala ou
-                status especial cobrindo o mês
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.75, display: 'block' }}>
+                {data.comEscalaDefinidaEnfermeiros} de {data.totalEnfermeiros} enfermeiros
               </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, lg: 7 }}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Resumo por setor
-              </Typography>
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Setor</TableCell>
-                      <TableCell align="center">Funcionários</TableCell>
-                      <TableCell align="center">Técnicos</TableCell>
-                      <TableCell align="center">Sem escala</TableCell>
-                      <TableCell align="center">Competência</TableCell>
-                      <TableCell align="right" />
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {data.resumoEscalaSetores.map((row) => (
-                      <TableRow key={row.setorId} hover>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            {row.setor}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">{row.totalFuncionarios}</TableCell>
-                        <TableCell align="center">{row.totalTecnicos}</TableCell>
-                        <TableCell align="center">
-                          {row.tecnicosSemEscala > 0 ? (
-                            <Chip
-                              label={row.tecnicosSemEscala}
-                              size="small"
-                              color="warning"
-                              variant="outlined"
-                            />
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">
-                              —
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={row.temCompetencia ? 'Aberta' : 'Pendente'}
-                            size="small"
-                            color={row.temCompetencia ? 'success' : 'default'}
-                            variant={row.temCompetencia ? 'filled' : 'outlined'}
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          <SeletorCompetenciaSetor setorId={row.setorId} setorNome={row.setor} />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 5 }}>
-          <Stack spacing={2} sx={{ height: '100%' }}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Por categoria
-                </Typography>
-                <Stack spacing={1}>
-                  {data.funcionariosPorCategoria.slice(0, 6).map((item) => (
-                    <Box key={item.categoria}>
-                      <Stack direction="row" sx={{ justifyContent: 'space-between', mb: 0.25 }}>
-                        <Typography variant="body2" noWrap sx={{ maxWidth: '75%' }}>
-                          {item.categoria}
-                        </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {item.total}
-                        </Typography>
-                      </Stack>
-                      <LinearProgress
-                        variant="determinate"
-                        value={(item.total / data.totalFuncionarios) * 100}
-                        sx={{ height: 4, borderRadius: 2 }}
-                      />
-                    </Box>
-                  ))}
-                </Stack>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Por tipo de contrato
-                </Typography>
-                <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
-                  {data.funcionariosPorContrato.map((item) => (
-                    <Chip
-                      key={item.tipo}
-                      label={`${item.tipo}: ${item.total}`}
-                      color={contratoColor(item.tipo)}
-                      variant="outlined"
-                    />
-                  ))}
-                </Stack>
-
-                {data.statusEspeciaisNoMes.length > 0 && (
-                  <>
-                    <Divider sx={{ my: 2 }} />
-                    <Typography variant="subtitle2" gutterBottom>
-                      Status especiais em {periodoLabel}
-                    </Typography>
-                    <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
-                      {data.statusEspeciaisNoMes.map((item) => (
-                        <Chip
-                          key={item.status}
-                          label={`${item.status}: ${item.total}`}
-                          size="small"
-                          icon={<BeachAccessIcon />}
-                        />
-                      ))}
-                    </Stack>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+            </Box>
           </Stack>
-        </Grid>
-      </Grid>
+        </CardContent>
+      </Card>
+
+      <ResumoPorSetor resumo={data.resumoEscalaSetores} setoresInfo={data.setores} />
 
       {data.semEscalaDefinida.length > 0 && (
         <Card>
@@ -471,8 +362,6 @@ export function Dashboard() {
           </CardContent>
         </Card>
       )}
-
-      <SetoresEditor setores={data.setores} />
     </Stack>
   );
 }
