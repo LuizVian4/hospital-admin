@@ -50,6 +50,10 @@ export {
   TIPOS_OCORRENCIA_ESCALA,
   type ImportPreviewSetor,
   type ImportPreview,
+  type StatusBancoHoras,
+  type BancoHoras,
+  type BancoHorasComDetalhes,
+  type BancoHorasAgregado,
 } from './types';
 export {
   STATUS_ESPECIAIS_OPCOES,

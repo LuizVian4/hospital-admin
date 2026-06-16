@@ -2,7 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
-import { competencias } from '../db/schema';
+import { competencias, escalaOcorrencias, statusEspeciais } from '../db/schema';
 import {
   getGradeEscala,
   batchUpdateEscalaDias,
@@ -24,6 +24,10 @@ import {
   removerOcorrenciaEscala,
   salvarOcorrenciaEscala,
 } from '../services/escalaOcorrencia.service';
+import {
+  syncBancoHorasAfetadosPorStatus,
+  syncBancoHorasCompetencia,
+} from '../services/bancoHoras.service';
 import { STATUS_ESPECIAIS_OPCOES, TIPOS_OCORRENCIA_ESCALA, type StatusEspecial, type TipoEscala } from '@escala/shared';
 
 const escalaDiaBatchSchema = z.object({
@@ -163,6 +167,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
 
       try {
         const result = await simularProximoMes(competenciaId, tipo);
+        await syncBancoHorasCompetencia(result.competenciaId);
         return result;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao simular próximo mês';
@@ -174,6 +179,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
   app.put('/api/escala-dias', async (request) => {
     const body = escalaDiaBatchSchema.parse(request.body);
     await batchUpdateEscalaDias(body.competenciaId, body.items);
+    await syncBancoHorasCompetencia(body.competenciaId);
     return { success: true, updated: body.items.length };
   });
 
@@ -184,6 +190,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
         ...body,
         tipo: body.tipo as 'PLANTAO_EXTRA' | 'FALTA',
       });
+      await syncBancoHorasCompetencia(body.competenciaId);
       return reply.status(201).send(created);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao registrar ocorrência';
@@ -193,8 +200,12 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
 
   app.delete<{ Params: { id: string } }>('/api/escala-ocorrencias/:id', async (request, reply) => {
     const id = parseInt(request.params.id, 10);
+    const existing = await db.query.escalaOcorrencias.findFirst({
+      where: eq(escalaOcorrencias.id, id),
+    });
     const ok = await removerOcorrenciaEscala(id);
     if (!ok) return reply.status(404).send({ error: 'Ocorrência não encontrada' });
+    if (existing) await syncBancoHorasCompetencia(existing.competenciaId);
     return { success: true };
   });
 
@@ -206,6 +217,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
 
       const ok = await zerarEscalaFuncionario(competenciaId, funcionarioId);
       if (!ok) return reply.status(404).send({ error: 'Competência não encontrada' });
+      await syncBancoHorasCompetencia(competenciaId);
       return { success: true };
     }
   );
@@ -226,6 +238,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
           body.diaDestino,
           tipo
         );
+        await syncBancoHorasCompetencia(competenciaId);
         return result;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao realizar troca';
@@ -247,6 +260,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
       if (!comp) return reply.status(404).send({ error: 'Competência não encontrada' });
 
       await removerTrocaCelula(competenciaId, funcionarioId, dia);
+      await syncBancoHorasCompetencia(competenciaId);
       return { success: true };
     }
   );
@@ -271,6 +285,12 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
         ...body,
         status: body.status as StatusEspecial,
       });
+      await syncBancoHorasAfetadosPorStatus(
+        body.funcionarioId,
+        body.dataInicio,
+        body.dataFim,
+        body.competenciaId
+      );
       return reply.status(201).send(created);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao criar status especial';
@@ -280,8 +300,19 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
 
   app.delete<{ Params: { id: string } }>('/api/status-especiais/:id', async (request, reply) => {
     const id = parseInt(request.params.id, 10);
+    const existing = await db.query.statusEspeciais.findFirst({
+      where: eq(statusEspeciais.id, id),
+    });
     const ok = await removerStatusEspecial(id);
     if (!ok) return reply.status(404).send({ error: 'Status especial não encontrado' });
+    if (existing?.dataInicio && existing.dataFim) {
+      await syncBancoHorasAfetadosPorStatus(
+        existing.funcionarioId,
+        existing.dataInicio,
+        existing.dataFim,
+        existing.competenciaId
+      );
+    }
     return { success: true };
   });
 

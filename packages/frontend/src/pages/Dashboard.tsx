@@ -29,6 +29,7 @@ import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import { api } from '@/api/client';
 import { isEnfermeiro } from '@escala/shared';
 import { ResumoPorSetor } from '@/components/dashboard/ResumoPorSetor';
+import { GraficoBancoHoras } from '@/components/dashboard/GraficoBancoHoras';
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -303,6 +304,8 @@ export function Dashboard() {
       </Card>
 
       <ResumoPorSetor resumo={data.resumoEscalaSetores} setoresInfo={data.setores} />
+
+      <GraficoBancoHoras items={data.bancoHorasPendentes} mes={mes} ano={ano} />
 
       {data.semEscalaDefinida.length > 0 && (
         <Card>

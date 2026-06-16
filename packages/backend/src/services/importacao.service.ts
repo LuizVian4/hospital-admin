@@ -830,6 +830,32 @@ export async function persistImport(
     }
   }
 
+  const competenciasSincronizadas = new Set<number>();
+  for (const setorData of parsed) {
+    if (setorData.format !== 'escala') continue;
+    const setor = await db.query.setores.findFirst({ where: eq(setores.nome, setorData.nome) });
+    if (!setor) continue;
+    const mesImport = setorData.mes ?? defaultMes ?? new Date().getMonth() + 1;
+    const anoImport = setorData.ano ?? defaultAno ?? new Date().getFullYear();
+    const comps = await db.query.competencias.findMany({
+      where: and(
+        eq(competencias.mes, mesImport),
+        eq(competencias.ano, anoImport),
+        eq(competencias.setorId, setor.id)
+      ),
+    });
+    for (const comp of comps) {
+      competenciasSincronizadas.add(comp.id);
+    }
+  }
+
+  if (competenciasSincronizadas.size > 0) {
+    const { syncBancoHorasCompetencia } = await import('./bancoHoras.service');
+    for (const compId of competenciasSincronizadas) {
+      await syncBancoHorasCompetencia(compId);
+    }
+  }
+
   return preview;
 }
 

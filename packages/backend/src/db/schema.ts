@@ -7,6 +7,7 @@ import {
   date,
   timestamp,
   unique,
+  real,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -122,6 +123,30 @@ export const statusEspeciais = pgTable('status_especiais', {
   dataFim: date('data_fim'),
 });
 
+export const bancoHoras = pgTable(
+  'banco_horas',
+  {
+    id: serial('id').primaryKey(),
+    competenciaId: integer('competencia_id')
+      .notNull()
+      .references(() => competencias.id, { onDelete: 'cascade' }),
+    funcionarioId: integer('funcionario_id')
+      .notNull()
+      .references(() => funcionarios.id, { onDelete: 'cascade' }),
+    cargaContratada: text('carga_contratada').notNull(),
+    horasContratadas: integer('horas_contratadas').notNull(),
+    horasTrabalhadas: integer('horas_trabalhadas').notNull(),
+    turnosTrabalhados: real('turnos_trabalhados').notNull(),
+    saldoHoras: integer('saldo_horas').notNull(),
+    status: text('status').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqueBancoHoras: unique().on(t.competenciaId, t.funcionarioId),
+  })
+);
+
 export const setoresRelations = relations(setores, ({ many }) => ({
   funcionarios: many(funcionarios),
   competencias: many(competencias),
@@ -135,6 +160,7 @@ export const funcionariosRelations = relations(funcionarios, ({ one, many }) => 
   escalaOcorrencias: many(escalaOcorrencias),
   escalaOcorrenciasVinculo: many(escalaOcorrencias, { relationName: 'ocorrenciaVinculo' }),
   statusEspeciais: many(statusEspeciais),
+  bancoHoras: many(bancoHoras),
 }));
 
 export const competenciasRelations = relations(competencias, ({ one, many }) => ({
@@ -143,6 +169,7 @@ export const competenciasRelations = relations(competencias, ({ one, many }) => 
   escalaTrocas: many(escalaTrocas),
   escalaOcorrencias: many(escalaOcorrencias),
   statusEspeciais: many(statusEspeciais),
+  bancoHoras: many(bancoHoras),
 }));
 
 export const escalaIniciosRelations = relations(escalaInicios, ({ one }) => ({
@@ -195,6 +222,17 @@ export const statusEspeciaisRelations = relations(statusEspeciais, ({ one }) => 
   }),
   funcionario: one(funcionarios, {
     fields: [statusEspeciais.funcionarioId],
+    references: [funcionarios.id],
+  }),
+}));
+
+export const bancoHorasRelations = relations(bancoHoras, ({ one }) => ({
+  competencia: one(competencias, {
+    fields: [bancoHoras.competenciaId],
+    references: [competencias.id],
+  }),
+  funcionario: one(funcionarios, {
+    fields: [bancoHoras.funcionarioId],
     references: [funcionarios.id],
   }),
 }));

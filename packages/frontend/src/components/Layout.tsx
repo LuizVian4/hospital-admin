@@ -16,6 +16,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import PeopleIcon from '@mui/icons-material/People';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import ScheduleIcon from '@mui/icons-material/Schedule';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -37,6 +38,12 @@ const staticNav = [
     label: 'Importação',
     icon: UploadFileIcon,
     isActive: (path: string) => path === '/importacao',
+  },
+  {
+    to: '/banco-horas',
+    label: 'Banco de horas',
+    icon: ScheduleIcon,
+    isActive: (path: string) => path.startsWith('/banco-horas'),
   },
 ] as const;
 

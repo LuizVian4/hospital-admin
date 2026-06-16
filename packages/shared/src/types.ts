@@ -178,3 +178,43 @@ export interface ImportPreview {
   totalStatusEspeciais: number;
   erros: string[];
 }
+
+export type StatusBancoHoras = 'atingiu' | 'devendo' | 'excedeu';
+
+export interface BancoHoras {
+  id: number;
+  competenciaId: number;
+  funcionarioId: number;
+  cargaContratada: CargaHoraria;
+  horasContratadas: number;
+  horasTrabalhadas: number;
+  turnosTrabalhados: number;
+  saldoHoras: number;
+  status: StatusBancoHoras;
+  updatedAt: string;
+}
+
+export interface BancoHorasComDetalhes extends BancoHoras {
+  funcionarioNome: string;
+  funcionarioMatricula: string;
+  funcionarioCategoria: string;
+  setorId: number | null;
+  setorNome: string | null;
+  competenciaMes: number;
+  competenciaAno: number;
+  competenciaTipo: 'tecnico' | 'enfermeiro';
+}
+
+export interface BancoHorasAgregado {
+  funcionarioId: number;
+  funcionarioNome: string;
+  funcionarioMatricula: string;
+  funcionarioCategoria: string;
+  setorId: number | null;
+  setorNome: string | null;
+  horasContratadas: number;
+  horasTrabalhadas: number;
+  saldoHoras: number;
+  status: StatusBancoHoras;
+  competenciasContabilizadas: number;
+}

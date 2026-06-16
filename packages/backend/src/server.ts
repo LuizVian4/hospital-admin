@@ -4,6 +4,7 @@ import { setoresRoutes } from './routes/setores';
 import { funcionariosRoutes } from './routes/funcionarios';
 import { escalasRoutes } from './routes/escalas';
 import { importacaoRoutes } from './routes/importacao';
+import { bancoHorasRoutes } from './routes/bancoHoras';
 
 const app = Fastify({ logger: true });
 
@@ -14,6 +15,7 @@ async function start() {
   await app.register(funcionariosRoutes);
   await app.register(escalasRoutes);
   await app.register(importacaoRoutes);
+  await app.register(bancoHorasRoutes);
 
   app.get('/health', async () => ({ status: 'ok' }));
 

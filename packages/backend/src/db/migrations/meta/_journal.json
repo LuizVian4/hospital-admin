@@ -99,6 +99,13 @@
       "when": 1719523200000,
       "tag": "0013_escala_ocorrencias",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1719609600000,
+      "tag": "0014_banco_horas",
+      "breakpoints": true
     }
   ]
 }

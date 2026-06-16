@@ -11,6 +11,8 @@ import type {
   EscalaOcorrencia,
   EscalaOcorrenciaRequest,
   ImportPreview,
+  BancoHorasComDetalhes,
+  BancoHorasAgregado,
 } from '@escala/shared';
 
 export interface Competencia {
@@ -59,6 +61,7 @@ export interface DashboardData {
   }[];
   statusEspeciaisNoMes: { status: string; total: number }[];
   totalStatusEspeciaisNoMes: number;
+  bancoHorasPendentes: BancoHorasComDetalhes[];
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -303,4 +306,21 @@ export const api = {
   },
 
   getDashboard: () => request<DashboardData>('/api/dashboard'),
+
+  getBancoHoras: (mes: number, ano: number, pendentes?: boolean) => {
+    const params = new URLSearchParams({
+      mes: String(mes),
+      ano: String(ano),
+      ...(pendentes ? { pendentes: 'true' } : {}),
+    });
+    return request<BancoHorasComDetalhes[]>(`/api/banco-horas?${params}`);
+  },
+
+  getBancoHorasGeral: (pendentes?: boolean) => {
+    const params = new URLSearchParams({
+      geral: 'true',
+      ...(pendentes ? { pendentes: 'true' } : {}),
+    });
+    return request<BancoHorasAgregado[]>(`/api/banco-horas?${params}`);
+  },
 };

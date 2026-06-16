@@ -8,6 +8,7 @@ import { EscalaPage } from '@/pages/EscalaPage';
 import { FuncionariosPage } from '@/pages/FuncionariosPage';
 import { FuncionarioProfilePage } from '@/pages/FuncionarioProfilePage';
 import { ImportacaoPage } from '@/pages/ImportacaoPage';
+import { BancoHorasPage } from '@/pages/BancoHorasPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,6 +32,7 @@ export function App() {
             <Route path="funcionarios" element={<FuncionariosPage />} />
             <Route path="funcionarios/:id" element={<FuncionarioProfilePage />} />
             <Route path="importacao" element={<ImportacaoPage />} />
+            <Route path="banco-horas" element={<BancoHorasPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

@@ -3,6 +3,7 @@ import { getPadraoEscala, isEnfermeiro, isTecnicoEnfermagem, type TipoEscala } f
 import { db } from '../db';
 import { setores, funcionarios, competencias, escalaInicios, statusEspeciais } from '../db/schema';
 import { mapFuncionario, getDiasNoMes } from '../utils/helpers';
+import { listBancoHorasPendentes } from './bancoHoras.service';
 import { listStatusPorSetorNoMes, montarStatusPorDia } from './statusEspecial.service';
 
 type FuncionarioRow = typeof funcionarios.$inferSelect;
@@ -252,6 +253,8 @@ export async function getDashboardData(mes?: number, ano?: number) {
     .map(([status, total]) => ({ status, total }))
     .sort((a, b) => b.total - a.total);
 
+  const bancoHorasPendentes = await listBancoHorasPendentes(mesAtual, anoAtual);
+
   return {
     setores: allSetores,
     totalFuncionarios: allFuncs.length,
@@ -277,5 +280,6 @@ export async function getDashboardData(mes?: number, ano?: number) {
     resumoEscalaSetores,
     statusEspeciaisNoMes,
     totalStatusEspeciaisNoMes: statusAtivosNoMes.length,
+    bancoHorasPendentes,
   };
 }
