@@ -461,7 +461,7 @@ export function FuncionariosPage() {
       ...data,
       tipoContrato: data.tipoContrato as Funcionario['tipoContrato'],
       setorId: data.setorId,
-      ativo: data.ativo,
+      ...(editing ? {} : { ativo: true }),
     };
     if (editing) {
       updateMutation.mutate(

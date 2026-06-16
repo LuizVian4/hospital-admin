@@ -1,7 +1,7 @@
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import type { Funcionario } from '@escala/shared';
+import { isEnfermeiro, type Funcionario } from '@escala/shared';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
@@ -11,23 +11,29 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Switch from '@mui/material/Switch';
 import Divider from '@mui/material/Divider';
 import { useSetores } from '@/hooks/useFuncionarios';
 
 const SEM_SETOR = '__none__';
 
+const CATEGORIAS = [
+  { value: 'TÉCNICO DE ENFERMAGEM', label: 'Técnico de Enfermagem' },
+  { value: 'ENFERMEIRO', label: 'Enfermeiro' },
+] as const;
+
+function normalizarCategoriaForm(categoria?: string): (typeof CATEGORIAS)[number]['value'] {
+  return isEnfermeiro(categoria ?? '') ? 'ENFERMEIRO' : 'TÉCNICO DE ENFERMAGEM';
+}
+
 const schema = z.object({
   matricula: z.string().min(1, 'Obrigatório'),
   nome: z.string().min(1, 'Obrigatório'),
   coren: z.string().optional(),
-  categoria: z.string().default('TÉC. DE ENFERMAGEM'),
+  categoria: z.enum(['TÉCNICO DE ENFERMAGEM', 'ENFERMEIRO']).default('TÉCNICO DE ENFERMAGEM'),
   tipoContrato: z.string().default('EFETIVO'),
   dataAdmissao: z.string().optional(),
   cargaHoraria: z.enum(['180H', '144H']).default('180H'),
   setorId: z.number().nullable(),
-  ativo: z.boolean(),
 });
 
 export type FuncionarioFormData = z.infer<typeof schema>;
@@ -64,12 +70,11 @@ export function FuncionarioForm({ formId, initial, onSubmit, loading }: Funciona
       matricula: initial?.matricula ?? '',
       nome: initial?.nome ?? '',
       coren: initial?.coren ?? '',
-      categoria: initial?.categoria ?? 'TÉC. DE ENFERMAGEM',
+      categoria: normalizarCategoriaForm(initial?.categoria),
       tipoContrato: initial?.tipoContrato ?? 'EFETIVO',
       dataAdmissao: initial?.dataAdmissao ?? '',
       cargaHoraria: initial?.cargaHoraria ?? '180H',
       setorId: initial?.setorId ?? setores[0]?.id ?? null,
-      ativo: initial?.ativo ?? true,
     },
   });
 
@@ -126,12 +131,21 @@ export function FuncionarioForm({ formId, initial, onSubmit, loading }: Funciona
           <SectionTitle>Vínculo</SectionTitle>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                label="Categoria"
-                fullWidth
-                size="small"
-                disabled={loading}
-                {...register('categoria')}
+              <Controller
+                name="categoria"
+                control={control}
+                render={({ field }) => (
+                  <FormControl fullWidth size="small" disabled={loading}>
+                    <InputLabel id="categoria-label">Categoria</InputLabel>
+                    <Select {...field} labelId="categoria-label" label="Categoria">
+                      {CATEGORIAS.map((cat) => (
+                        <MenuItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
@@ -202,28 +216,6 @@ export function FuncionarioForm({ formId, initial, onSubmit, loading }: Funciona
                       ))}
                     </Select>
                   </FormControl>
-                )}
-              />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <Controller
-                name="ativo"
-                control={control}
-                render={({ field }) => (
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={field.value}
-                        onChange={(e) => field.onChange(e.target.checked)}
-                        disabled={loading}
-                      />
-                    }
-                    label={
-                      field.value
-                        ? 'Funcionário ativo'
-                        : 'Funcionário inativo — aparecerá em Inativados/Sem setor'
-                    }
-                  />
                 )}
               />
             </Grid>
