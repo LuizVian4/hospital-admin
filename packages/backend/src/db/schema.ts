@@ -44,6 +44,8 @@ export const competencias = pgTable(
     setorId: integer('setor_id').references(() => setores.id),
     tipo: text('tipo').notNull().default('tecnico'),
     observacoes: text('observacoes'),
+    bancoHorasDirty: boolean('banco_horas_dirty').notNull().default(true),
+    bancoHorasSyncedAt: timestamp('banco_horas_synced_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (t) => ({

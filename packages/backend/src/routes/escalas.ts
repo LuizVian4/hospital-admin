@@ -26,7 +26,7 @@ import {
 } from '../services/escalaOcorrencia.service';
 import {
   syncBancoHorasAfetadosPorStatus,
-  syncBancoHorasCompetencia,
+  invalidateAndSyncBancoHorasCompetencia,
 } from '../services/bancoHoras.service';
 import { STATUS_ESPECIAIS_OPCOES, TIPOS_OCORRENCIA_ESCALA, type StatusEspecial, type TipoEscala } from '@escala/shared';
 
@@ -167,7 +167,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
 
       try {
         const result = await simularProximoMes(competenciaId, tipo);
-        await syncBancoHorasCompetencia(result.competenciaId);
+        await invalidateAndSyncBancoHorasCompetencia(result.competenciaId);
         return result;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao simular próximo mês';
@@ -179,7 +179,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
   app.put('/api/escala-dias', async (request) => {
     const body = escalaDiaBatchSchema.parse(request.body);
     await batchUpdateEscalaDias(body.competenciaId, body.items);
-    await syncBancoHorasCompetencia(body.competenciaId);
+    await invalidateAndSyncBancoHorasCompetencia(body.competenciaId);
     return { success: true, updated: body.items.length };
   });
 
@@ -190,7 +190,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
         ...body,
         tipo: body.tipo as 'PLANTAO_EXTRA' | 'FALTA',
       });
-      await syncBancoHorasCompetencia(body.competenciaId);
+      await invalidateAndSyncBancoHorasCompetencia(body.competenciaId);
       return reply.status(201).send(created);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao registrar ocorrência';
@@ -205,7 +205,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
     });
     const ok = await removerOcorrenciaEscala(id);
     if (!ok) return reply.status(404).send({ error: 'Ocorrência não encontrada' });
-    if (existing) await syncBancoHorasCompetencia(existing.competenciaId);
+    if (existing) await invalidateAndSyncBancoHorasCompetencia(existing.competenciaId);
     return { success: true };
   });
 
@@ -217,7 +217,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
 
       const ok = await zerarEscalaFuncionario(competenciaId, funcionarioId);
       if (!ok) return reply.status(404).send({ error: 'Competência não encontrada' });
-      await syncBancoHorasCompetencia(competenciaId);
+      await invalidateAndSyncBancoHorasCompetencia(competenciaId);
       return { success: true };
     }
   );
@@ -238,7 +238,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
           body.diaDestino,
           tipo
         );
-        await syncBancoHorasCompetencia(competenciaId);
+        await invalidateAndSyncBancoHorasCompetencia(competenciaId);
         return result;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao realizar troca';
@@ -260,7 +260,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
       if (!comp) return reply.status(404).send({ error: 'Competência não encontrada' });
 
       await removerTrocaCelula(competenciaId, funcionarioId, dia);
-      await syncBancoHorasCompetencia(competenciaId);
+      await invalidateAndSyncBancoHorasCompetencia(competenciaId);
       return { success: true };
     }
   );

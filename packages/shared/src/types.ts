@@ -203,6 +203,8 @@ export interface BancoHorasComDetalhes extends BancoHoras {
   competenciaMes: number;
   competenciaAno: number;
   competenciaTipo: 'tecnico' | 'enfermeiro';
+  bancoHorasDirty?: boolean;
+  bancoHorasSyncedAt?: string | null;
 }
 
 export interface BancoHorasAgregado {

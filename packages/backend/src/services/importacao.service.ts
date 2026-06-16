@@ -850,9 +850,9 @@ export async function persistImport(
   }
 
   if (competenciasSincronizadas.size > 0) {
-    const { syncBancoHorasCompetencia } = await import('./bancoHoras.service');
+    const { invalidateAndSyncBancoHorasCompetencia } = await import('./bancoHoras.service');
     for (const compId of competenciasSincronizadas) {
-      await syncBancoHorasCompetencia(compId);
+      await invalidateAndSyncBancoHorasCompetencia(compId);
     }
   }
 

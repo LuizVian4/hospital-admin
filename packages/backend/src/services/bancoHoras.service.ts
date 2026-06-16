@@ -22,6 +22,8 @@ function mapBancoHorasRow(
     competenciaMes: number;
     competenciaAno: number;
     competenciaTipo: TipoEscala;
+    bancoHorasDirty: boolean;
+    bancoHorasSyncedAt: string | null;
   }
 ): BancoHorasComDetalhes {
   return {
@@ -39,11 +41,25 @@ function mapBancoHorasRow(
   };
 }
 
-export async function syncBancoHorasCompetencia(competenciaId: number): Promise<void> {
+export async function markBancoHorasDirty(competenciaIds: number | number[]): Promise<void> {
+  const ids = Array.isArray(competenciaIds) ? competenciaIds : [competenciaIds];
+  if (ids.length === 0) return;
+
+  await db
+    .update(competencias)
+    .set({ bancoHorasDirty: true })
+    .where(inArray(competencias.id, ids));
+}
+
+export async function syncBancoHorasCompetencia(
+  competenciaId: number,
+  options?: { force?: boolean }
+): Promise<void> {
   const comp = await db.query.competencias.findFirst({
     where: eq(competencias.id, competenciaId),
   });
   if (!comp) return;
+  if (!comp.bancoHorasDirty && !options?.force) return;
 
   const { getGradeEscala } = await import('./escala.service');
   const grade = await getGradeEscala(competenciaId, comp.tipo as TipoEscala);
@@ -95,16 +111,23 @@ export async function syncBancoHorasCompetencia(competenciaId: number): Promise<
         )
       );
   }
+
+  await db
+    .update(competencias)
+    .set({ bancoHorasDirty: false, bancoHorasSyncedAt: now })
+    .where(eq(competencias.id, competenciaId));
 }
 
-export async function syncBancoHorasMes(mes: number, ano: number): Promise<void> {
-  const comps = await db
-    .select()
-    .from(competencias)
-    .where(and(eq(competencias.mes, mes), eq(competencias.ano, ano)));
+export async function invalidateAndSyncBancoHorasCompetencia(competenciaId: number): Promise<void> {
+  await markBancoHorasDirty(competenciaId);
+  await syncBancoHorasCompetencia(competenciaId, { force: true });
+}
 
-  for (const comp of comps) {
-    await syncBancoHorasCompetencia(comp.id);
+async function invalidateAndSyncBancoHorasCompetencias(competenciaIds: number[]): Promise<void> {
+  if (competenciaIds.length === 0) return;
+  await markBancoHorasDirty(competenciaIds);
+  for (const competenciaId of competenciaIds) {
+    await syncBancoHorasCompetencia(competenciaId, { force: true });
   }
 }
 
@@ -115,7 +138,7 @@ export async function syncBancoHorasAfetadosPorStatus(
   competenciaId?: number | null
 ): Promise<void> {
   if (competenciaId != null) {
-    await syncBancoHorasCompetencia(competenciaId);
+    await invalidateAndSyncBancoHorasCompetencia(competenciaId);
     return;
   }
 
@@ -125,15 +148,15 @@ export async function syncBancoHorasAfetadosPorStatus(
   if (!func?.setorId) return;
 
   const comps = await db
-    .select()
+    .select({ id: competencias.id, mes: competencias.mes, ano: competencias.ano })
     .from(competencias)
     .where(eq(competencias.setorId, func.setorId));
 
-  for (const comp of comps) {
-    if (intervaloSobrepoeMes(dataInicio, dataFim, comp.mes, comp.ano)) {
-      await syncBancoHorasCompetencia(comp.id);
-    }
-  }
+  const afetadas = comps
+    .filter((comp) => intervaloSobrepoeMes(dataInicio, dataFim, comp.mes, comp.ano))
+    .map((comp) => comp.id);
+
+  await invalidateAndSyncBancoHorasCompetencias(afetadas);
 }
 
 function resolverStatusSaldo(saldoHoras: number): StatusBancoHoras {
@@ -142,50 +165,7 @@ function resolverStatusSaldo(saldoHoras: number): StatusBancoHoras {
   return 'atingiu';
 }
 
-async function ensureBancoHorasGeral(): Promise<void> {
-  const comps = await db.select({ id: competencias.id }).from(competencias);
-  if (comps.length === 0) return;
-
-  const compIds = comps.map((c) => c.id);
-  const existentes = await db
-    .select({ competenciaId: bancoHoras.competenciaId })
-    .from(bancoHoras)
-    .where(inArray(bancoHoras.competenciaId, compIds))
-    .groupBy(bancoHoras.competenciaId);
-
-  const comDados = new Set(existentes.map((e) => e.competenciaId));
-  for (const comp of comps) {
-    if (!comDados.has(comp.id)) {
-      await syncBancoHorasCompetencia(comp.id);
-    }
-  }
-}
-
-async function ensureBancoHorasMes(mes: number, ano: number): Promise<void> {
-  const comps = await db
-    .select({ id: competencias.id })
-    .from(competencias)
-    .where(and(eq(competencias.mes, mes), eq(competencias.ano, ano)));
-
-  if (comps.length === 0) return;
-
-  const compIds = comps.map((c) => c.id);
-  const existentes = await db
-    .select({ competenciaId: bancoHoras.competenciaId })
-    .from(bancoHoras)
-    .where(inArray(bancoHoras.competenciaId, compIds))
-    .groupBy(bancoHoras.competenciaId);
-
-  const comDados = new Set(existentes.map((e) => e.competenciaId));
-  for (const comp of comps) {
-    if (!comDados.has(comp.id)) {
-      await syncBancoHorasCompetencia(comp.id);
-    }
-  }
-}
-
 export async function listBancoHorasCompetencia(competenciaId: number): Promise<BancoHorasComDetalhes[]> {
-  await syncBancoHorasCompetencia(competenciaId);
   return queryBancoHoras({ competenciaId });
 }
 
@@ -194,7 +174,6 @@ export async function listBancoHorasMes(
   ano: number,
   options?: { apenasPendentes?: boolean }
 ): Promise<BancoHorasComDetalhes[]> {
-  await ensureBancoHorasMes(mes, ano);
   return queryBancoHoras({ mes, ano, apenasPendentes: options?.apenasPendentes });
 }
 
@@ -215,6 +194,8 @@ async function queryBancoHoras(filters: {
       competenciaMes: competencias.mes,
       competenciaAno: competencias.ano,
       competenciaTipo: competencias.tipo,
+      bancoHorasDirty: competencias.bancoHorasDirty,
+      bancoHorasSyncedAt: competencias.bancoHorasSyncedAt,
     })
     .from(bancoHoras)
     .innerJoin(competencias, eq(bancoHoras.competenciaId, competencias.id))
@@ -244,6 +225,8 @@ async function queryBancoHoras(filters: {
         competenciaMes: row.competenciaMes,
         competenciaAno: row.competenciaAno,
         competenciaTipo: row.competenciaTipo as TipoEscala,
+        bancoHorasDirty: row.bancoHorasDirty,
+        bancoHorasSyncedAt: row.bancoHorasSyncedAt?.toISOString() ?? null,
       })
     )
     .sort((a, b) => {
@@ -260,8 +243,6 @@ export async function listBancoHorasPendentes(mes: number, ano: number): Promise
 export async function listBancoHorasGeral(options?: {
   apenasPendentes?: boolean;
 }): Promise<BancoHorasAgregado[]> {
-  await ensureBancoHorasGeral();
-
   const rows = await db
     .select({
       funcionarioId: funcionarios.id,
