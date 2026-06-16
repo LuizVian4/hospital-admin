@@ -1,4 +1,4 @@
-import type { StatusEspecial, Turno } from './types';
+import type { StatusEspecial, StatusEspecialItem, Turno } from './types';
 
 export const STATUS_ESPECIAIS_OPCOES: StatusEspecial[] = [
   'FÉRIAS',
@@ -75,4 +75,35 @@ export function diasAfetadosNoMes(
   }
 
   return dias;
+}
+
+/** Dias com status especial dentro do período da competência (interseção mês/ano + datas do status). */
+export function montarStatusPorDiaNaCompetencia(
+  statuses: StatusEspecialItem[],
+  funcionarioId: number,
+  competencia: { id: number; mes: number; ano: number },
+  dias: number[]
+): Record<number, StatusEspecial> {
+  const porDia: Record<number, StatusEspecial> = {};
+
+  for (const item of statuses) {
+    if (item.funcionario.id !== funcionarioId) continue;
+    if (item.competenciaId != null && item.competenciaId !== competencia.id) continue;
+    if (!intervaloSobrepoeMes(item.dataInicio, item.dataFim, competencia.mes, competencia.ano)) {
+      continue;
+    }
+
+    for (const dia of diasAfetadosNoMes(
+      item.dataInicio,
+      item.dataFim,
+      competencia.mes,
+      competencia.ano,
+      dias.length
+    )) {
+      if (!dias.includes(dia)) continue;
+      porDia[dia] = item.status;
+    }
+  }
+
+  return porDia;
 }

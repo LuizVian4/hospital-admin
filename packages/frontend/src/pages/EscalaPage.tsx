@@ -34,6 +34,8 @@ import { GradeEscalaSkeleton } from '@/components/GradeEscala/GradeEscalaSkeleto
 import { LegendaTurnos } from '@/components/GradeEscala/LegendaTurnos';
 import { LegendaFeriados } from '@/components/GradeEscala/LegendaFeriados';
 import { ObservacoesCompetencia } from '@/components/GradeEscala/ObservacoesCompetencia';
+import { HistoricoMovimentacoesEscala } from '@/components/GradeEscala/HistoricoMovimentacoesEscala';
+import { ResumoCargaHorariaEscala } from '@/components/GradeEscala/ResumoCargaHorariaEscala';
 import { SetorSelector } from '@/components/SetorSelector';
 import { toast } from 'sonner';
 
@@ -325,6 +327,10 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
       )}
       {!competenciaLoading && isLoading && competenciaId && <GradeEscalaSkeleton />}
       {escala && <GradeEscala data={escala} tipoEscala={tipoEscala} />}
+
+      {escala && <HistoricoMovimentacoesEscala escala={escala} />}
+
+      {escala && <ResumoCargaHorariaEscala escala={escala} />}
 
       <Card>
         <CardHeader

@@ -59,6 +59,7 @@ export {
   limitesMes,
   intervaloSobrepoeMes,
   diasAfetadosNoMes,
+  montarStatusPorDiaNaCompetencia,
   statusCobreMesInteiro,
 } from './statusEspecial';
 export {
@@ -91,3 +92,14 @@ export {
   funcionarioPossuiTurnoNoDia,
   funcionarioElegivelCobrirTurno,
 } from './escalaTurno';
+export {
+  calcularHorasTurno,
+  calcularHorasTrabalhadasFuncionario,
+  horasContratadasDeCarga,
+  HORAS_POR_DIA_STATUS_ESPECIAL,
+  labelStatusCargaHoraria,
+  montarResumoCargaHoraria,
+  type ContextoCargaHorariaCompetencia,
+  type ResumoCargaHorariaFuncionario,
+  type StatusCargaHoraria,
+} from './escalaCargaHoraria';
