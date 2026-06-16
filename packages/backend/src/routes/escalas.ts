@@ -182,7 +182,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
     const body = escalaDiaBatchSchema.parse(request.body);
     const grade = await batchUpdateEscalaDias(body.competenciaId, body.items);
     await invalidateAndSyncBancoHorasCompetencia(body.competenciaId, { grade: grade ?? undefined });
-    return { success: true, updated: body.items.length };
+    return { success: true, updated: body.items.length, grade };
   });
 
   app.post('/api/escala-ocorrencias', async (request, reply) => {
@@ -194,7 +194,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
       });
       const grade = await getGradeEscala(body.competenciaId);
       await invalidateAndSyncBancoHorasCompetencia(body.competenciaId, { grade: grade ?? undefined });
-      return reply.status(201).send(created);
+      return reply.status(201).send({ ocorrencia: created, grade });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao registrar ocorrência';
       return reply.status(400).send({ error: message });
@@ -213,6 +213,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
       await invalidateAndSyncBancoHorasCompetencia(existing.competenciaId, {
         grade: grade ?? undefined,
       });
+      return { success: true, grade };
     }
     return { success: true };
   });
@@ -226,7 +227,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
       const grade = await zerarEscalaFuncionario(competenciaId, funcionarioId);
       if (!grade) return reply.status(404).send({ error: 'Competência não encontrada' });
       await invalidateAndSyncBancoHorasCompetencia(competenciaId, { grade });
-      return { success: true };
+      return { success: true, grade };
     }
   );
 
@@ -247,7 +248,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
           tipo
         );
         await invalidateAndSyncBancoHorasCompetencia(competenciaId, { grade: result.grade });
-        return { success: result.success };
+        return { success: result.success, grade: result.grade };
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao realizar troca';
         return reply.status(400).send({ error: message });
@@ -274,7 +275,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
         comp.tipo as TipoEscala
       );
       await invalidateAndSyncBancoHorasCompetencia(competenciaId, { grade: grade ?? undefined });
-      return { success: true };
+      return { success: true, grade };
     }
   );
 

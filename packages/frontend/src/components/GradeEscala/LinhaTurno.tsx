@@ -107,6 +107,7 @@ function LinhaTurnoComponent({
             </span>
             <ZerarEscalaButton
               competenciaId={competenciaId}
+              tipoEscala={tipoEscala}
               funcionarioId={funcionario.id}
               funcionarioNome={funcionario.nome}
             />

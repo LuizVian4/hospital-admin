@@ -1,5 +1,7 @@
 import type {
   Funcionario,
+  FuncionariosListResponse,
+  FuncionariosAgrupamentosResponse,
   GradeEscalaResponse,
   Setor,
   TipoEscala,
@@ -100,7 +102,12 @@ export const api = {
 
   getFuncionarios: (params?: Record<string, string>) => {
     const qs = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request<Funcionario[]>(`/api/funcionarios${qs}`);
+    return request<FuncionariosListResponse>(`/api/funcionarios${qs}`);
+  },
+
+  getFuncionariosAgrupamentos: (params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request<FuncionariosAgrupamentosResponse>(`/api/funcionarios/agrupamentos${qs}`);
   },
 
   getFuncionario: (id: number) => request<Funcionario>(`/api/funcionarios/${id}`),
@@ -127,16 +134,18 @@ export const api = {
     request<{ success: boolean }>(`/api/status-especiais/${id}`, { method: 'DELETE' }),
 
   salvarOcorrenciaEscala: (data: EscalaOcorrenciaRequest) =>
-    request<EscalaOcorrencia>('/api/escala-ocorrencias', {
+    request<{ ocorrencia: EscalaOcorrencia; grade: GradeEscalaResponse }>('/api/escala-ocorrencias', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   removerOcorrenciaEscala: (id: number) =>
-    request<{ success: boolean }>(`/api/escala-ocorrencias/${id}`, { method: 'DELETE' }),
+    request<{ success: boolean; grade?: GradeEscalaResponse }>(`/api/escala-ocorrencias/${id}`, {
+      method: 'DELETE',
+    }),
 
   removerTrocaCelula: (competenciaId: number, funcionarioId: number, dia: number) =>
-    request<{ success: boolean }>(
+    request<{ success: boolean; grade?: GradeEscalaResponse }>(
       `/api/competencias/${competenciaId}/troca/${funcionarioId}/${dia}`,
       { method: 'DELETE' }
     ),
@@ -220,18 +229,22 @@ export const api = {
   },
 
   updateEscalaDias: (competenciaId: number, items: EscalaDiaUpdate[]) =>
-    request<{ success: boolean }>('/api/escala-dias', {
-      method: 'PUT',
-      body: JSON.stringify({ competenciaId, items }),
-    }),
+    request<{ success: boolean; updated: number; grade?: GradeEscalaResponse | null }>(
+      '/api/escala-dias',
+      {
+        method: 'PUT',
+        body: JSON.stringify({ competenciaId, items }),
+      }
+    ),
 
   zerarEscalaFuncionario: (competenciaId: number, funcionarioId: number) =>
-    request<{ success: boolean }>(`/api/competencias/${competenciaId}/escala/${funcionarioId}`, {
-      method: 'DELETE',
-    }),
+    request<{ success: boolean; grade?: GradeEscalaResponse }>(
+      `/api/competencias/${competenciaId}/escala/${funcionarioId}`,
+      { method: 'DELETE' }
+    ),
 
   trocarEscalaDia: (competenciaId: number, data: TrocaEscalaRequest, tipo: TipoEscala = 'tecnico') =>
-    request<{ success: boolean }>(
+    request<{ success: boolean; grade: GradeEscalaResponse }>(
       `/api/competencias/${competenciaId}/troca${tipo === 'enfermeiro' ? '?tipo=enfermeiro' : ''}`,
       {
         method: 'POST',
@@ -252,6 +265,7 @@ export const api = {
       ano: number;
       processados: number;
       ignorados: number;
+      grade?: GradeEscalaResponse;
     }>(
       `/api/competencias/${competenciaId}/simular-proximo-mes${tipo === 'enfermeiro' ? '?tipo=enfermeiro' : ''}`,
       {

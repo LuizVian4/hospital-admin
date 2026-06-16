@@ -34,7 +34,7 @@ interface GradeEscalaProps {
 export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) {
   const gruposEscala = useMemo(() => getGruposPorTipoEscala(tipoEscala), [tipoEscala]);
   const { competencia, dias, diasSemana, grupos } = data;
-  const atribuirGrupo = useAtribuirGrupoEscala(competencia.id);
+  const atribuirGrupo = useAtribuirGrupoEscala(competencia.id, tipoEscala);
   const trocarEscala = useTrocarEscalaDia(competencia.id, tipoEscala);
   const [dragOverGrupo, setDragOverGrupo] = useState<number | null>(null);
   const [trocaOrigem, setTrocaOrigem] = useState<CelulaTroca | null>(null);

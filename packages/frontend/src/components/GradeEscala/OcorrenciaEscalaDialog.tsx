@@ -68,7 +68,11 @@ export function OcorrenciaEscalaDialog({
   const [observacao, setObservacao] = useState('');
 
   const salvar = useSalvarOcorrenciaEscala(competenciaId, tipoEscala);
-  const remover = useRemoverOcorrenciaEscala(competenciaId, tipoEscala);
+  const remover = useRemoverOcorrenciaEscala(
+    competenciaId,
+    tipoEscala,
+    state ? { funcionarioId: state.funcionarioId, dia: state.dia } : undefined
+  );
 
   const isFalta = state?.tipo === 'FALTA';
   const turnosPermitidos = useMemo(() => {

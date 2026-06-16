@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   useFuncionarios,
+  useFuncionariosAgrupamentos,
   useCreateFuncionario,
   useUpdateFuncionario,
   useSetores,
 } from '@/hooks/useFuncionarios';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { FuncionarioForm, type FuncionarioFormData } from '@/components/FuncionarioForm';
 import { StatusEspecialDialog } from '@/components/StatusEspecialDialog';
 import Box from '@mui/material/Box';
@@ -32,6 +34,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TablePagination from '@mui/material/TablePagination';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -59,8 +62,7 @@ import PersonOffIcon from '@mui/icons-material/PersonOff';
 import PersonIcon from '@mui/icons-material/Person';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CloseIcon from '@mui/icons-material/Close';
-import type { Funcionario } from '@escala/shared';
-import { isEnfermeiro, isTecnicoEnfermagem } from '@escala/shared';
+import type { Funcionario, FuncionarioAgrupamentoResumo, FuncionariosResumo } from '@escala/shared';
 import { toast } from 'sonner';
 import { getInitials } from '@/utils/funcionario';
 
@@ -68,64 +70,175 @@ function isFuncionarioAgrupamentoEspecial(f: Funcionario): boolean {
   return !f.ativo || f.setorId == null;
 }
 
+const PAGE_SIZE = 50;
+
+const RESUMO_VAZIO: FuncionariosResumo = {
+  total: 0,
+  ativos: 0,
+  inativos: 0,
+  semSetor: 0,
+  semCoren: 0,
+  provisorios: 0,
+  carga180: 0,
+  carga144: 0,
+  setoresAtivos: 0,
+  porCategoria: [],
+  corenPercent: 100,
+};
+
 function motivoAgrupamentoEspecial(f: Funcionario): string {
   if (!f.ativo && f.setorId == null) return 'Inativo · Sem setor';
   if (!f.ativo) return 'Inativo';
   return 'Sem setor';
 }
 
-function chaveCategoriaResumo(categoria: string): string {
-  if (isTecnicoEnfermagem(categoria)) return '__tecnico__';
-  if (isEnfermeiro(categoria)) return '__enfermeiro__';
-  return categoria?.trim() || '__sem_categoria__';
+function agrupamentoKey(agrupamento: FuncionarioAgrupamentoResumo): string {
+  return agrupamento.especial ? 'especial' : String(agrupamento.id);
 }
 
-function formatarContagemCategoria(chave: string, count: number): string {
-  if (chave === '__tecnico__') {
-    return `${count} ${count === 1 ? 'técnico' : 'técnicos'}`;
-  }
-  if (chave === '__enfermeiro__') {
-    return `${count} ${count === 1 ? 'enfermeiro' : 'enfermeiros'}`;
-  }
-  if (chave === '__sem_categoria__') {
-    return `${count} sem categoria`;
-  }
-  return `${count} ${chave}`;
-}
-
-function contarPorCategoria(funcionarios: Funcionario[]): Array<{ chave: string; count: number }> {
-  const map = new Map<string, number>();
-  for (const f of funcionarios) {
-    const chave = chaveCategoriaResumo(f.categoria ?? '');
-    map.set(chave, (map.get(chave) ?? 0) + 1);
-  }
-  return [...map.entries()]
-    .map(([chave, count]) => ({ chave, count }))
-    .sort((a, b) => b.count - a.count);
-}
-
-function ResumoCategoriasChips({
-  funcionarios,
+function AgrupamentoResumoChips({
+  totalTecnicos,
+  totalEnfermeiros,
   color = 'primary',
 }: {
-  funcionarios: Funcionario[];
+  totalTecnicos: number;
+  totalEnfermeiros: number;
   color?: 'primary' | 'default';
 }) {
-  const contagens = contarPorCategoria(funcionarios);
-  if (contagens.length === 0) return null;
+  if (totalTecnicos === 0 && totalEnfermeiros === 0) return null;
 
   return (
     <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-      {contagens.map(({ chave, count }) => (
+      {totalTecnicos > 0 && (
         <Chip
-          key={chave}
-          label={formatarContagemCategoria(chave, count)}
+          label={`${totalTecnicos} ${totalTecnicos === 1 ? 'técnico' : 'técnicos'}`}
           size="small"
           color={color}
           variant="outlined"
         />
-      ))}
+      )}
+      {totalEnfermeiros > 0 && (
+        <Chip
+          label={`${totalEnfermeiros} ${totalEnfermeiros === 1 ? 'enfermeiro' : 'enfermeiros'}`}
+          size="small"
+          color={color}
+          variant="outlined"
+        />
+      )}
     </Stack>
+  );
+}
+
+interface AgrupamentoFuncionariosAccordionProps {
+  agrupamento: FuncionarioAgrupamentoResumo;
+  baseFilters: Record<string, string>;
+  expanded: boolean;
+  onToggle: () => void;
+  renderTabela: (lista: Funcionario[]) => React.ReactNode;
+}
+
+function AgrupamentoFuncionariosAccordion({
+  agrupamento,
+  baseFilters,
+  expanded,
+  onToggle,
+  renderTabela,
+}: AgrupamentoFuncionariosAccordionProps) {
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    setPage(0);
+  }, [baseFilters, agrupamento.id, agrupamento.especial]);
+
+  const listFilters = useMemo(
+    () => ({
+      ...baseFilters,
+      ...(agrupamento.especial ? { agrupamento: 'especial' } : { setor: String(agrupamento.id) }),
+      page: String(page + 1),
+      pageSize: String(PAGE_SIZE),
+    }),
+    [baseFilters, agrupamento, page]
+  );
+
+  const { data, isLoading, isFetching } = useFuncionarios(listFilters, { enabled: expanded });
+  const funcionarios = data?.items ?? [];
+  const total = data?.total ?? 0;
+
+  const summarySx = agrupamento.especial
+    ? {
+        bgcolor: 'grey.100',
+        borderBottom: 1,
+        borderColor: 'divider',
+        '&:hover': { bgcolor: 'grey.200' },
+      }
+    : {
+        bgcolor: 'primary.50',
+        borderBottom: 1,
+        borderColor: 'divider',
+        '&:hover': { bgcolor: 'primary.100' },
+      };
+
+  return (
+    <Accordion expanded={expanded} onChange={onToggle} disableGutters elevation={0}>
+      <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={summarySx}>
+        <Stack
+          direction="row"
+          spacing={1.5}
+          sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 0.75 }}
+        >
+          {agrupamento.especial ? (
+            <PersonOffIcon fontSize="small" color="action" />
+          ) : (
+            <BusinessIcon fontSize="small" color="primary" />
+          )}
+          <Typography
+            variant="subtitle2"
+            color={agrupamento.especial ? 'text.secondary' : 'primary.dark'}
+          >
+            {agrupamento.nome}
+          </Typography>
+          <AgrupamentoResumoChips
+            totalTecnicos={agrupamento.totalTecnicos}
+            totalEnfermeiros={agrupamento.totalEnfermeiros}
+            color={agrupamento.especial ? 'default' : 'primary'}
+          />
+          <Chip
+            label={`${agrupamento.total} ${agrupamento.total === 1 ? 'pessoa' : 'pessoas'}`}
+            size="small"
+            variant="outlined"
+          />
+        </Stack>
+      </AccordionSummary>
+      <AccordionDetails sx={{ p: 0 }}>
+        {expanded && (
+          <>
+            {isLoading ? (
+              <TableSkeleton />
+            ) : (
+              renderTabela(funcionarios)
+            )}
+            {total > PAGE_SIZE && (
+              <TablePagination
+                component="div"
+                count={total}
+                page={page}
+                onPageChange={(_e, newPage) => setPage(newPage)}
+                rowsPerPage={PAGE_SIZE}
+                rowsPerPageOptions={[PAGE_SIZE]}
+                labelDisplayedRows={({ from, to, count }) =>
+                  `${from}–${to} de ${count !== -1 ? count : `mais de ${to}`}`
+                }
+              />
+            )}
+            {isFetching && !isLoading && (
+              <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
+                Atualizando...
+              </Typography>
+            )}
+          </>
+        )}
+      </AccordionDetails>
+    </Accordion>
   );
 }
 
@@ -339,111 +452,50 @@ export function FuncionariosPage() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [searchNome, setSearchNome] = useState('');
+  const [expandedGrupos, setExpandedGrupos] = useState<Set<string>>(new Set());
+  const debouncedNome = useDebouncedValue(searchNome, 300);
   const [editing, setEditing] = useState<Funcionario | null>(null);
   const [statusFuncionario, setStatusFuncionario] = useState<Funcionario | null>(null);
   const [confirmToggle, setConfirmToggle] = useState<Funcionario | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  const { data: funcionarios = [], isLoading } = useFuncionarios(filters);
+  useEffect(() => {
+    setFilters((f) => {
+      const next = { ...f };
+      if (debouncedNome) next.nome = debouncedNome;
+      else delete next.nome;
+      return next;
+    });
+    setExpandedGrupos(new Set());
+  }, [debouncedNome]);
+
+  useEffect(() => {
+    setExpandedGrupos(new Set());
+  }, [filters.contrato, filters.ativo, filters.setor]);
+
+  const { data: agrupamentosData, isLoading, isFetching } = useFuncionariosAgrupamentos(filters);
+  const agrupamentos = agrupamentosData?.agrupamentos ?? [];
+  const stats = agrupamentosData?.resumo ?? RESUMO_VAZIO;
+  const total = stats.total;
   const { data: setores = [] } = useSetores();
   const createMutation = useCreateFuncionario();
   const updateMutation = useUpdateFuncionario();
 
-  const setorMap = useMemo(
-    () => new Map(setores.map((s) => [s.id, s.nome])),
-    [setores]
-  );
-
-  const { setoresComFuncionarios, grupoEspecial } = useMemo(() => {
-    const ativosComSetor: Funcionario[] = [];
-    const especiais: Funcionario[] = [];
-
-    for (const f of funcionarios) {
-      if (isFuncionarioAgrupamentoEspecial(f)) {
-        especiais.push(f);
-      } else {
-        ativosComSetor.push(f);
-      }
-    }
-
-    const groups = new Map<number, Funcionario[]>();
-    for (const f of ativosComSetor) {
-      if (f.setorId == null) continue;
-      if (!groups.has(f.setorId)) groups.set(f.setorId, []);
-      groups.get(f.setorId)!.push(f);
-    }
-    for (const lista of groups.values()) {
-      lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
-    }
-
-    especiais.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
-
-    const idsComFuncionarios = new Set(ativosComSetor.map((f) => f.setorId).filter((id): id is number => id != null));
-    const ordenados = setores
-      .filter((s) => idsComFuncionarios.has(s.id))
-      .map((s) => ({
-        id: s.id,
-        nome: s.nome,
-        funcionarios: groups.get(s.id) ?? [],
-      }));
-
-    for (const id of idsComFuncionarios) {
-      if (!setores.some((s) => s.id === id)) {
-        ordenados.push({
-          id,
-          nome: setorMap.get(id) ?? `Setor #${id}`,
-          funcionarios: groups.get(id) ?? [],
-        });
-      }
-    }
-
-    return { setoresComFuncionarios: ordenados, grupoEspecial: especiais };
-  }, [funcionarios, setores, setorMap]);
-
-  const stats = useMemo(() => {
-    const ativos = funcionarios.filter((f) => f.ativo);
-    const inativos = funcionarios.filter((f) => !f.ativo);
-    const semSetor = funcionarios.filter((f) => f.setorId == null);
-    const semCoren = funcionarios.filter((f) => !f.coren).length;
-    const provisorios = funcionarios.filter((f) =>
-      f.tipoContrato.toUpperCase().includes('PROVIS')
-    ).length;
-    const carga180 = funcionarios.filter((f) => f.cargaHoraria === '180H').length;
-    const carga144 = funcionarios.filter((f) => f.cargaHoraria === '144H').length;
-    const setoresAtivos = setoresComFuncionarios.length;
-
-    const categoriaMap = new Map<string, number>();
-    for (const f of funcionarios) {
-      const cat = f.categoria?.trim() || 'Sem categoria';
-      categoriaMap.set(cat, (categoriaMap.get(cat) ?? 0) + 1);
-    }
-    const porCategoria = [...categoriaMap.entries()]
-      .map(([categoria, total]) => ({ categoria, total }))
-      .sort((a, b) => b.total - a.total);
-
-    return {
-      total: funcionarios.length,
-      ativos: ativos.length,
-      inativos: inativos.length,
-      semSetor: semSetor.length,
-      semCoren,
-      provisorios,
-      carga180,
-      carga144,
-      setoresAtivos,
-      porCategoria,
-      corenPercent:
-        funcionarios.length > 0
-          ? Math.round(((funcionarios.length - semCoren) / funcionarios.length) * 100)
-          : 100,
-    };
-  }, [funcionarios, setoresComFuncionarios.length]);
+  const toggleGrupo = (key: string) => {
+    setExpandedGrupos((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const hasActiveFilters = Boolean(filters.nome || filters.setor || filters.contrato || filters.ativo);
 
   const clearFilters = () => {
     setSearchNome('');
     setFilters({});
+    setExpandedGrupos(new Set());
   };
 
   const openCreate = () => {
@@ -673,16 +725,7 @@ export function FuncionariosPage() {
               size="small"
               placeholder="Buscar por nome..."
               value={searchNome}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSearchNome(value);
-                setFilters((f) => {
-                  const next = { ...f };
-                  if (value) next.nome = value;
-                  else delete next.nome;
-                  return next;
-                });
-              }}
+              onChange={(e) => setSearchNome(e.target.value)}
               slotProps={{
                 input: {
                   startAdornment: (
@@ -787,11 +830,9 @@ export function FuncionariosPage() {
               <Typography variant="h6">Equipe por setor</Typography>
               {!isLoading && (
                 <Chip
-                  label={`${funcionarios.length} ${funcionarios.length === 1 ? 'pessoa' : 'pessoas'}${
-                    setoresComFuncionarios.length > 0
-                      ? ` · ${setoresComFuncionarios.length} setores`
-                      : ''
-                  }${grupoEspecial.length > 0 ? ` · ${grupoEspecial.length} inativados/sem setor` : ''}`}
+                  label={`${total} ${total === 1 ? 'pessoa' : 'pessoas'} · ${agrupamentos.length} ${
+                    agrupamentos.length === 1 ? 'agrupamento' : 'agrupamentos'
+                  }${isFetching ? ' · atualizando...' : ''}`}
                   size="small"
                   variant="outlined"
                 />
@@ -804,7 +845,7 @@ export function FuncionariosPage() {
 
         {isLoading ? (
           <TableSkeleton />
-        ) : setoresComFuncionarios.length === 0 && grupoEspecial.length === 0 ? (
+        ) : agrupamentos.length === 0 ? (
           <Stack spacing={2} sx={{ alignItems: 'center', py: 8, px: 3, textAlign: 'center' }}>
             <Avatar sx={{ width: 56, height: 56, bgcolor: 'grey.100' }}>
               <PeopleIcon color="action" sx={{ fontSize: 28 }} />
@@ -829,63 +870,16 @@ export function FuncionariosPage() {
           </Stack>
         ) : (
           <Box>
-            {setoresComFuncionarios.map((grupo) => (
-              <Accordion key={grupo.id} disableGutters elevation={0}>
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  sx={{
-                    bgcolor: 'primary.50',
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    '&:hover': { bgcolor: 'primary.100' },
-                  }}
-                >
-                  <Stack
-                    direction="row"
-                    spacing={1.5}
-                    sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 0.75 }}
-                  >
-                    <BusinessIcon fontSize="small" color="primary" />
-                    <Typography variant="subtitle2" color="primary.dark">
-                      {grupo.nome}
-                    </Typography>
-                    <ResumoCategoriasChips funcionarios={grupo.funcionarios} />
-                  </Stack>
-                </AccordionSummary>
-                <AccordionDetails sx={{ p: 0 }}>
-                  {renderTabelaFuncionarios(grupo.funcionarios)}
-                </AccordionDetails>
-              </Accordion>
+            {agrupamentos.map((agrupamento) => (
+              <AgrupamentoFuncionariosAccordion
+                key={agrupamentoKey(agrupamento)}
+                agrupamento={agrupamento}
+                baseFilters={filters}
+                expanded={expandedGrupos.has(agrupamentoKey(agrupamento))}
+                onToggle={() => toggleGrupo(agrupamentoKey(agrupamento))}
+                renderTabela={renderTabelaFuncionarios}
+              />
             ))}
-
-            {grupoEspecial.length > 0 && (
-              <Accordion disableGutters elevation={0}>
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  sx={{
-                    bgcolor: 'grey.100',
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    '&:hover': { bgcolor: 'grey.200' },
-                  }}
-                >
-                  <Stack
-                    direction="row"
-                    spacing={1.5}
-                    sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 0.75 }}
-                  >
-                    <PersonOffIcon fontSize="small" color="action" />
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Inativados / Sem setor
-                    </Typography>
-                    <ResumoCategoriasChips funcionarios={grupoEspecial} color="default" />
-                  </Stack>
-                </AccordionSummary>
-                <AccordionDetails sx={{ p: 0 }}>
-                  {renderTabelaFuncionarios(grupoEspecial)}
-                </AccordionDetails>
-              </Accordion>
-            )}
           </Box>
         )}
       </Card>

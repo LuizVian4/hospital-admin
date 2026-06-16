@@ -16,7 +16,13 @@ export function useCreateStatusEspecial() {
     mutationFn: (data: StatusEspecialRequest) => api.createStatusEspecial(data),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['status-especiais', variables.funcionarioId] });
-      queryClient.invalidateQueries({ queryKey: ['escala'] });
+      if (variables.competenciaId) {
+        queryClient.invalidateQueries({
+          queryKey: ['escala', variables.competenciaId],
+        });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['escala'] });
+      }
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });

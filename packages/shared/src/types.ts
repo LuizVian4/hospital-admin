@@ -26,6 +26,46 @@ export interface Funcionario {
   ativo: boolean;
 }
 
+export interface FuncionariosResumo {
+  total: number;
+  ativos: number;
+  inativos: number;
+  semSetor: number;
+  semCoren: number;
+  provisorios: number;
+  carga180: number;
+  carga144: number;
+  setoresAtivos: number;
+  porCategoria: { categoria: string; total: number }[];
+  corenPercent: number;
+}
+
+export interface FuncionariosListResponse {
+  items: Funcionario[];
+  total: number;
+  page: number;
+  pageSize: number;
+  resumo: FuncionariosResumo;
+}
+
+export interface FuncionarioAgrupamentoResumo {
+  id: number | null;
+  nome: string;
+  especial: boolean;
+  total: number;
+  totalTecnicos: number;
+  totalEnfermeiros: number;
+}
+
+export interface FuncionariosAgrupamentosResponse {
+  agrupamentos: FuncionarioAgrupamentoResumo[];
+  resumo: FuncionariosResumo;
+}
+
+export interface EscalaMutationWithGrade {
+  success: boolean;
+  grade?: GradeEscalaResponse;
+}
 
 export interface EscalaInicio {
   id?: number;

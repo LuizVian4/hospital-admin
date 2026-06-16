@@ -1,11 +1,13 @@
 import { Eraser } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { TipoEscala } from '@escala/shared';
 import { useZerarEscalaFuncionario } from '@/hooks/useEscala';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface ZerarEscalaButtonProps {
   competenciaId: number;
+  tipoEscala?: TipoEscala;
   funcionarioId: number;
   funcionarioNome: string;
   className?: string;
@@ -13,11 +15,12 @@ interface ZerarEscalaButtonProps {
 
 export function ZerarEscalaButton({
   competenciaId,
+  tipoEscala = 'tecnico',
   funcionarioId,
   funcionarioNome,
   className,
 }: ZerarEscalaButtonProps) {
-  const zerar = useZerarEscalaFuncionario(competenciaId);
+  const zerar = useZerarEscalaFuncionario(competenciaId, tipoEscala);
 
   const handleClick = () => {
     const confirmed = window.confirm(

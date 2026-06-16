@@ -31,7 +31,10 @@ export function OcorrenciaInfoPopover({
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout>>();
-  const remover = useRemoverOcorrenciaEscala(competenciaId, tipoEscala);
+  const remover = useRemoverOcorrenciaEscala(competenciaId, tipoEscala, {
+    funcionarioId: ocorrencia.funcionarioId,
+    dia,
+  });
 
   const show = useCallback(() => {
     if (closeTimer.current) clearTimeout(closeTimer.current);

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
@@ -27,6 +28,7 @@ import DialogContentText from '@mui/material/DialogContentText';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import { api } from '@/api/client';
 import { useEscala, useUpdateObservacoes, useSimularProximoMes } from '@/hooks/useEscala';
+import { competenciaQueryKey, useCompetenciasNavegacao } from '@/hooks/useCompetencia';
 import { useSetoresPorEscala } from '@/hooks/useFuncionarios';
 import type { TipoEscala } from '@escala/shared';
 import { GradeEscala } from '@/components/GradeEscala/GradeEscala';
@@ -68,10 +70,7 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
   const config = ESCALA_CONFIG[tipoEscala];
   const { setorId, mes, ano } = useParams<{ setorId: string; mes: string; ano: string }>();
   const navigate = useNavigate();
-  const [competenciaId, setCompetenciaId] = useState<number | undefined>();
-  const [temCompetenciaAnterior, setTemCompetenciaAnterior] = useState(false);
-  const [temCompetenciaProxima, setTemCompetenciaProxima] = useState(false);
-  const [competenciaLoading, setCompetenciaLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [exportando, setExportando] = useState(false);
   const [exportandoMesCompleto, setExportandoMesCompleto] = useState(false);
   const [confirmSimular, setConfirmSimular] = useState(false);
@@ -80,12 +79,22 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
   const mesNum = parseInt(mes || '6', 10);
   const anoNum = parseInt(ano || '2026', 10);
 
-  const mesAnterior = useMemo(() => (mesNum === 1 ? 12 : mesNum - 1), [mesNum]);
-  const anoAnterior = useMemo(() => (mesNum === 1 ? anoNum - 1 : anoNum), [mesNum, anoNum]);
   const proxMesNum = useMemo(() => (mesNum === 12 ? 1 : mesNum + 1), [mesNum]);
   const proxAnoNum = useMemo(() => (mesNum === 12 ? anoNum + 1 : anoNum), [mesNum, anoNum]);
 
   const { data: setores = [], isLoading: setoresLoading } = useSetoresPorEscala(tipoEscala);
+
+  const {
+    competenciaId,
+    temCompetenciaAnterior,
+    temCompetenciaProxima,
+    isLoading: competenciaLoading,
+    isError: competenciaError,
+  } = useCompetenciasNavegacao(setorIdNum, mesNum, anoNum, tipoEscala);
+
+  useEffect(() => {
+    if (competenciaError) toast.error('Erro ao carregar competência');
+  }, [competenciaError]);
 
   useEffect(() => {
     if (setoresLoading || setores.length === 0) return;
@@ -97,41 +106,8 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
     }
   }, [setores, setoresLoading, setorIdNum, mesNum, anoNum, navigate, config.pathSegment]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadCompetencias() {
-      setCompetenciaLoading(true);
-      setCompetenciaId(undefined);
-
-      try {
-        const [atual, anterior, proxima] = await Promise.all([
-          api.getCompetencia(setorIdNum, mesNum, anoNum, tipoEscala),
-          api.getCompetencia(setorIdNum, mesAnterior, anoAnterior, tipoEscala),
-          api.getCompetencia(setorIdNum, proxMesNum, proxAnoNum, tipoEscala),
-        ]);
-
-        if (cancelled) return;
-
-        setCompetenciaId(atual?.id);
-        setTemCompetenciaAnterior(!!anterior);
-        setTemCompetenciaProxima(!!proxima);
-      } catch {
-        if (!cancelled) toast.error('Erro ao carregar competência');
-      } finally {
-        if (!cancelled) setCompetenciaLoading(false);
-      }
-    }
-
-    loadCompetencias();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [setorIdNum, mesNum, anoNum, mesAnterior, anoAnterior, proxMesNum, proxAnoNum, tipoEscala]);
-
   const { data: escala, isLoading } = useEscala(competenciaId, tipoEscala);
-  const updateObs = useUpdateObservacoes(competenciaId ?? 0);
+  const updateObs = useUpdateObservacoes(competenciaId ?? 0, tipoEscala);
   const simularProximoMes = useSimularProximoMes(competenciaId, tipoEscala);
 
   const setor = setores.find((s) => s.id === setorIdNum);
@@ -145,7 +121,6 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
     if (newMes < 1) { newMes = 12; newAno--; }
     if (newMes > 12) { newMes = 1; newAno++; }
     navigate(`/setores/${setorIdNum}/${config.pathSegment}/${newMes}/${newAno}`);
-    setCompetenciaId(undefined);
   };
 
   const handleSaveObservacoes = (texto: string) => {
@@ -183,8 +158,10 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
 
   const handleCriarCompetencia = async () => {
     try {
-      const created = await api.createCompetencia(setorIdNum, mesNum, anoNum, tipoEscala);
-      setCompetenciaId(created.id);
+      await api.createCompetencia(setorIdNum, mesNum, anoNum, tipoEscala);
+      await queryClient.invalidateQueries({
+        queryKey: competenciaQueryKey(setorIdNum, mesNum, anoNum, tipoEscala),
+      });
       toast.success(`Competência de ${periodoLabel} criada`);
     } catch {
       toast.error('Erro ao criar competência');
@@ -202,7 +179,6 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
           }`
         );
         navigate(`/setores/${setorIdNum}/${config.pathSegment}/${result.mes}/${result.ano}`);
-        setCompetenciaId(result.competenciaId);
       },
       onError: (err) => {
         toast.error(err.message || 'Erro ao simular próximo mês');

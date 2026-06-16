@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import type { Funcionario, FuncionarioComTurnos, GradeEscalaResponse } from '@escala/shared';
 import { isEnfermeiro } from '@escala/shared';
-import { api } from '@/api/client';
+import { useCompetencia } from '@/hooks/useCompetencia';
 import { useEscala } from '@/hooks/useEscala';
 import { CalendarioEscalaMes } from '@/components/CalendarioEscalaMes';
 import Box from '@mui/material/Box';
@@ -44,35 +44,17 @@ export function FuncionarioEscalaMesCard({ funcionario }: FuncionarioEscalaMesCa
   const now = new Date();
   const [mes, setMes] = useState(now.getMonth() + 1);
   const [ano, setAno] = useState(now.getFullYear());
-  const [competenciaId, setCompetenciaId] = useState<number | undefined>();
-  const [competenciaLoading, setCompetenciaLoading] = useState(false);
 
   const tipoEscala = isEnfermeiro(funcionario.categoria) ? 'enfermeiro' : 'tecnico';
   const escalaPath = tipoEscala === 'enfermeiro' ? 'escala-enfermeiros' : 'escala';
 
-  useEffect(() => {
-    if (funcionario.setorId == null) {
-      setCompetenciaId(undefined);
-      return;
-    }
-
-    let cancelled = false;
-    setCompetenciaLoading(true);
-    setCompetenciaId(undefined);
-
-    api
-      .getCompetencia(funcionario.setorId, mes, ano, tipoEscala)
-      .then((comp) => {
-        if (!cancelled) setCompetenciaId(comp?.id);
-      })
-      .finally(() => {
-        if (!cancelled) setCompetenciaLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [funcionario.setorId, mes, ano, tipoEscala]);
+  const { data: competencia, isLoading: competenciaLoading } = useCompetencia(
+    funcionario.setorId ?? undefined,
+    mes,
+    ano,
+    tipoEscala
+  );
+  const competenciaId = competencia?.id;
 
   const { data: escala, isLoading: escalaLoading } = useEscala(competenciaId, tipoEscala);
 

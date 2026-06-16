@@ -2,10 +2,23 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import type { Funcionario, TipoEscala } from '@escala/shared';
 
-export function useFuncionarios(filters?: Record<string, string>) {
+export function useFuncionarios(
+  filters?: Record<string, string>,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: ['funcionarios', filters],
     queryFn: () => api.getFuncionarios(filters),
+    placeholderData: (previous) => previous,
+    enabled: options?.enabled ?? true,
+  });
+}
+
+export function useFuncionariosAgrupamentos(filters?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['funcionarios', 'agrupamentos', filters],
+    queryFn: () => api.getFuncionariosAgrupamentos(filters),
+    placeholderData: (previous) => previous,
   });
 }
 
@@ -39,7 +52,9 @@ export function useCreateFuncionario() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: Partial<Funcionario>) => api.createFuncionario(data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['funcionarios'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['funcionarios'] });
+    },
   });
 }
 
