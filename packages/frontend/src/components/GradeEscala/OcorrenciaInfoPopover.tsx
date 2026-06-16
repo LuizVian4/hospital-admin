@@ -52,8 +52,15 @@ export function OcorrenciaInfoPopover({
     if (!ocorrencia.id) return;
     remover.mutate(ocorrencia.id, {
       onSuccess: () => {
+        const comVinculo = ocorrencia.funcionarioVinculoId != null;
         toast.success(
-          ocorrencia.tipo === 'FALTA' ? 'Falta removida' : 'Plantão extra removido'
+          ocorrencia.tipo === 'FALTA'
+            ? comVinculo
+              ? 'Falta e plantão extra vinculado removidos'
+              : 'Falta removida'
+            : comVinculo
+              ? 'Plantão extra e falta vinculada removidos'
+              : 'Plantão extra removido'
         );
         setOpen(false);
       },
@@ -98,7 +105,7 @@ export function OcorrenciaInfoPopover({
               </div>
               {ocorrencia.funcionarioVinculo && (
                 <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">Vínculo</dt>
+                  <dt className="text-muted-foreground">Cobertura</dt>
                   <dd className="font-medium text-right">{ocorrencia.funcionarioVinculo.nome}</dd>
                 </div>
               )}

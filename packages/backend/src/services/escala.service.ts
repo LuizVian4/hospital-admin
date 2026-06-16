@@ -498,6 +498,25 @@ export async function getGradeEscala(
   };
 }
 
+export async function resolverTurnoFuncionarioDia(
+  competenciaId: number,
+  funcionarioId: number,
+  dia: number,
+  tipoEscala: TipoEscala = 'tecnico'
+): Promise<Turno | null> {
+  const grade = await getGradeEscala(competenciaId, tipoEscala);
+  if (!grade) return null;
+
+  for (const grupo of grade.grupos) {
+    const funcionario = grupo.funcionarios.find((f) => f.id === funcionarioId);
+    if (!funcionario) continue;
+    const turno = funcionario.turnos[dia] ?? funcionario.turnosProjetados?.[dia] ?? null;
+    return turno != null && turno !== '' ? turno : null;
+  }
+
+  return null;
+}
+
 export async function batchUpdateEscalaDias(
   competenciaId: number,
   items: {

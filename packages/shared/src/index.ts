@@ -84,4 +84,10 @@ export {
   validarTurnoPlantaoExtra,
   formatarExibicaoComPlantaoExtra,
   isTurnoFolgaOuPlantao,
+  isTurnoMtOuSn,
 } from './plantaoExtra';
+export {
+  getTurnoEfetivoNoDia,
+  funcionarioPossuiTurnoNoDia,
+  funcionarioElegivelCobrirTurno,
+} from './escalaTurno';

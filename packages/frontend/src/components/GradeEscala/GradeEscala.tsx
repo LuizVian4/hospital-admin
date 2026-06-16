@@ -666,7 +666,7 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
         competenciaId={competencia.id}
         tipoEscala={tipoEscala}
         state={ocorrenciaDialog}
-        funcionariosVinculo={funcionarios}
+        funcionariosComTurnos={funcionarios}
       />
     </Paper>
   );

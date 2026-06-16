@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import {
   TURNOS_DISPONIVEIS,
   formatarExibicaoComPlantaoExtra,
+  isTurnoMtOuSn,
   type EscalaOcorrencia,
   type StatusEspecial,
   type TipoOcorrenciaEscala,
@@ -105,7 +106,13 @@ function ConteudoTurno({
   );
 }
 
-function MenuOcorrencias({ comTroca = false }: { comTroca?: boolean }) {
+function MenuOcorrencias({
+  comTroca = false,
+  mostrarFalta = false,
+}: {
+  comTroca?: boolean;
+  mostrarFalta?: boolean;
+}) {
   return (
     <>
       {comTroca && (
@@ -113,9 +120,11 @@ function MenuOcorrencias({ comTroca = false }: { comTroca?: boolean }) {
           Troca
         </SelectItem>
       )}
-      <SelectItem value="__falta__" className="font-medium text-red-700">
-        Falta
-      </SelectItem>
+      {mostrarFalta && (
+        <SelectItem value="__falta__" className="font-medium text-red-700">
+          Falta
+        </SelectItem>
+      )}
       <SelectItem value="__plantao_extra__" className="font-medium text-emerald-700">
         Plantão extra
       </SelectItem>
@@ -153,6 +162,7 @@ export function CelulaEscala({
   const exibicao = turno ?? turnoProjetado;
   const isProjetado = turno == null && turnoProjetado != null;
   const hasTurno = exibicao != null && exibicao !== '';
+  const permiteFalta = isTurnoMtOuSn(exibicao);
   const temStatusEspecial = Boolean(statusEspecial);
   const temTroca = Boolean(observacao);
   const temOcorrencia = Boolean(ocorrencia);
@@ -259,7 +269,7 @@ export function CelulaEscala({
         <SelectItem value={valorExibicaoTroca} className="hidden" disabled>
           {exibicao ?? '·'}
         </SelectItem>
-        <MenuOcorrencias comTroca />
+        <MenuOcorrencias comTroca mostrarFalta={permiteFalta} />
       </SelectContent>
     </Select>
   ) : (
@@ -283,7 +293,7 @@ export function CelulaEscala({
             {t}
           </SelectItem>
         ))}
-        <MenuOcorrencias />
+        <MenuOcorrencias mostrarFalta={permiteFalta} />
       </SelectContent>
     </Select>
   );

@@ -2,6 +2,10 @@ import type { Turno } from './types';
 
 const TURNOS_PLANTAO_EXTRA = ['MT', 'SN'] as const;
 
+export function isTurnoMtOuSn(turno: Turno | null | undefined): boolean {
+  return turno === 'MT' || turno === 'SN';
+}
+
 export function isTurnoFolgaOuPlantao(turno: Turno | null | undefined): boolean {
   if (turno == null || turno === '') return true;
   return turno === 'F' || turno === '/';

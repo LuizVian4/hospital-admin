@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { EscalaOcorrencia, Funcionario, TipoOcorrenciaEscala, Turno } from '@escala/shared';
+import type { EscalaOcorrencia, FuncionarioComTurnos, TipoOcorrenciaEscala, Turno } from '@escala/shared';
 import {
+  funcionarioElegivelCobrirTurno,
+  funcionarioPossuiTurnoNoDia,
   getTurnoPlantaoExtraSugerido,
   getTurnosPlantaoExtraPermitidos,
+  isTurnoMtOuSn,
   validarTurnoPlantaoExtra,
 } from '@escala/shared';
 import { useRemoverOcorrenciaEscala, useSalvarOcorrenciaEscala } from '@/hooks/useEscala';
@@ -29,8 +32,6 @@ import { AlertTriangle, CalendarPlus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const SEM_VINCULO = '__none__';
-const TURNOS_FALTA: Turno[] = ['MT', 'SN'];
-
 function normalizarTurnoFalta(turno: Turno | null | undefined): string {
   if (turno === 'MT' || turno === 'SN') return turno;
   return '';
@@ -51,7 +52,7 @@ interface OcorrenciaEscalaDialogProps {
   competenciaId: number;
   tipoEscala: TipoEscala;
   state: OcorrenciaEscalaDialogState | null;
-  funcionariosVinculo: Funcionario[];
+  funcionariosComTurnos: FuncionarioComTurnos[];
 }
 
 export function OcorrenciaEscalaDialog({
@@ -60,7 +61,7 @@ export function OcorrenciaEscalaDialog({
   competenciaId,
   tipoEscala,
   state,
-  funcionariosVinculo,
+  funcionariosComTurnos,
 }: OcorrenciaEscalaDialogProps) {
   const [turno, setTurno] = useState<string>('');
   const [funcionarioVinculoId, setFuncionarioVinculoId] = useState<string>(SEM_VINCULO);
@@ -72,7 +73,9 @@ export function OcorrenciaEscalaDialog({
   const isFalta = state?.tipo === 'FALTA';
   const turnosPermitidos = useMemo(() => {
     if (!state) return [];
-    if (isFalta) return TURNOS_FALTA;
+    if (isFalta) {
+      return isTurnoMtOuSn(state.turnoPadrao) ? [state.turnoPadrao!] : [];
+    }
     return getTurnosPlantaoExtraPermitidos(state.turnoPadrao);
   }, [state, isFalta]);
 
@@ -102,6 +105,40 @@ export function OcorrenciaEscalaDialog({
     );
     setObservacao(existente?.observacao ?? '');
   }, [state]);
+
+  const vinculoOptions = useMemo(() => {
+    if (!state) return [];
+    const base = funcionariosComTurnos.filter((f) => f.id !== state.funcionarioId);
+
+    if (!turno || (turno !== 'MT' && turno !== 'SN')) {
+      return [];
+    }
+
+    if (isFalta) {
+      return base.filter((f) =>
+        funcionarioElegivelCobrirTurno(f, state.dia, turno as Turno)
+      );
+    }
+
+    return base.filter((f) => {
+      if (f.statusPorDia?.[state.dia]) return false;
+      return funcionarioPossuiTurnoNoDia(f, state.dia, turno as Turno);
+    });
+  }, [funcionariosComTurnos, state, isFalta, turno]);
+
+  useEffect(() => {
+    if (!state) return;
+    if (!turno) {
+      setFuncionarioVinculoId(SEM_VINCULO);
+      return;
+    }
+    if (
+      funcionarioVinculoId !== SEM_VINCULO &&
+      !vinculoOptions.some((f) => String(f.id) === funcionarioVinculoId)
+    ) {
+      setFuncionarioVinculoId(SEM_VINCULO);
+    }
+  }, [state, turno, vinculoOptions, funcionarioVinculoId]);
 
   if (!state) return null;
 
@@ -145,7 +182,15 @@ export function OcorrenciaEscalaDialog({
       },
       {
         onSuccess: () => {
-          toast.success(isFalta ? 'Falta registrada' : 'Plantão extra registrado');
+          toast.success(
+            isFalta
+              ? funcionarioVinculoId !== SEM_VINCULO
+                ? 'Falta registrada e plantão extra vinculado'
+                : 'Falta registrada'
+              : funcionarioVinculoId !== SEM_VINCULO
+                ? 'Plantão extra registrado e falta vinculada'
+                : 'Plantão extra registrado'
+          );
           onOpenChange(false);
         },
         onError: (err) => toast.error(err.message),
@@ -156,16 +201,35 @@ export function OcorrenciaEscalaDialog({
   const handleRemover = () => {
     const id = state.ocorrenciaExistente?.id;
     if (!id) return;
+    const comVinculo = state.ocorrenciaExistente?.funcionarioVinculoId != null;
     remover.mutate(id, {
       onSuccess: () => {
-        toast.success('Ocorrência removida');
+        toast.success(
+          state.tipo === 'FALTA'
+            ? comVinculo
+              ? 'Falta e plantão extra vinculado removidos'
+              : 'Falta removida'
+            : comVinculo
+              ? 'Plantão extra e falta vinculada removidos'
+              : 'Plantão extra removido'
+        );
         onOpenChange(false);
       },
       onError: (err) => toast.error(err.message),
     });
   };
 
-  const vinculoOptions = funcionariosVinculo.filter((f) => f.id !== state.funcionarioId);
+  const vinculoHint = isFalta
+    ? !turno || (turno !== 'MT' && turno !== 'SN')
+      ? 'Selecione o turno da falta para listar quem pode cobrir.'
+      : vinculoOptions.length === 0
+        ? `Nenhum funcionário elegível para cobrir o turno ${turno}.`
+        : 'Ao selecionar, o funcionário receberá plantão extra neste turno com vínculo de cobertura.'
+    : !turno || (turno !== 'MT' && turno !== 'SN')
+      ? 'Selecione o turno extra para listar quem está escalado neste turno no dia.'
+      : vinculoOptions.length === 0
+        ? `Nenhum funcionário com turno ${turno} neste dia.`
+        : 'Ao selecionar, o funcionário receberá falta neste turno com vínculo de cobertura.';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -190,7 +254,7 @@ export function OcorrenciaEscalaDialog({
             <Select
               value={turno || undefined}
               onValueChange={setTurno}
-              disabled={!isFalta && turnosPermitidos.length === 1}
+              disabled={turnosPermitidos.length === 1}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o turno" />
@@ -207,9 +271,14 @@ export function OcorrenciaEscalaDialog({
 
           <div className="space-y-1.5">
             <Label>
-              {isFalta ? 'Quem cobriu o turno (opcional)' : 'Vincular à falta de (opcional)'}
+              {isFalta ? 'Quem cobriu o turno (opcional)' : 'Funcionário com falta no turno (opcional)'}
             </Label>
-            <Select value={funcionarioVinculoId} onValueChange={setFuncionarioVinculoId}>
+            <p className="text-xs text-muted-foreground">{vinculoHint}</p>
+            <Select
+              value={funcionarioVinculoId}
+              onValueChange={setFuncionarioVinculoId}
+              disabled={!turno || vinculoOptions.length === 0}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Nenhum vínculo" />
               </SelectTrigger>
