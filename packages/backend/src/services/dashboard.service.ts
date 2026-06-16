@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { getPadraoEscala, isEnfermeiro, isTecnicoEnfermagem } from '@escala/shared';
 import { db } from '../db';
-import { setores, funcionarios, competencias, escalaDias, statusEspeciais } from '../db/schema';
+import { setores, funcionarios, competencias, escalaInicios, statusEspeciais } from '../db/schema';
 import { mapFuncionario, getDiasNoMes } from '../utils/helpers';
 import { listStatusPorSetorNoMes, montarStatusPorDia } from './statusEspecial.service';
 
@@ -81,14 +81,8 @@ export async function getDashboardData(mes?: number, ano?: number) {
     compIds.length > 0
       ? await db
           .select()
-          .from(escalaDias)
-          .where(
-            and(
-              inArray(escalaDias.competenciaId, compIds),
-              eq(escalaDias.tipoRegistro, 'inicio'),
-              eq(escalaDias.ativo, true)
-            )
-          )
+          .from(escalaInicios)
+          .where(inArray(escalaInicios.competenciaId, compIds))
       : [];
 
   const funcComInicio = new Set(inicios.map((i) => i.funcionarioId));

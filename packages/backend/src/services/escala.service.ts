@@ -1,28 +1,29 @@
-import { eq, and, sql, inArray } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 import { db } from '../db';
 import {
   competencias,
-  escalaDias,
+  escalaInicios,
+  escalaTrocas,
   funcionarios,
   setores,
 } from '../db/schema';
 import type {
   EscalaInicio,
+  EscalaTroca,
   FuncionarioComTurnos,
   GradeEscalaResponse,
+  StatusEspecial,
   TipoEscala,
   Turno,
 } from '@escala/shared';
 import {
   appendObservacaoLista,
-  formatObservacaoTrocaCompetencia,
   getPadraoEscala,
   pertenceTipoEscala,
   projetarTurnosVazios,
   ancoraFromEscalaInicio,
   calcularTurnoProjetado,
   calcularIndiceNoDia,
-  DIA_INICIO_ESCALA,
 } from '@escala/shared';
 import {
   agruparPorEscalaIgual,
@@ -53,7 +54,6 @@ function mapEscalaInicioRow(row: {
   anoInicio: number | null;
   turnoInicio: string | null;
   indicePadrao: number | null;
-  ativo: boolean;
 }): EscalaInicio | null {
   const turno = normalizeTurno(row.turnoInicio);
   if (!row.mesInicio || !row.anoInicio || !turno) return null;
@@ -63,23 +63,16 @@ function mapEscalaInicioRow(row: {
     anoInicio: row.anoInicio,
     turnoInicio: turno,
     ...(row.indicePadrao != null ? { indicePadrao: row.indicePadrao } : {}),
-    ativo: row.ativo,
   };
 }
 
-async function getIniciosAtivos(
+async function getIniciosPorCompetencia(
   competenciaId: number
 ): Promise<Map<number, EscalaInicio>> {
   const rows = await db
     .select()
-    .from(escalaDias)
-    .where(
-      and(
-        eq(escalaDias.competenciaId, competenciaId),
-        eq(escalaDias.tipoRegistro, 'inicio'),
-        eq(escalaDias.ativo, true)
-      )
-    );
+    .from(escalaInicios)
+    .where(eq(escalaInicios.competenciaId, competenciaId));
 
   const map = new Map<number, EscalaInicio>();
   for (const row of rows) {
@@ -103,13 +96,14 @@ async function getIniciosMesAnterior(
     ),
   });
   if (!compAnt) return new Map();
-  return getIniciosAtivos(compAnt.id);
+  return getIniciosPorCompetencia(compAnt.id);
 }
 
 async function getTurnosMesAnterior(
   setorId: number,
   mes: number,
-  ano: number
+  ano: number,
+  funcs: Array<{ id: number; categoria: string | null }>
 ): Promise<Map<number, Record<number, Turno | null>>> {
   const { mes: mesAnt, ano: anoAnt } = mesAnterior(mes, ano);
   const compAnt = await db.query.competencias.findFirst({
@@ -123,36 +117,49 @@ async function getTurnosMesAnterior(
   const result = new Map<number, Record<number, Turno | null>>();
   if (!compAnt) return result;
 
-  const diasAnt = await db
-    .select()
-    .from(escalaDias)
-    .where(
-      and(eq(escalaDias.competenciaId, compAnt.id), inArray(escalaDias.tipoRegistro, ['turno', 'troca']))
+  const totalDias = getDiasNoMes(mesAnt, anoAnt);
+  const dias = Array.from({ length: totalDias }, (_, i) => i + 1);
+  const inicios = await getIniciosPorCompetencia(compAnt.id);
+  const iniciosMesAnterior = await getIniciosMesAnterior(setorId, mesAnt, anoAnt);
+  const trocas = await db.query.escalaTrocas.findMany({
+    where: eq(escalaTrocas.competenciaId, compAnt.id),
+  });
+
+  for (const f of funcs) {
+    const padrao = getPadraoEscala(f.categoria ?? '');
+    if (!padrao) continue;
+
+    const overrides = montarOverridesPorTrocas(f.id, trocas);
+    const { turnos, turnosProjetados } = montarTurnosFuncionario(
+      padrao,
+      dias,
+      mesAnt,
+      anoAnt,
+      inicios.get(f.id),
+      iniciosMesAnterior.get(f.id),
+      undefined,
+      undefined,
+      overrides,
+      {}
     );
 
-  for (const d of diasAnt) {
-    if (!d.dia) continue;
-    const turno = normalizeTurno(d.turno);
-    if (!turno) continue;
-    if (!result.has(d.funcionarioId)) {
-      result.set(d.funcionarioId, {});
+    const efetivos: Record<number, Turno | null> = {};
+    for (const dia of dias) {
+      efetivos[dia] = turnos[dia] ?? turnosProjetados?.[dia] ?? null;
     }
-    result.get(d.funcionarioId)![d.dia] = turno;
+    result.set(f.id, efetivos);
   }
 
   return result;
 }
 
-async function desativarInicioAtivo(competenciaId: number, funcionarioId: number) {
+async function removerInicio(competenciaId: number, funcionarioId: number) {
   await db
-    .update(escalaDias)
-    .set({ ativo: false })
+    .delete(escalaInicios)
     .where(
       and(
-        eq(escalaDias.competenciaId, competenciaId),
-        eq(escalaDias.funcionarioId, funcionarioId),
-        eq(escalaDias.tipoRegistro, 'inicio'),
-        eq(escalaDias.ativo, true)
+        eq(escalaInicios.competenciaId, competenciaId),
+        eq(escalaInicios.funcionarioId, funcionarioId)
       )
     );
 }
@@ -165,94 +172,183 @@ async function criarInicioAtivo(
   turnoInicio: Turno,
   indicePadrao?: number
 ) {
-  await desativarInicioAtivo(competenciaId, funcionarioId);
-  await db.insert(escalaDias).values({
+  await removerInicio(competenciaId, funcionarioId);
+  await db.insert(escalaInicios).values({
     competenciaId,
     funcionarioId,
-    tipoRegistro: 'inicio',
-    dia: null,
-    turno: null,
     mesInicio,
     anoInicio,
     turnoInicio,
     indicePadrao: indicePadrao ?? null,
-    ativo: true,
   });
 }
 
-async function upsertTurnoDia(
+function montarOverridesPorTrocas(
+  funcionarioId: number,
+  trocas: Array<{ funcionarioId: number; dia: number; turnoNovo: string }>
+): Record<number, Turno | null> {
+  const overrides: Record<number, Turno | null> = {};
+  for (const troca of trocas) {
+    if (troca.funcionarioId !== funcionarioId) continue;
+    overrides[troca.dia] = normalizeTurno(troca.turnoNovo) ?? null;
+  }
+  return overrides;
+}
+
+function montarTurnosFuncionario(
+  padrao: Turno[],
+  dias: number[],
+  mes: number,
+  ano: number,
+  escalaInicio: EscalaInicio | undefined,
+  inicioMesAnterior: EscalaInicio | undefined,
+  turnosMesAnterior: Record<number, Turno | null> | undefined,
+  diasNoMesAnterior: number | undefined,
+  overrides: Record<number, Turno | null>,
+  statusPorDia: Record<number, StatusEspecial>
+): {
+  turnos: Record<number, Turno | null>;
+  turnosProjetados?: Record<number, Turno>;
+} {
+  let turnos = { ...overrides };
+  let turnosProjetados = projetarTurnosVazios(
+    padrao,
+    turnos,
+    dias,
+    mes,
+    ano,
+    escalaInicio,
+    turnosMesAnterior,
+    diasNoMesAnterior,
+    inicioMesAnterior
+  );
+
+  if (Object.keys(statusPorDia).length > 0) {
+    turnos = aplicarStatusNosTurnos(turnos, statusPorDia);
+    if (turnosProjetados) {
+      turnosProjetados = { ...turnosProjetados };
+      for (const dia of Object.keys(statusPorDia).map(Number)) {
+        delete turnosProjetados[dia];
+      }
+    }
+  }
+
+  return {
+    turnos,
+    ...(turnosProjetados && Object.keys(turnosProjetados).length > 0
+      ? { turnosProjetados }
+      : {}),
+  };
+}
+
+function mapEscalaTrocaRow(row: {
+  id: number;
+  competenciaId: number;
+  funcionarioId: number;
+  dia: number;
+  turnoAnterior: string;
+  turnoNovo: string;
+  funcionarioTrocaId: number;
+  createdAt: Date | null;
+}): EscalaTroca {
+  return {
+    id: row.id,
+    competenciaId: row.competenciaId,
+    funcionarioId: row.funcionarioId,
+    dia: row.dia,
+    turnoAnterior: row.turnoAnterior,
+    turnoNovo: row.turnoNovo,
+    funcionarioTrocaId: row.funcionarioTrocaId,
+    ...(row.createdAt ? { createdAt: row.createdAt.toISOString() } : {}),
+  };
+}
+
+async function removerTrocasCelula(
   competenciaId: number,
   funcionarioId: number,
-  dia: number,
-  turno: Turno | null,
-  observacao?: string | null
+  dia: number
 ) {
-  const existing = await db.query.escalaDias.findFirst({
+  const rows = await db.query.escalaTrocas.findMany({
     where: and(
-      eq(escalaDias.competenciaId, competenciaId),
-      eq(escalaDias.funcionarioId, funcionarioId),
-      eq(escalaDias.dia, dia),
-      eq(escalaDias.tipoRegistro, 'turno')
+      eq(escalaTrocas.competenciaId, competenciaId),
+      eq(escalaTrocas.funcionarioId, funcionarioId),
+      eq(escalaTrocas.dia, dia)
     ),
   });
 
-  if (existing) {
+  for (const row of rows) {
     await db
-      .update(escalaDias)
-      .set({
-        turno,
-        ...(observacao !== undefined ? { observacao } : {}),
-      })
-      .where(eq(escalaDias.id, existing.id));
-    return;
+      .delete(escalaTrocas)
+      .where(
+        or(
+          eq(escalaTrocas.id, row.id),
+          and(
+            eq(escalaTrocas.competenciaId, competenciaId),
+            eq(escalaTrocas.funcionarioId, row.funcionarioTrocaId),
+            eq(escalaTrocas.funcionarioTrocaId, funcionarioId)
+          )
+        )
+      );
   }
+}
 
-  if (turno) {
-    await db.insert(escalaDias).values({
+async function registrarTrocaEscala(
+  competenciaId: number,
+  funcionarioId: number,
+  dia: number,
+  turnoAnterior: Turno,
+  turnoNovo: Turno,
+  funcionarioTrocaId: number
+) {
+  const [created] = await db
+    .insert(escalaTrocas)
+    .values({
       competenciaId,
       funcionarioId,
-      tipoRegistro: 'turno',
       dia,
-      turno,
-      observacao: observacao ?? null,
-      ativo: true,
-    });
-  }
+      turnoAnterior,
+      turnoNovo,
+      funcionarioTrocaId,
+    })
+    .returning();
+
+  return mapEscalaTrocaRow(created);
 }
 
-async function upsertTrocaDia(
-  competenciaId: number,
-  funcionarioId: number,
-  dia: number,
-  turno: Turno,
-  observacao: string
-) {
-  const existing = await db.query.escalaDias.findFirst({
-    where: and(
-      eq(escalaDias.competenciaId, competenciaId),
-      eq(escalaDias.funcionarioId, funcionarioId),
-      eq(escalaDias.dia, dia),
-      eq(escalaDias.tipoRegistro, 'troca')
-    ),
-  });
+function montarObservacoesPorTrocas(
+  trocas: Array<{
+    funcionarioId: number;
+    dia: number;
+    turnoAnterior: string;
+    turnoNovo: string;
+    funcionarioTrocaId: number;
+    funcionarioTroca: { nome: string };
+  }>
+): Map<number, Record<number, string>> {
+  const result = new Map<number, Record<number, string>>();
 
-  if (existing) {
-    await db
-      .update(escalaDias)
-      .set({ turno, observacao })
-      .where(eq(escalaDias.id, existing.id));
-    return;
+  for (const troca of trocas) {
+    const diaParceiro =
+      trocas.find(
+        (p) =>
+          p.funcionarioId === troca.funcionarioTrocaId &&
+          p.funcionarioTrocaId === troca.funcionarioId
+      )?.dia ?? troca.dia;
+
+    const observacao = formatObservacaoTroca(
+      troca.funcionarioTroca.nome,
+      diaParceiro,
+      troca.turnoAnterior,
+      troca.turnoNovo
+    );
+
+    if (!result.has(troca.funcionarioId)) {
+      result.set(troca.funcionarioId, {});
+    }
+    result.get(troca.funcionarioId)![troca.dia] = observacao;
   }
 
-  await db.insert(escalaDias).values({
-    competenciaId,
-    funcionarioId,
-    tipoRegistro: 'troca',
-    dia,
-    turno,
-    observacao,
-    ativo: true,
-  });
+  return result;
 }
 
 export function formatObservacaoTroca(
@@ -302,69 +398,57 @@ export async function getGradeEscala(
     .orderBy(funcionarios.ordemEscala, funcionarios.nome);
 
   const funcs = allFuncs.filter((f) => pertenceTipoEscala(f.categoria ?? '', tipoEscala));
+  const funcIds = new Set(funcs.map((f) => f.id));
 
   const registrosEscala = await db
     .select()
-    .from(escalaDias)
-    .where(eq(escalaDias.competenciaId, competenciaId));
+    .from(escalaInicios)
+    .where(eq(escalaInicios.competenciaId, competenciaId));
 
-  const diasPorFunc = new Map<number, Record<number, Turno | null>>();
-  const observacoesPorFunc = new Map<number, Record<number, string>>();
+  const trocasRegistradas = (
+    await db.query.escalaTrocas.findMany({
+      where: eq(escalaTrocas.competenciaId, competenciaId),
+      with: { funcionarioTroca: true },
+    })
+  ).filter((t) => funcIds.has(t.funcionarioId));
+
   const iniciosPorFunc = new Map<number, EscalaInicio>();
 
-  for (const d of registrosEscala) {
-    if (d.tipoRegistro === 'inicio' && d.ativo) {
-      const config = mapEscalaInicioRow(d);
-      if (config) iniciosPorFunc.set(d.funcionarioId, config);
-      continue;
-    }
-    if ((d.tipoRegistro === 'turno' || d.tipoRegistro === 'troca') && d.dia) {
-      if (!diasPorFunc.has(d.funcionarioId)) {
-        diasPorFunc.set(d.funcionarioId, {});
-      }
-      diasPorFunc.get(d.funcionarioId)![d.dia] = normalizeTurno(d.turno) ?? null;
-      if (d.observacao) {
-        if (!observacoesPorFunc.has(d.funcionarioId)) {
-          observacoesPorFunc.set(d.funcionarioId, {});
-        }
-        observacoesPorFunc.get(d.funcionarioId)![d.dia] = d.observacao;
-      }
-    }
+  for (const row of registrosEscala) {
+    const config = mapEscalaInicioRow(row);
+    if (config) iniciosPorFunc.set(row.funcionarioId, config);
   }
 
-  const turnosMesAnterior = await getTurnosMesAnterior(comp.setorId!, comp.mes, comp.ano);
+  const turnosMesAnterior = await getTurnosMesAnterior(comp.setorId!, comp.mes, comp.ano, funcs);
   const iniciosMesAnterior = await getIniciosMesAnterior(comp.setorId!, comp.mes, comp.ano);
   const { mes: mesAnt, ano: anoAnt } = mesAnterior(comp.mes, comp.ano);
   const diasNoMesAnterior = getDiasNoMes(mesAnt, anoAnt);
 
+  const observacoesPorFunc = montarObservacoesPorTrocas(trocasRegistradas);
+
   const funcionariosComTurnos = funcs.map((f) => {
-    let turnos = diasPorFunc.get(f.id) ?? {};
     const observacoesDia = observacoesPorFunc.get(f.id);
     const escalaInicio = iniciosPorFunc.get(f.id);
     const statusPorDia = montarStatusPorDia(statusList, f.id, comp.mes, comp.ano, dias);
     const padrao = getPadraoEscala(f.categoria ?? 'TÉC. DE ENFERMAGEM');
-    let turnosProjetados = padrao
-      ? projetarTurnosVazios(
-          padrao,
-          turnos,
-          dias,
-          comp.mes,
-          comp.ano,
-          escalaInicio,
-          turnosMesAnterior.get(f.id),
-          diasNoMesAnterior,
-          iniciosMesAnterior.get(f.id)
-        )
-      : undefined;
-
-    if (Object.keys(statusPorDia).length > 0) {
-      turnos = aplicarStatusNosTurnos(turnos, statusPorDia);
-      if (turnosProjetados) {
-        turnosProjetados = { ...turnosProjetados };
-        for (const dia of Object.keys(statusPorDia).map(Number)) {
-          delete turnosProjetados[dia];
-        }
-      }
+    const overrides = montarOverridesPorTrocas(f.id, trocasRegistradas);
+    let turnos = overrides;
+    let turnosProjetados: Record<number, Turno> | undefined;
+    if (padrao) {
+      const result = montarTurnosFuncionario(
+        padrao,
+        dias,
+        comp.mes,
+        comp.ano,
+        escalaInicio,
+        iniciosMesAnterior.get(f.id),
+        turnosMesAnterior.get(f.id),
+        diasNoMesAnterior,
+        overrides,
+        statusPorDia
+      );
+      turnos = result.turnos;
+      turnosProjetados = result.turnosProjetados;
     }
 
     return {
@@ -394,6 +478,7 @@ export async function getGradeEscala(
     statusEspeciais: statusList.filter((se) =>
       pertenceTipoEscala(se.funcionario.categoria ?? '', tipoEscala)
     ),
+    trocas: trocasRegistradas.map(mapEscalaTrocaRow),
     observacoes: comp.observacoes ?? undefined,
   };
 }
@@ -412,8 +497,6 @@ export async function batchUpdateEscalaDias(
     where: eq(competencias.id, competenciaId),
   });
   if (!comp) return;
-
-  const celulasInicio = new Set<string>();
 
   for (const item of items) {
     if (!item.definirInicio || !item.turno) continue;
@@ -437,19 +520,6 @@ export async function batchUpdateEscalaDias(
       turno,
       item.indicePadrao
     );
-    celulasInicio.add(`${item.funcionarioId}:${DIA_INICIO_ESCALA}`);
-  }
-
-  const deduped = new Map<string, { funcionarioId: number; dia: number; turno: Turno | null }>();
-  for (const item of items) {
-    deduped.set(`${item.funcionarioId}:${item.dia}`, item);
-  }
-
-  for (const item of deduped.values()) {
-    if (celulasInicio.has(`${item.funcionarioId}:${item.dia}`)) continue;
-
-    const turno = item.turno ? normalizeTurno(item.turno) : null;
-    await upsertTurnoDia(competenciaId, item.funcionarioId, item.dia, turno);
   }
 }
 
@@ -482,39 +552,26 @@ export async function trocarEscalaDia(
     throw new Error('Ambas as células precisam ter turno para realizar a troca');
   }
 
-  await upsertTrocaDia(
+  await removerTrocasCelula(competenciaId, funcionarioIdOrigem, diaOrigem);
+  await removerTrocasCelula(competenciaId, funcionarioIdDestino, diaDestino);
+
+  await registrarTrocaEscala(
     competenciaId,
     funcionarioIdOrigem,
     diaOrigem,
+    turnoOrigem,
     turnoDestino,
-    formatObservacaoTroca(destino.nome, diaDestino, turnoOrigem, turnoDestino)
+    funcionarioIdDestino
   );
 
-  await upsertTrocaDia(
+  await registrarTrocaEscala(
     competenciaId,
     funcionarioIdDestino,
     diaDestino,
+    turnoDestino,
     turnoOrigem,
-    formatObservacaoTroca(origem.nome, diaOrigem, turnoDestino, turnoOrigem)
+    funcionarioIdOrigem
   );
-
-  const comp = await db.query.competencias.findFirst({
-    where: eq(competencias.id, competenciaId),
-  });
-  if (comp) {
-    const linhaTroca = formatObservacaoTrocaCompetencia(
-      origem.nome,
-      diaOrigem,
-      turnoOrigem,
-      destino.nome,
-      diaDestino,
-      turnoDestino
-    );
-    await db
-      .update(competencias)
-      .set({ observacoes: appendObservacaoLista(comp.observacoes, linhaTroca) })
-      .where(eq(competencias.id, competenciaId));
-  }
 
   return { success: true };
 }
@@ -526,16 +583,18 @@ export async function zerarEscalaFuncionario(competenciaId: number, funcionarioI
   if (!comp) return false;
 
   await db
-    .delete(escalaDias)
+    .delete(escalaTrocas)
     .where(
       and(
-        eq(escalaDias.competenciaId, competenciaId),
-        eq(escalaDias.funcionarioId, funcionarioId),
-        inArray(escalaDias.tipoRegistro, ['turno', 'troca'])
+        eq(escalaTrocas.competenciaId, competenciaId),
+        or(
+          eq(escalaTrocas.funcionarioId, funcionarioId),
+          eq(escalaTrocas.funcionarioTrocaId, funcionarioId)
+        )
       )
     );
 
-  await desativarInicioAtivo(competenciaId, funcionarioId);
+  await removerInicio(competenciaId, funcionarioId);
 
   return true;
 }
@@ -554,23 +613,32 @@ export async function getRelatorioFolgas(mes: number, ano: number, setorId?: num
 
   const results = [];
   for (const comp of comps) {
-    const folgas = await db
-      .select({
-        funcionarioId: escalaDias.funcionarioId,
-        nome: funcionarios.nome,
-        matricula: funcionarios.matricula,
-        total: sql<number>`count(*)::int`,
-      })
-      .from(escalaDias)
-      .innerJoin(funcionarios, eq(escalaDias.funcionarioId, funcionarios.id))
-      .where(
-        and(
-          eq(escalaDias.competenciaId, comp.id),
-          inArray(escalaDias.tipoRegistro, ['turno', 'troca']),
-          eq(escalaDias.turno, 'F')
-        )
-      )
-      .groupBy(escalaDias.funcionarioId, funcionarios.nome, funcionarios.matricula);
+    const grade = await getGradeEscala(comp.id);
+    if (!grade) continue;
+
+    const folgas: Array<{
+      funcionarioId: number;
+      nome: string;
+      matricula: string;
+      total: number;
+    }> = [];
+
+    for (const grupo of grade.grupos) {
+      for (const func of grupo.funcionarios) {
+        let total = 0;
+        for (const dia of grade.dias) {
+          if (getTurnoEfetivo(func, dia) === 'F') total++;
+        }
+        if (total > 0) {
+          folgas.push({
+            funcionarioId: func.id,
+            nome: func.nome,
+            matricula: func.matricula,
+            total,
+          });
+        }
+      }
+    }
 
     const setor = await db.query.setores.findFirst({ where: eq(setores.id, comp.setorId!) });
     results.push({ setor: setor?.nome, competenciaId: comp.id, folgas });
@@ -587,33 +655,23 @@ export async function getRelatorioCargaHoraria(mes: number, ano: number) {
 
   const results = [];
   for (const comp of comps) {
-    const dias = await db
-      .select({
-        turno: escalaDias.turno,
-        funcionarioId: escalaDias.funcionarioId,
-        cargaHoraria: funcionarios.cargaHoraria,
-        nome: funcionarios.nome,
-      })
-      .from(escalaDias)
-      .innerJoin(funcionarios, eq(escalaDias.funcionarioId, funcionarios.id))
-      .where(
-        and(
-          eq(escalaDias.competenciaId, comp.id),
-          inArray(escalaDias.tipoRegistro, ['turno', 'troca'])
-        )
-      );
+    const grade = await getGradeEscala(comp.id);
+    if (!grade) continue;
 
     const porFunc = new Map<number, { nome: string; horas: number; contratado: string }>();
-    for (const d of dias) {
-      if (!porFunc.has(d.funcionarioId)) {
-        porFunc.set(d.funcionarioId, {
-          nome: d.nome,
-          horas: 0,
-          contratado: d.cargaHoraria ?? '180H',
+    for (const grupo of grade.grupos) {
+      for (const func of grupo.funcionarios) {
+        let horas = 0;
+        for (const dia of grade.dias) {
+          const turno = getTurnoEfetivo(func, dia);
+          horas += HORAS_POR_TURNO[turno ?? ''] ?? 0;
+        }
+        porFunc.set(func.id, {
+          nome: func.nome,
+          horas,
+          contratado: func.cargaHoraria ?? '180H',
         });
       }
-      const entry = porFunc.get(d.funcionarioId)!;
-      entry.horas += HORAS_POR_TURNO[d.turno ?? ''] ?? 0;
     }
 
     const setor = await db.query.setores.findFirst({ where: eq(setores.id, comp.setorId!) });
@@ -707,7 +765,7 @@ export async function simularProximoMes(
       }
 
       const escalaInicio = func.escalaInicio;
-      if (!escalaInicio?.ativo) {
+      if (!escalaInicio) {
         ignorados++;
         continue;
       }

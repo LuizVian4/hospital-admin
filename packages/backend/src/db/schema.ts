@@ -49,7 +49,27 @@ export const competencias = pgTable(
   })
 );
 
-export const escalaDias = pgTable('escala_dias', {
+export const escalaInicios = pgTable(
+  'escala_inicios',
+  {
+    id: serial('id').primaryKey(),
+    competenciaId: integer('competencia_id')
+      .notNull()
+      .references(() => competencias.id, { onDelete: 'cascade' }),
+    funcionarioId: integer('funcionario_id')
+      .notNull()
+      .references(() => funcionarios.id),
+    mesInicio: integer('mes_inicio').notNull(),
+    anoInicio: integer('ano_inicio').notNull(),
+    turnoInicio: text('turno_inicio').notNull(),
+    indicePadrao: integer('indice_padrao'),
+  },
+  (t) => ({
+    uniqueInicio: unique().on(t.competenciaId, t.funcionarioId),
+  })
+);
+
+export const escalaTrocas = pgTable('escala_trocas', {
   id: serial('id').primaryKey(),
   competenciaId: integer('competencia_id')
     .notNull()
@@ -57,20 +77,13 @@ export const escalaDias = pgTable('escala_dias', {
   funcionarioId: integer('funcionario_id')
     .notNull()
     .references(() => funcionarios.id),
-  /** 'turno' = célula diária manual; 'troca' = célula com troca confirmada; 'inicio' = configuração de início da escala no mês */
-  tipoRegistro: text('tipo_registro').notNull().default('turno'),
-  /** Dia do mês (1–31) — para tipo_registro = 'turno' ou 'troca' */
-  dia: integer('dia'),
-  turno: text('turno'),
-  observacao: text('observacao'),
-  /** Início da escala — preenchido quando tipo_registro = 'inicio' */
-  mesInicio: integer('mes_inicio'),
-  anoInicio: integer('ano_inicio'),
-  turnoInicio: text('turno_inicio'),
-  /** Posição no ciclo (0–4) — apenas para tipo_registro = 'inicio' */
-  indicePadrao: integer('indice_padrao'),
-  /** Apenas para tipo_registro = 'inicio': config ativa do mês */
-  ativo: boolean('ativo').default(true).notNull(),
+  dia: integer('dia').notNull(),
+  turnoAnterior: text('turno_anterior').notNull(),
+  turnoNovo: text('turno_novo').notNull(),
+  funcionarioTrocaId: integer('funcionario_troca_id')
+    .notNull()
+    .references(() => funcionarios.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
 export const statusEspeciais = pgTable('status_especiais', {
@@ -93,24 +106,43 @@ export const setoresRelations = relations(setores, ({ many }) => ({
 
 export const funcionariosRelations = relations(funcionarios, ({ one, many }) => ({
   setor: one(setores, { fields: [funcionarios.setorId], references: [setores.id] }),
-  escalaDias: many(escalaDias),
+  escalaInicios: many(escalaInicios),
+  escalaTrocas: many(escalaTrocas),
+  escalaTrocasComoParceiro: many(escalaTrocas, { relationName: 'trocaParceiro' }),
   statusEspeciais: many(statusEspeciais),
 }));
 
 export const competenciasRelations = relations(competencias, ({ one, many }) => ({
   setor: one(setores, { fields: [competencias.setorId], references: [setores.id] }),
-  escalaDias: many(escalaDias),
+  escalaInicios: many(escalaInicios),
+  escalaTrocas: many(escalaTrocas),
   statusEspeciais: many(statusEspeciais),
 }));
 
-export const escalaDiasRelations = relations(escalaDias, ({ one }) => ({
+export const escalaIniciosRelations = relations(escalaInicios, ({ one }) => ({
   competencia: one(competencias, {
-    fields: [escalaDias.competenciaId],
+    fields: [escalaInicios.competenciaId],
     references: [competencias.id],
   }),
   funcionario: one(funcionarios, {
-    fields: [escalaDias.funcionarioId],
+    fields: [escalaInicios.funcionarioId],
     references: [funcionarios.id],
+  }),
+}));
+
+export const escalaTrocasRelations = relations(escalaTrocas, ({ one }) => ({
+  competencia: one(competencias, {
+    fields: [escalaTrocas.competenciaId],
+    references: [competencias.id],
+  }),
+  funcionario: one(funcionarios, {
+    fields: [escalaTrocas.funcionarioId],
+    references: [funcionarios.id],
+  }),
+  funcionarioTroca: one(funcionarios, {
+    fields: [escalaTrocas.funcionarioTrocaId],
+    references: [funcionarios.id],
+    relationName: 'trocaParceiro',
   }),
 }));
 

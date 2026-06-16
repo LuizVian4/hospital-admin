@@ -25,6 +25,7 @@ interface CelulaEscalaProps {
   feriadoNome?: string | null;
   modoSomenteTroca?: boolean;
   modoSelecaoTroca?: boolean;
+  somenteLeitura?: boolean;
   isTrocaOrigem?: boolean;
   elegivelDestinoTroca?: boolean;
   isWeekend: boolean;
@@ -50,6 +51,7 @@ export function CelulaEscala({
   feriadoNome = null,
   modoSomenteTroca = false,
   modoSelecaoTroca = false,
+  somenteLeitura = false,
   isTrocaOrigem = false,
   elegivelDestinoTroca = false,
   isWeekend,
@@ -121,7 +123,7 @@ export function CelulaEscala({
 
   const conteudoCelula = temStatusEspecial ? (
     conteudoStatus
-  ) : modoSelecaoTroca ? (
+  ) : somenteLeitura || modoSelecaoTroca ? (
     <span
       className={cn(
         'flex h-9 w-full items-center justify-center text-xs px-1',

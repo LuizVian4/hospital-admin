@@ -26,9 +26,7 @@ export interface Funcionario {
   ativo: boolean;
 }
 
-export type TipoRegistroEscala = 'turno' | 'inicio';
 
-/** Configuração de início da escala por funcionário/competência (mês) — sempre a partir do dia 1 */
 export interface EscalaInicio {
   id?: number;
   mesInicio: number;
@@ -36,7 +34,6 @@ export interface EscalaInicio {
   turnoInicio: Turno;
   /** Posição no ciclo (0–4) para desambiguar turnos repetidos como F */
   indicePadrao?: number;
-  ativo: boolean;
 }
 
 export interface EscalaDia {
@@ -60,12 +57,24 @@ export interface TrocaEscalaRequest {
   diaDestino: number;
 }
 
+export interface EscalaTroca {
+  id: number;
+  competenciaId: number;
+  funcionarioId: number;
+  dia: number;
+  turnoAnterior: Turno;
+  turnoNovo: Turno;
+  funcionarioTrocaId: number;
+  createdAt?: string;
+}
+
 export interface GradeEscalaResponse {
   competencia: { id: number; mes: number; ano: number; setor: string };
   dias: number[];
   diasSemana: string[];
   grupos: GrupoTurno[];
   statusEspeciais: StatusEspecialItem[];
+  trocas?: EscalaTroca[];
   observacoes?: string;
 }
 

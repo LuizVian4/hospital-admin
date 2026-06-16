@@ -1,7 +1,8 @@
 import * as XLSX from 'xlsx';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../db';
-import { competencias, escalaDias, funcionarios, setores, statusEspeciais } from '../db/schema';
+import { competencias, escalaInicios, funcionarios, setores, statusEspeciais } from '../db/schema';
+import { DIA_INICIO_ESCALA, getPadraoEscala, resolverIndiceNoPadrao } from '@escala/shared';
 import {
   normalizeTurno,
   normalizeContrato,
@@ -655,7 +656,7 @@ export async function persistImport(
         })) ?? null;
 
       if (competencia) {
-        await db.delete(escalaDias).where(eq(escalaDias.competenciaId, competencia.id));
+        await db.delete(escalaInicios).where(eq(escalaInicios.competenciaId, competencia.id));
         await db.delete(statusEspeciais).where(eq(statusEspeciais.competenciaId, competencia.id));
         if (setorData.observacoes !== undefined) {
           await db
@@ -676,23 +677,30 @@ export async function persistImport(
       }
     }
 
+    const mesImport = setorData.mes ?? defaultMes ?? new Date().getMonth() + 1;
+    const anoImport = setorData.ano ?? defaultAno ?? new Date().getFullYear();
+
     for (const f of setorData.funcionarios) {
       const func = await upsertFuncionario(f, setor.id);
 
       if (competencia) {
-        const escalaValues = Object.entries(f.turnos)
-          .filter(([, turno]) => turno !== null)
-          .map(([dia, turno]) => ({
+        const padrao = getPadraoEscala(func.categoria ?? '');
+        const turnoInicio = f.turnos[DIA_INICIO_ESCALA];
+        if (padrao && turnoInicio) {
+          const indicePadrao = resolverIndiceNoPadrao(
+            padrao,
+            DIA_INICIO_ESCALA,
+            turnoInicio,
+            f.turnos
+          );
+          await db.insert(escalaInicios).values({
             competenciaId: competencia.id,
             funcionarioId: func.id,
-            tipoRegistro: 'turno' as const,
-            dia: parseInt(dia, 10),
-            turno,
-            ativo: true,
-          }));
-
-        if (escalaValues.length > 0) {
-          await db.insert(escalaDias).values(escalaValues);
+            mesInicio: mesImport,
+            anoInicio: anoImport,
+            turnoInicio,
+            indicePadrao,
+          });
         }
       }
     }

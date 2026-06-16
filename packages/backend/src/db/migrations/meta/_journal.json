@@ -50,6 +50,41 @@
       "when": 1718918400000,
       "tag": "0006_drop_dia_inicio_escala",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1719004800000,
+      "tag": "0007_escala_trocas",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1719091200000,
+      "tag": "0008_cleanup_escala_dias_troca",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1719177600000,
+      "tag": "0009_escala_inicios",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1719264000000,
+      "tag": "0010_drop_escala_dias",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1719350400000,
+      "tag": "0011_drop_ativo_escala_inicios",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -12,7 +12,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import SyncIcon from '@mui/icons-material/Sync';
-import type { GradeEscalaResponse, GrupoEscala, Turno, EscalaDiaUpdate, FuncionarioComTurnos, TipoEscala } from '@escala/shared';
+import type { GradeEscalaResponse, GrupoEscala, FuncionarioComTurnos, TipoEscala } from '@escala/shared';
 import { getGruposPorTipoEscala, mapFeriadosPorDia } from '@escala/shared';
 import { COLUNAS_FIXAS, stickyLeft, colunaCalendarioClass } from '@/constants/turnos';
 import { getDiasSemCoberturaMTSN, getDiasComPoucosTecnicosMT, getDiasComPoucosTecnicosSN, MIN_TECNICOS_POR_TURNO } from '@/lib/escalaCobertura';
@@ -22,9 +22,8 @@ import { LinhaTurno } from './LinhaTurno';
 import { LinhaGrupoEscala } from './LinhaGrupoEscala';
 import { LinhaSemGrupo } from './LinhaSemGrupo';
 import { LinhaIndisponivel } from './LinhaIndisponivel';
-import type { EscalaCellChangeOptions } from './CelulaEscala';
 import { ConfirmarTrocaDialog, type CelulaTroca } from './ConfirmarTrocaDialog';
-import { useAtribuirGrupoEscala, useTrocarEscalaDia, useUpdateEscalaDia } from '@/hooks/useEscala';
+import { useAtribuirGrupoEscala, useTrocarEscalaDia } from '@/hooks/useEscala';
 import { toast } from 'sonner';
 
 interface GradeEscalaProps {
@@ -35,11 +34,8 @@ interface GradeEscalaProps {
 export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) {
   const gruposEscala = useMemo(() => getGruposPorTipoEscala(tipoEscala), [tipoEscala]);
   const { competencia, dias, diasSemana, grupos } = data;
-  const updateMutation = useUpdateEscalaDia(competencia.id);
   const atribuirGrupo = useAtribuirGrupoEscala(competencia.id);
   const trocarEscala = useTrocarEscalaDia(competencia.id, tipoEscala);
-  const pendingRef = useRef<Map<string, EscalaDiaUpdate>>(new Map());
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const [dragOverGrupo, setDragOverGrupo] = useState<number | null>(null);
   const [trocaOrigem, setTrocaOrigem] = useState<CelulaTroca | null>(null);
   const [trocaConfirmacao, setTrocaConfirmacao] = useState<{
@@ -105,32 +101,6 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
   const diasComPoucosTecnicosSNLista = useMemo(
     () => [...diasComPoucosTecnicosSN].sort((a, b) => a - b),
     [diasComPoucosTecnicosSN]
-  );
-
-  const flushUpdates = useCallback(() => {
-    const items = [...pendingRef.current.values()];
-    if (items.length === 0) return;
-    pendingRef.current.clear();
-    updateMutation.mutate(items);
-  }, [updateMutation]);
-
-  const handleCellChange = useCallback(
-    (
-      funcionarioId: number,
-      dia: number,
-      turno: Turno | null,
-      options?: EscalaCellChangeOptions
-    ) => {
-      pendingRef.current.set(`${funcionarioId}:${dia}`, {
-        funcionarioId,
-        dia,
-        turno,
-        ...options,
-      });
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(flushUpdates, 500);
-    },
-    [flushUpdates]
   );
 
   const handleAtribuirGrupo = useCallback(
@@ -230,7 +200,8 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
   const renderLinhas = (
     lista: FuncionarioComTurnos[],
     arrastavel: boolean,
-    comGrupo = false
+    comGrupo = false,
+    somenteLeitura = false
   ) =>
     lista.map((func) => {
       const currentIndex = rowIndex++;
@@ -246,11 +217,11 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
           rowIndex={currentIndex}
           arrastavel={arrastavel}
           comGrupo={comGrupo}
+          somenteLeitura={somenteLeitura}
           trocaOrigem={trocaOrigem}
           modoSelecaoTroca={modoSelecaoTroca}
           onIniciarTroca={comGrupo ? handleIniciarTroca : undefined}
           onSelecionarDestinoTroca={comGrupo ? handleSelecionarDestinoTroca : undefined}
-          onCellChange={handleCellChange}
         />
       );
     });
@@ -310,19 +281,19 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
           )}
         </Stack>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {(updateMutation.isPending || atribuirGrupo.isPending || trocarEscala.isPending) && (
+          {(atribuirGrupo.isPending || trocarEscala.isPending) && (
             <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
               <SyncIcon fontSize="small" color="primary" sx={{ animation: 'spin 1s linear infinite', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } } }} />
               <Typography variant="caption" color="primary.main">Salvando...</Typography>
             </Stack>
           )}
-          {!updateMutation.isPending && updateMutation.isSuccess && (
+          {!atribuirGrupo.isPending && atribuirGrupo.isSuccess && (
             <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
               <CheckCircleIcon fontSize="small" color="success" />
               <Typography variant="caption" color="success.main">Salvo</Typography>
             </Stack>
           )}
-          {updateMutation.isError && (
+          {atribuirGrupo.isError && (
             <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
               <ErrorIcon fontSize="small" color="error" />
               <Typography variant="caption" color="error.main">Erro ao salvar</Typography>
@@ -641,7 +612,7 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
                     );
                   })}
                 </tr>
-                {renderLinhas(semPadrao, false, false)}
+                {renderLinhas(semPadrao, false, false, true)}
               </>
             )}
           </tbody>

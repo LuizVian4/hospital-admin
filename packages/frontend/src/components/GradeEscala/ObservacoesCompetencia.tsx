@@ -88,7 +88,7 @@ export function ObservacoesCompetencia({
         </ul>
       ) : (
         <p className="text-sm text-muted-foreground rounded-md border border-dashed px-3 py-4 text-center">
-          Nenhuma observação registrada. Trocas de escala são adicionadas aqui automaticamente.
+          Nenhuma observação manual registrada.
         </p>
       )}
 
@@ -120,7 +120,7 @@ export function ObservacoesCompetencia({
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        Cada troca confirmada na planilha gera um novo item nesta lista.
+        Trocas de escala ficam registradas na planilha (destaque violeta). Use este campo apenas para anotações manuais.
       </p>
     </div>
   );

@@ -330,7 +330,7 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
         <CardHeader
           avatar={<NotesIcon color="action" />}
           title="Observações da competência"
-          subheader="Trocas de escala e anotações manuais"
+          subheader="Anotações manuais da competência"
           sx={{ pb: 0 }}
         />
         <Divider />

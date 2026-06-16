@@ -1,5 +1,6 @@
+import { DIA_INICIO_ESCALA, getPadraoEscala, resolverIndiceNoPadrao } from '@escala/shared';
 import { db } from './index';
-import { setores, funcionarios, competencias, escalaDias } from './schema';
+import { setores, funcionarios, competencias, escalaInicios } from './schema';
 
 async function seed() {
   console.log('Seeding database...');
@@ -89,26 +90,29 @@ async function seed() {
     .returning();
 
   const competenciaId = comp?.id ?? 1;
+  const mes = 6;
+  const ano = 2026;
 
-  const turnoPatterns = [
-    ['/', 'F', 'MT', 'F', 'SN'],
-    ['MT', 'F', 'SN', '/', 'F'],
-    ['SN', '/', 'F', 'MT', 'F'],
-    ['M', 'F', 'T', 'F', 'M'],
-    ['HC', 'F', 'HC', 'F', 'HC'],
-  ];
+  const turnoInicios = ['/', 'MT', 'SN', 'M', 'HC'];
 
   for (let fi = 0; fi < insertedFuncs.length; fi++) {
     const func = insertedFuncs[fi];
-    const pattern = turnoPatterns[fi % turnoPatterns.length];
+    const turnoInicio = turnoInicios[fi % turnoInicios.length];
+    const padrao = getPadraoEscala(func.categoria ?? 'TÉC. DE ENFERMAGEM');
+    if (!padrao) continue;
 
-    for (let dia = 1; dia <= 30; dia++) {
-      const turno = pattern[(dia - 1) % pattern.length];
-      await db
-        .insert(escalaDias)
-        .values({ competenciaId, funcionarioId: func.id, tipoRegistro: 'turno', dia, turno, ativo: true })
-        .onConflictDoNothing();
-    }
+    const indicePadrao = resolverIndiceNoPadrao(padrao, DIA_INICIO_ESCALA, turnoInicio, {
+      [DIA_INICIO_ESCALA]: turnoInicio,
+    });
+
+    await db.insert(escalaInicios).values({
+      competenciaId,
+      funcionarioId: func.id,
+      mesInicio: mes,
+      anoInicio: ano,
+      turnoInicio,
+      indicePadrao,
+    });
   }
 
   console.log(`Seeded setor "${setor?.nome ?? '5 ANDAR'}" with ${insertedFuncs.length} funcionários`);

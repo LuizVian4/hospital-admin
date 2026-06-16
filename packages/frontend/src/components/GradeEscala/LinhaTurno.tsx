@@ -17,11 +17,12 @@ interface LinhaTurnoProps {
   rowIndex: number;
   arrastavel?: boolean;
   comGrupo?: boolean;
+  somenteLeitura?: boolean;
   trocaOrigem?: CelulaTroca | null;
   modoSelecaoTroca?: boolean;
   onIniciarTroca?: (funcionarioId: number, dia: number) => void;
   onSelecionarDestinoTroca?: (funcionarioId: number, dia: number) => void;
-  onCellChange: (
+  onCellChange?: (
     funcionarioId: number,
     dia: number,
     turno: Turno | null,
@@ -39,6 +40,7 @@ export function LinhaTurno({
   rowIndex,
   arrastavel = false,
   comGrupo = false,
+  somenteLeitura = false,
   trocaOrigem = null,
   modoSelecaoTroca = false,
   onIniciarTroca,
@@ -128,14 +130,15 @@ export function LinhaTurno({
             observacao={funcionario.observacoesDia?.[dia] ?? null}
             statusEspecial={funcionario.statusPorDia?.[dia] ?? null}
             feriadoNome={feriadoNome}
-            modoSomenteTroca={comGrupo}
+            modoSomenteTroca={comGrupo && !somenteLeitura}
             modoSelecaoTroca={modoSelecaoTroca}
+            somenteLeitura={somenteLeitura}
             isTrocaOrigem={isTrocaOrigem}
             elegivelDestinoTroca={elegivelDestinoTroca}
             isWeekend={diasSemana[idx] === 'SAB' || diasSemana[idx] === 'DOM'}
             isHoje={dia === hoje}
             rowBg={rowBg}
-            onChange={onCellChange}
+            onChange={onCellChange ?? (() => {})}
             onIniciarTroca={onIniciarTroca}
             onSelecionarDestinoTroca={onSelecionarDestinoTroca}
           />

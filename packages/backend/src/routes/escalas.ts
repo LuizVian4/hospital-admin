@@ -2,7 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
-import { competencias, escalaDias } from '../db/schema';
+import { competencias } from '../db/schema';
 import {
   getGradeEscala,
   batchUpdateEscalaDias,
@@ -32,10 +32,6 @@ const escalaDiaBatchSchema = z.object({
       indicePadrao: z.number().int().min(0).max(4).optional(),
     })
   ),
-});
-
-const escalaDiaSchema = z.object({
-  turno: z.string().nullable(),
 });
 
 const observacoesSchema = z.object({
@@ -200,20 +196,6 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
       }
     }
   );
-
-  app.put<{ Params: { id: string } }>('/api/escala-dias/:id', async (request, reply) => {
-    const id = parseInt(request.params.id, 10);
-    const body = escalaDiaSchema.parse(request.body);
-
-    const [updated] = await db
-      .update(escalaDias)
-      .set({ turno: body.turno })
-      .where(eq(escalaDias.id, id))
-      .returning();
-
-    if (!updated) return reply.status(404).send({ error: 'Registro não encontrado' });
-    return updated;
-  });
 
   app.get<{ Params: { competencia_id: string } }>(
     '/api/status-especiais/:competencia_id',

@@ -165,11 +165,11 @@ export function encontrarAncoraPadrao(
   diasNoMesAnterior?: number,
   inicioMesAnterior?: EscalaInicio | null
 ): AncoraPadrao | null {
-  if (escalaInicio?.ativo && mesAtual != null && anoAtual != null) {
+  if (escalaInicio && mesAtual != null && anoAtual != null) {
     return ancoraFromEscalaInicio(padrao, escalaInicio, mesAtual, anoAtual);
   }
 
-  if (inicioMesAnterior?.ativo && mesAtual != null && anoAtual != null) {
+  if (inicioMesAnterior && mesAtual != null && anoAtual != null) {
     return ancoraFromEscalaInicio(padrao, inicioMesAnterior, mesAtual, anoAtual);
   }
 
