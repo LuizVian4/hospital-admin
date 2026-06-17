@@ -1,9 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
 import * as schema from './schema';
+import { createPostgresClient } from './connection';
 
-const connectionString =
-  process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5433/escala_hospital';
-
-const client = postgres(connectionString);
+const client = createPostgresClient();
 export const db = drizzle(client, { schema });

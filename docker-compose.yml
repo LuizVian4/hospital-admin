@@ -18,7 +18,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: packages/backend/Dockerfile
+      dockerfile: packages/backend/Dockerfile.dev
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/escala_hospital
       NODE_ENV: development

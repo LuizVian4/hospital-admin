@@ -1,13 +1,10 @@
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import path from 'path';
+import { createPostgresClient } from './connection';
 
 async function main() {
-  const connectionString =
-    process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5433/escala_hospital';
-
-  const client = postgres(connectionString, { max: 1 });
+  const client = createPostgresClient(undefined, { max: 1 });
   const db = drizzle(client);
 
   console.log('Running migrations...');
