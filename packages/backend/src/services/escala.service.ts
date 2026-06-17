@@ -19,11 +19,14 @@ import type {
 import {
   appendObservacaoLista,
   getPadraoEscala,
+  getPadraoParaFuncionario,
+  isIndiceGrupoOpcional,
   pertenceTipoEscala,
   projetarTurnosVazios,
   ancoraFromEscalaInicio,
   calcularTurnoProjetado,
   calcularIndiceNoDia,
+  type GrupoOpcionalId,
 } from '@escala/shared';
 import {
   agruparPorEscalaIgual,
@@ -134,7 +137,8 @@ async function getTurnosMesAnterior(
   });
 
   for (const f of funcs) {
-    const padrao = getPadraoEscala(f.categoria ?? '');
+    const escalaInicio = inicios.get(f.id);
+    const padrao = getPadraoParaFuncionario(f.categoria ?? '', escalaInicio?.indicePadrao);
     if (!padrao) continue;
 
     const overrides = montarOverridesPorTrocas(f.id, trocas);
@@ -488,7 +492,7 @@ export async function getGradeEscala(
     const ocorrenciasDia = ocorrenciasPorFunc.get(f.id);
     const escalaInicio = iniciosPorFunc.get(f.id);
     const statusPorDia = montarStatusPorDia(statusList, f.id, comp.mes, comp.ano, dias);
-    const padrao = getPadraoEscala(f.categoria ?? 'TÉC. DE ENFERMAGEM');
+    const padrao = getPadraoParaFuncionario(f.categoria ?? 'TÉC. DE ENFERMAGEM', escalaInicio?.indicePadrao);
     const overrides = montarOverridesPorTrocas(f.id, trocasRegistradas);
     let turnos = overrides;
     let turnosProjetados: Record<number, Turno> | undefined;
@@ -530,6 +534,7 @@ export async function getGradeEscala(
       mes: comp.mes,
       ano: comp.ano,
       setor: comp.setor.nome,
+      gruposOpcionaisAtivos: parseGruposOpcionaisAtivos(comp.gruposOpcionaisAtivos),
     },
     dias,
     diasSemana: getDiasSemana(comp.mes, comp.ano, dias.length),
@@ -606,7 +611,7 @@ export async function batchUpdateEscalaDias(
     const func = funcPorId.get(funcionarioId);
     if (!func) continue;
 
-    const padrao = getPadraoEscala(func.categoria ?? 'TÉC. DE ENFERMAGEM');
+    const padrao = getPadraoParaFuncionario(func.categoria ?? 'TÉC. DE ENFERMAGEM', indicePadrao);
     if (!padrao) continue;
 
     inicios.push({
@@ -908,14 +913,14 @@ export async function simularProximoMes(
       if (funcionariosVistos.has(func.id)) continue;
       funcionariosVistos.add(func.id);
 
-      const padrao = getPadraoEscala(func.categoria ?? '');
-      if (!padrao) {
+      const escalaInicio = func.escalaInicio;
+      if (!escalaInicio) {
         ignorados++;
         continue;
       }
 
-      const escalaInicio = func.escalaInicio;
-      if (!escalaInicio) {
+      const padrao = getPadraoParaFuncionario(func.categoria ?? '', escalaInicio.indicePadrao);
+      if (!padrao) {
         ignorados++;
         continue;
       }
@@ -927,7 +932,9 @@ export async function simularProximoMes(
         continue;
       }
 
-      const indiceDia1 = calcularIndiceNoDia(padrao, ancoraProx, 1);
+      const indiceSalvar = isIndiceGrupoOpcional(escalaInicio.indicePadrao)
+        ? escalaInicio.indicePadrao!
+        : calcularIndiceNoDia(padrao, ancoraProx, 1);
 
       await zerarEscalaFuncionario(proxComp.id, func.id);
 
@@ -937,7 +944,7 @@ export async function simularProximoMes(
         proxMes,
         proxAno,
         turnoDia1,
-        indiceDia1
+        indiceSalvar
       );
 
       processados++;
@@ -968,4 +975,24 @@ export async function simularProximoMes(
     ignorados,
     ...(gradeProx ? { grade: gradeProx } : {}),
   };
+}
+
+function parseGruposOpcionaisAtivos(value: unknown): GrupoOpcionalId[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is GrupoOpcionalId => v === 'mt-f' || v === 'f-mt');
+}
+
+export async function updateGruposOpcionaisAtivos(
+  competenciaId: number,
+  gruposOpcionaisAtivos: GrupoOpcionalId[]
+) {
+  const valid = parseGruposOpcionaisAtivos(gruposOpcionaisAtivos);
+  const [updated] = await db
+    .update(competencias)
+    .set({ gruposOpcionaisAtivos: valid })
+    .where(eq(competencias.id, competenciaId))
+    .returning();
+
+  if (!updated) throw new Error('Competência não encontrada');
+  return updated;
 }

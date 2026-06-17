@@ -13,7 +13,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import SyncIcon from '@mui/icons-material/Sync';
 import type { GradeEscalaResponse, TipoEscala, TipoOcorrenciaEscala, Turno } from '@escala/shared';
-import { getGruposPorTipoEscala, mapFeriadosPorDia } from '@escala/shared';
+import { getGruposOpcionaisEscala, getGruposVisiveisEscala, mapFeriadosPorDia } from '@escala/shared';
 import { getDiasSemCoberturaMTSN, getDiasComPoucosTecnicosMT, getDiasComPoucosTecnicosSN, MIN_TECNICOS_POR_TURNO } from '@/lib/escalaCobertura';
 import { listarFuncionarios, organizarPorGrupoEscala } from '@/lib/escalaGrupos';
 import { buildGradeEscalaRows } from '@/lib/gradeEscalaRows';
@@ -22,7 +22,7 @@ import {
   OcorrenciaEscalaDialog,
   type OcorrenciaEscalaDialogState,
 } from './OcorrenciaEscalaDialog';
-import { useAtribuirGrupoEscala, useTrocarEscalaDia } from '@/hooks/useEscala';
+import { useAtribuirGrupoEscala, useTrocarEscalaDia, useUpdateGruposOpcionais } from '@/hooks/useEscala';
 import { GradeEscalaTabelaVirtual } from './GradeEscalaTabelaVirtual';
 import { toast } from 'sonner';
 
@@ -32,9 +32,14 @@ interface GradeEscalaProps {
 }
 
 export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) {
-  const gruposEscala = useMemo(() => getGruposPorTipoEscala(tipoEscala), [tipoEscala]);
   const { competencia, dias, diasSemana, grupos } = data;
+  const gruposOpcionaisAtivos = competencia.gruposOpcionaisAtivos ?? [];
+  const gruposEscala = useMemo(
+    () => getGruposVisiveisEscala(tipoEscala, gruposOpcionaisAtivos),
+    [tipoEscala, gruposOpcionaisAtivos]
+  );
   const atribuirGrupo = useAtribuirGrupoEscala(competencia.id, tipoEscala);
+  const updateGruposOpcionais = useUpdateGruposOpcionais(competencia.id, tipoEscala);
   const trocarEscala = useTrocarEscalaDia(competencia.id, tipoEscala);
   const [dragOverGrupo, setDragOverGrupo] = useState<number | null>(null);
   const [trocaOrigem, setTrocaOrigem] = useState<CelulaTroca | null>(null);
@@ -252,6 +257,16 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
     [handleAtribuirGrupo]
   );
 
+  const handleToggleGrupoOpcional = useCallback(
+    (opcionalId: 'mt-f' | 'f-mt') => {
+      const next = gruposOpcionaisAtivos.includes(opcionalId)
+        ? gruposOpcionaisAtivos.filter((id) => id !== opcionalId)
+        : [...gruposOpcionaisAtivos, opcionalId];
+      updateGruposOpcionais.mutate(next);
+    },
+    [gruposOpcionaisAtivos, updateGruposOpcionais]
+  );
+
   return (
     <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
       <Stack
@@ -324,6 +339,43 @@ export function GradeEscala({ data, tipoEscala = 'tecnico' }: GradeEscalaProps) 
             </Stack>
           )}
         </Box>
+      </Stack>
+
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          px: 2,
+          py: 1,
+          bgcolor: 'grey.50',
+          borderBottom: 1,
+          borderColor: 'divider',
+          gap: 1,
+        }}
+      >
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+          Grupos opcionais:
+        </Typography>
+        {getGruposOpcionaisEscala().map((grupo) => {
+          const ativo = gruposOpcionaisAtivos.includes(grupo.opcionalId!);
+          return (
+            <Chip
+              key={grupo.opcionalId}
+              label={grupo.descricao}
+              size="small"
+              clickable
+              variant={ativo ? 'filled' : 'outlined'}
+              color={ativo ? 'primary' : 'default'}
+              disabled={updateGruposOpcionais.isPending}
+              onClick={() => handleToggleGrupoOpcional(grupo.opcionalId!)}
+            />
+          );
+        })}
+        <Typography variant="caption" color="text.secondary">
+          Selecionados aparecem na planilha abaixo
+        </Typography>
       </Stack>
 
       {modoSelecaoTroca && trocaOrigem && (

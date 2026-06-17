@@ -9,7 +9,18 @@ export const PADRAO_TEC_ENFERMAGEM: Turno[] = ['MT', 'F', 'SN', '/', 'F'];
 /** Ciclo padrão para Enfermeiro: MT → SN → / → F */
 export const PADRAO_ENFERMEIRO: Turno[] = ['MT', 'SN', '/', 'F'];
 
+/** Ciclo opcional MT → F (2 dias) */
+export const PADRAO_OPCIONAL_MT_F: Turno[] = ['MT', 'F'];
+
+/** Ciclo opcional F → MT (2 dias) */
+export const PADRAO_OPCIONAL_F_MT: Turno[] = ['F', 'MT'];
+
 export type TipoEscala = 'tecnico' | 'enfermeiro';
+
+export type GrupoOpcionalId = 'mt-f' | 'f-mt';
+
+export const INDICE_PADRAO_OPCIONAL_MT_F = 100;
+export const INDICE_PADRAO_OPCIONAL_F_MT = 101;
 
 export interface GrupoEscala {
   id: number;
@@ -17,6 +28,8 @@ export interface GrupoEscala {
   descricao: string;
   indicePadrao: number;
   turnoInicio: Turno;
+  opcional?: boolean;
+  opcionalId?: GrupoOpcionalId;
 }
 
 export function formatarPadraoRotacionado(padrao: Turno[], indicePadrao: number): string {
@@ -35,6 +48,54 @@ export function getGruposEscala(padrao: Turno[]): GrupoEscala[] {
 
 export const GRUPOS_ESCALA = getGruposEscala(PADRAO_TEC_ENFERMAGEM);
 export const GRUPOS_ESCALA_ENFERMEIRO = getGruposEscala(PADRAO_ENFERMEIRO);
+
+export const GRUPOS_OPCIONAIS_ESCALA: GrupoEscala[] = [
+  {
+    id: INDICE_PADRAO_OPCIONAL_MT_F,
+    label: 'Grupo MT-F',
+    descricao: 'MT - F',
+    indicePadrao: INDICE_PADRAO_OPCIONAL_MT_F,
+    turnoInicio: 'MT',
+    opcional: true,
+    opcionalId: 'mt-f',
+  },
+  {
+    id: INDICE_PADRAO_OPCIONAL_F_MT,
+    label: 'Grupo F-MT',
+    descricao: 'F - MT',
+    indicePadrao: INDICE_PADRAO_OPCIONAL_F_MT,
+    turnoInicio: 'F',
+    opcional: true,
+    opcionalId: 'f-mt',
+  },
+];
+
+export function isIndiceGrupoOpcional(indicePadrao?: number | null): boolean {
+  return (
+    indicePadrao === INDICE_PADRAO_OPCIONAL_MT_F ||
+    indicePadrao === INDICE_PADRAO_OPCIONAL_F_MT
+  );
+}
+
+export function getGrupoOpcionalPorIndice(indicePadrao?: number | null): GrupoEscala | undefined {
+  if (indicePadrao == null) return undefined;
+  return GRUPOS_OPCIONAIS_ESCALA.find((g) => g.indicePadrao === indicePadrao);
+}
+
+export function getGruposOpcionaisEscala(): GrupoEscala[] {
+  return GRUPOS_OPCIONAIS_ESCALA;
+}
+
+export function getGruposVisiveisEscala(
+  tipo: TipoEscala,
+  gruposOpcionaisAtivos: GrupoOpcionalId[] = []
+): GrupoEscala[] {
+  const base = getGruposPorTipoEscala(tipo);
+  const opcionais = GRUPOS_OPCIONAIS_ESCALA.filter(
+    (g) => g.opcionalId && gruposOpcionaisAtivos.includes(g.opcionalId)
+  );
+  return [...base, ...opcionais];
+}
 
 export interface AncoraPadrao {
   dia: number;
@@ -81,6 +142,37 @@ export function getPadraoPorTipoEscala(tipo: TipoEscala): Turno[] {
 
 export function getGruposPorTipoEscala(tipo: TipoEscala): GrupoEscala[] {
   return getGruposEscala(getPadraoPorTipoEscala(tipo));
+}
+
+export function getPadraoParaFuncionario(
+  categoria: string,
+  indicePadrao?: number | null
+): Turno[] | null {
+  const opcional = getGrupoOpcionalPorIndice(indicePadrao);
+  if (opcional) {
+    return padraoDoGrupoOpcional(opcional);
+  }
+  return getPadraoEscala(categoria);
+}
+
+function padraoDoGrupoOpcional(grupo: GrupoEscala): Turno[] {
+  return grupo.opcionalId === 'mt-f' ? PADRAO_OPCIONAL_MT_F : PADRAO_OPCIONAL_F_MT;
+}
+
+export function resolverIndiceCicloParaAncora(
+  padrao: Turno[],
+  config: EscalaInicio
+): number {
+  const grupoOpcional = getGrupoOpcionalPorIndice(config.indicePadrao);
+  const padraoEfetivo = grupoOpcional ? padraoDoGrupoOpcional(grupoOpcional) : padrao;
+
+  if (config.indicePadrao != null && !grupoOpcional) {
+    return config.indicePadrao;
+  }
+
+  return resolverIndiceNoPadrao(padraoEfetivo, DIA_INICIO_ESCALA, config.turnoInicio, {
+    [DIA_INICIO_ESCALA]: config.turnoInicio,
+  });
 }
 
 export function resolverIndiceNoPadrao(
@@ -136,11 +228,7 @@ export function ancoraFromEscalaInicio(
   mesAtual: number,
   anoAtual: number
 ): AncoraPadrao {
-  const indicePadrao =
-    config.indicePadrao ??
-    resolverIndiceNoPadrao(padrao, DIA_INICIO_ESCALA, config.turnoInicio, {
-      [DIA_INICIO_ESCALA]: config.turnoInicio,
-    });
+  const indicePadrao = resolverIndiceCicloParaAncora(padrao, config);
 
   if (config.mesInicio === mesAtual && config.anoInicio === anoAtual) {
     return { dia: DIA_INICIO_ESCALA, indicePadrao, offsetAteMesAtual: 0 };

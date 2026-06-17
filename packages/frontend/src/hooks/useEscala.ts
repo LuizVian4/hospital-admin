@@ -100,6 +100,23 @@ export function useTrocarEscalaDia(competenciaId: number, tipo: TipoEscala = 'te
   });
 }
 
+export function useUpdateGruposOpcionais(competenciaId: number, tipo: TipoEscala = 'tecnico') {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (gruposOpcionaisAtivos: ('mt-f' | 'f-mt')[]) =>
+      api.updateGruposOpcionais(competenciaId, gruposOpcionaisAtivos),
+    onMutate: async (gruposOpcionaisAtivos) =>
+      beginEscalaOptimisticUpdate(queryClient, competenciaId, tipo, (grade) => ({
+        ...grade,
+        competencia: { ...grade.competencia, gruposOpcionaisAtivos },
+      })),
+    onError: (_err, _vars, context) => {
+      rollbackEscalaCache(queryClient, competenciaId, tipo, context as EscalaMutationContext);
+    },
+  });
+}
+
 export function useUpdateObservacoes(competenciaId: number, tipo: TipoEscala = 'tecnico') {
   const queryClient = useQueryClient();
 

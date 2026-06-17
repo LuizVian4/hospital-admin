@@ -187,7 +187,13 @@ export interface EscalaOcorrenciaRequest {
 }
 
 export interface GradeEscalaResponse {
-  competencia: { id: number; mes: number; ano: number; setor: string };
+  competencia: {
+    id: number;
+    mes: number;
+    ano: number;
+    setor: string;
+    gruposOpcionaisAtivos?: ('mt-f' | 'f-mt')[];
+  };
   dias: number[];
   diasSemana: string[];
   grupos: GrupoTurno[];

@@ -12,6 +12,7 @@ import {
   getRelatorioCargaHoraria,
   simularProximoMes,
   removerTrocaCelula,
+  updateGruposOpcionaisAtivos,
 } from '../services/escala.service';
 import { exportEscalaExcel, exportEscalaMesCompletoExcel } from '../services/exportacao.service';
 import {
@@ -45,9 +46,13 @@ const escalaDiaBatchSchema = z.object({
       dia: z.number().int().min(1).max(31),
       turno: z.string().nullable(),
       definirInicio: z.boolean().optional(),
-      indicePadrao: z.number().int().min(0).max(4).optional(),
+      indicePadrao: z.number().int().min(0).max(101).optional(),
     })
   ),
+});
+
+const gruposOpcionaisSchema = z.object({
+  gruposOpcionaisAtivos: z.array(z.enum(['mt-f', 'f-mt'])),
 });
 
 const observacoesSchema = z.object({
@@ -157,6 +162,27 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
         )
         .header('Content-Disposition', `attachment; filename="${result.filename}"`)
         .send(result.buffer);
+    }
+  );
+
+  app.put<{ Params: { id: string } }>(
+    '/api/competencias/:id/grupos-opcionais',
+    async (request, reply) => {
+      const id = parseInt(request.params.id, 10);
+      try {
+        await ensureCompetenciaAccess(request, id);
+      } catch {
+        return reply.status(404).send({ error: 'Competência não encontrada' });
+      }
+
+      const body = gruposOpcionaisSchema.parse(request.body);
+      try {
+        const updated = await updateGruposOpcionaisAtivos(id, body.gruposOpcionaisAtivos);
+        return updated;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erro ao atualizar grupos opcionais';
+        return reply.status(400).send({ error: message });
+      }
     }
   );
 

@@ -9,6 +9,7 @@ import {
   unique,
   real,
   uuid,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -114,6 +115,7 @@ export const competencias = pgTable(
     setorId: integer('setor_id').references(() => setores.id),
     tipo: text('tipo').notNull().default('tecnico'),
     observacoes: text('observacoes'),
+    gruposOpcionaisAtivos: jsonb('grupos_opcionais_ativos').$type<('mt-f' | 'f-mt')[]>().notNull().default([]),
     bancoHorasDirty: boolean('banco_horas_dirty').notNull().default(true),
     bancoHorasSyncedAt: timestamp('banco_horas_synced_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),

@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import type { FuncionarioComTurnos, GradeEscalaResponse, GrupoEscala, StatusEspecial, TipoEscala } from '@escala/shared';
 import {
   getGruposPorTipoEscala,
+  getGruposVisiveisEscala,
   getPadraoEscala,
   mapFeriadosPorDia,
 } from '@escala/shared';
@@ -738,7 +739,10 @@ export async function exportEscalaExcel(
   const grade = await getGradeEscala(competenciaId, tipoEscala);
   if (!grade) return null;
 
-  const gruposEscala = getGruposPorTipoEscala(tipoEscala);
+  const gruposEscala = getGruposVisiveisEscala(
+    tipoEscala,
+    grade.competencia.gruposOpcionaisAtivos ?? []
+  );
 
   const comp = await db.query.competencias.findFirst({
     where: eq(competencias.id, competenciaId),
@@ -777,7 +781,6 @@ export async function exportEscalaMesCompletoExcel(
   tipoEscala: TipoEscala = 'tecnico'
 ): Promise<{ buffer: Buffer; filename: string } | null> {
   const setores = await listSetoresPorTipoEscala(tipoEscala, empresaId);
-  const gruposEscala = getGruposPorTipoEscala(tipoEscala);
 
   const comps = await db.query.competencias.findMany({
     where: and(
@@ -802,6 +805,11 @@ export async function exportEscalaMesCompletoExcel(
 
     const grade = await getGradeEscala(comp.id, tipoEscala);
     if (!grade) continue;
+
+    const gruposEscala = getGruposVisiveisEscala(
+      tipoEscala,
+      grade.competencia.gruposOpcionaisAtivos ?? []
+    );
 
     addEscalaSheet(
       workbook,

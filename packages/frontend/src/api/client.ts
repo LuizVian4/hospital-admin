@@ -427,6 +427,15 @@ export const api = {
       body: JSON.stringify({ observacoes }),
     }),
 
+  updateGruposOpcionais: (
+    competenciaId: number,
+    gruposOpcionaisAtivos: ('mt-f' | 'f-mt')[]
+  ) =>
+    request(`/api/competencias/${competenciaId}/grupos-opcionais`, {
+      method: 'PUT',
+      body: JSON.stringify({ gruposOpcionaisAtivos }),
+    }),
+
   simularProximoMes: (competenciaId: number, tipo: TipoEscala = 'tecnico') =>
     request<{
       competenciaId: number;

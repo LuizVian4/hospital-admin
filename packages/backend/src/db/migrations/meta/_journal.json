@@ -148,6 +148,13 @@
       "when": 1720128000000,
       "tag": "0020_rename_default_empresa",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1720214400000,
+      "tag": "0021_grupos_opcionais_competencia",
+      "breakpoints": true
     }
   ]
 }
