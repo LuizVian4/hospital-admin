@@ -22,6 +22,12 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/escala_hospital
       PORT: 3001
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      CORS_ORIGINS: http://localhost:5173
+      ADMIN_EMAIL: admin@hospital.local
+      ADMIN_PASSWORD: admin123
     ports:
       - "3001:3001"
     volumes:
@@ -42,6 +48,7 @@ services:
       - "5173:5173"
     volumes:
       - ./packages/frontend/src:/app/packages/frontend/src
+      - ./packages/frontend/public:/app/packages/frontend/public
       - ./packages/frontend/index.html:/app/packages/frontend/index.html
       - ./packages/frontend/vite.config.ts:/app/packages/frontend/vite.config.ts
     depends_on:

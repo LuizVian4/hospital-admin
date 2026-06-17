@@ -59,6 +59,16 @@ export {
   type BancoHoras,
   type BancoHorasComDetalhes,
   type BancoHorasAgregado,
+  type User,
+  type LoginRequest,
+  type AuthResponse,
+  type RegisterRequest,
+  type CreateUserRequest,
+  type UpdateUserRequest,
+  type UpdateProfileRequest,
+  type ChangePasswordRequest,
+  type DeleteAccountRequest,
+  type ResetPasswordRequest,
 } from './types';
 export {
   STATUS_ESPECIAIS_OPCOES,

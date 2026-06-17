@@ -105,17 +105,36 @@ npm run dev
 | `DATABASE_URL` | Conexão PostgreSQL | `postgres://postgres:postgres@localhost:5433/escala_hospital` |
 | `PORT` | Porta da API | `3001` |
 | `VITE_API_URL` | URL da API no frontend | `http://localhost:3001` |
+| `JWT_SECRET` | Segredo para assinar tokens JWT | *(obrigatório)* |
+| `JWT_ACCESS_EXPIRES_IN` | Validade do access token (cookie) | `15m` |
+| `JWT_REFRESH_EXPIRES_IN` | Validade do refresh token (cookie) | `7d` |
+| `CORS_ORIGINS` | Origens permitidas (vírgula; obrigatório com cookies) | `http://localhost:5173` |
+| `ADMIN_EMAIL` | E-mail do admin inicial (`db:seed`) | `admin@hospital.local` |
+| `ADMIN_PASSWORD` | Senha do admin inicial (`db:seed`) | `admin123` |
+
+## Autenticação
+
+A API usa **JWT em cookies httpOnly** (`access_token` + `refresh_token`). Rotas públicas: `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`. Demais rotas `/api/*` exigem sessão válida.
+
+- Access token curto (padrão **15 min**); refresh automático no frontend
+- Login com **rate limit** (5 tentativas / 15 min por IP)
+- Gestão de usuários em `/usuarios` (criar, desativar, redefinir senha)
+- Alteração da própria senha em `/usuarios` ou via `PUT /api/auth/senha`
+
+Após `db:seed`, use `ADMIN_EMAIL` / `ADMIN_PASSWORD` (padrão: `admin@hospital.local` / `admin123`). **Altere a senha e o `JWT_SECRET` em produção.**
 
 ## Páginas da aplicação
 
 | Rota | Página |
 |------|--------|
-| `/` | Dashboard com indicadores, banco de horas e gestão de setores |
+| `/` | Landing page com login |
+| `/dashboard` | Dashboard com indicadores, banco de horas e gestão de setores |
 | `/setores/:setorId/escala/:mes/:ano` | Grade de escala de técnicos |
 | `/setores/:setorId/escala-enfermeiros/:mes/:ano` | Grade de escala de enfermeiros |
 | `/funcionarios` | Listagem e cadastro de funcionários |
 | `/funcionarios/:id` | Perfil do funcionário (dados, status e calendário do mês) |
 | `/banco-horas` | Saldo de carga horária por competência ou acumulado geral |
+| `/usuarios` | Gestão de contas de acesso ao sistema |
 | `/importacao` | Importação de equipe e de escala |
 
 ## Importação de planilhas

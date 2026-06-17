@@ -260,3 +260,54 @@ export interface BancoHorasAgregado {
   status: StatusBancoHoras;
   competenciasContabilizadas: number;
 }
+
+export interface User {
+  id: number;
+  email: string;
+  nome: string;
+  ativo: boolean;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  user: User;
+}
+
+export interface RegisterRequest {
+  email: string;
+  nome: string;
+  password: string;
+}
+
+export interface CreateUserRequest {
+  email: string;
+  nome: string;
+  password: string;
+}
+
+export interface UpdateUserRequest {
+  nome?: string;
+  ativo?: boolean;
+}
+
+export interface UpdateProfileRequest {
+  nome?: string;
+  email?: string;
+}
+
+export interface ChangePasswordRequest {
+  senhaAtual: string;
+  senhaNova: string;
+}
+
+export interface DeleteAccountRequest {
+  senha: string;
+}
+
+export interface ResetPasswordRequest {
+  password: string;
+}

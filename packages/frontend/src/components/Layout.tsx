@@ -17,16 +17,19 @@ import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import PeopleIcon from '@mui/icons-material/People';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import ScheduleIcon from '@mui/icons-material/Schedule';
-import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
+import PersonIcon from '@mui/icons-material/Person';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import LogoutIcon from '@mui/icons-material/Logout';
+import { LogoBrand } from '@/components/LogoBrand';
 import { useSetoresPorEscala } from '@/hooks/useFuncionarios';
+import { useAuth } from '@/contexts/AuthContext';
 
 const DRAWER_WIDTH = 256;
 const DRAWER_COLLAPSED_WIDTH = 72;
 
 const staticNav = [
-  { to: '/', label: 'Dashboard', icon: DashboardIcon, isActive: (path: string) => path === '/' },
+  { to: '/dashboard', label: 'Dashboard', icon: DashboardIcon, isActive: (path: string) => path === '/dashboard' },
   {
     to: '/funcionarios',
     label: 'Funcionários',
@@ -45,12 +48,18 @@ const staticNav = [
     icon: ScheduleIcon,
     isActive: (path: string) => path.startsWith('/banco-horas'),
   },
+  {
+    to: '/perfil',
+    label: 'Meu perfil',
+    icon: PersonIcon,
+    isActive: (path: string) => path.startsWith('/perfil'),
+  },
 ] as const;
 
 const drawerPaperSx = (collapsed: boolean) => ({
   width: collapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH,
   boxSizing: 'border-box' as const,
-  bgcolor: 'grey.900',
+  bgcolor: 'primary.main',
   color: 'common.white',
   borderRight: 'none',
   overflowX: 'hidden',
@@ -63,6 +72,7 @@ const drawerPaperSx = (collapsed: boolean) => ({
 
 export function Layout() {
   const location = useLocation();
+  const { user, logout } = useAuth();
   const { data: setoresTecnicos = [] } = useSetoresPorEscala('tecnico');
   const { data: setoresEnfermeiros = [] } = useSetoresPorEscala('enfermeiro');
   const [collapsed, setCollapsed] = useState(false);
@@ -106,20 +116,16 @@ export function Layout() {
           minHeight: 72,
         }}
       >
-        <LocalHospitalIcon sx={{ fontSize: 28, color: 'primary.light', flexShrink: 0 }} />
-        {!collapsed && (
-          <Box sx={{ overflow: 'hidden' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, lineHeight: 1.3, whiteSpace: 'nowrap' }}>
-              Escala Hospital
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'grey.400', lineHeight: 1.3, whiteSpace: 'nowrap' }}>
-              Teresa de Lisieux
-            </Typography>
-          </Box>
-        )}
+        <LogoBrand
+          size={collapsed ? 44 : 56}
+          showText={!collapsed}
+          subtitle="Gestão de escalas"
+          textColor="text-white"
+          subtitleColor="text-white/55"
+        />
       </Box>
 
-      <Divider sx={{ borderColor: 'grey.800' }} />
+      <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
 
       <List sx={{ flex: 1, px: collapsed ? 1 : 1.5, py: 2 }}>
         {nav.map(({ to, label, icon: Icon, isActive }) => {
@@ -135,15 +141,15 @@ export function Layout() {
                 py: 1,
                 px: collapsed ? 1.25 : 2,
                 justifyContent: collapsed ? 'center' : 'flex-start',
-                color: 'grey.300',
+                color: 'rgba(255,255,255,0.75)',
                 '&.Mui-selected': {
-                  bgcolor: 'primary.main',
-                  color: 'common.white',
-                  '&:hover': { bgcolor: 'primary.dark' },
-                  '& .MuiListItemIcon-root': { color: 'common.white' },
+                  bgcolor: 'secondary.main',
+                  color: 'primary.main',
+                  '&:hover': { bgcolor: 'secondary.dark' },
+                  '& .MuiListItemIcon-root': { color: 'primary.main' },
                 },
                 '&:hover': {
-                  bgcolor: 'grey.800',
+                  bgcolor: 'rgba(255,255,255,0.08)',
                   color: 'common.white',
                   '& .MuiListItemIcon-root': { color: 'common.white' },
                 },
@@ -154,7 +160,7 @@ export function Layout() {
                   minWidth: collapsed ? 0 : 36,
                   mr: collapsed ? 0 : undefined,
                   justifyContent: 'center',
-                  color: selected ? 'common.white' : 'grey.400',
+                  color: selected ? 'primary.main' : 'rgba(255,255,255,0.55)',
                 }}
               >
                 <Icon fontSize="small" />
@@ -183,7 +189,52 @@ export function Layout() {
         })}
       </List>
 
-      <Divider sx={{ borderColor: 'grey.800' }} />
+      <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
+
+      <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
+
+      <Box sx={{ px: collapsed ? 1 : 2, py: 1.5 }}>
+        {!collapsed && user && (
+          <Typography
+            component={RouterLink}
+            to="/perfil"
+            variant="caption"
+            sx={{
+              color: 'rgba(255,255,255,0.55)',
+              display: 'block',
+              mb: 1,
+              px: 0.5,
+              textDecoration: 'none',
+              '&:hover': { color: 'common.white' },
+            }}
+            noWrap
+          >
+            {user.nome}
+          </Typography>
+        )}
+        <Tooltip title="Sair" placement={collapsed ? 'right' : 'top'} arrow>
+          <IconButton
+            onClick={logout}
+            size="small"
+            aria-label="Sair"
+            sx={{
+              color: 'rgba(255,255,255,0.55)',
+              width: '100%',
+              borderRadius: 1.5,
+              justifyContent: collapsed ? 'center' : 'flex-start',
+              px: collapsed ? 0 : 1.5,
+              '&:hover': { color: 'common.white', bgcolor: 'rgba(255,255,255,0.08)' },
+            }}
+          >
+            <LogoutIcon fontSize="small" />
+            {!collapsed && (
+              <Typography variant="body2" sx={{ ml: 1 }}>
+                Sair
+              </Typography>
+            )}
+          </IconButton>
+        </Tooltip>
+      </Box>
 
       <Box sx={{ p: 1, display: 'flex', justifyContent: 'center' }}>
         <IconButton
@@ -191,8 +242,8 @@ export function Layout() {
           size="small"
           aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
           sx={{
-            color: 'grey.400',
-            '&:hover': { color: 'common.white', bgcolor: 'grey.800' },
+            color: 'rgba(255,255,255,0.55)',
+            '&:hover': { color: 'common.white', bgcolor: 'rgba(255,255,255,0.08)' },
           }}
         >
           {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}

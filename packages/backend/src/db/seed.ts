@@ -1,9 +1,38 @@
 import { DIA_INICIO_ESCALA, getPadraoEscala, resolverIndiceNoPadrao } from '@escala/shared';
+import bcrypt from 'bcryptjs';
 import { db } from './index';
-import { setores, funcionarios, competencias, escalaInicios } from './schema';
+import { setores, funcionarios, competencias, escalaInicios, users } from './schema';
+
+async function seedAdminUser() {
+  const email = (process.env.ADMIN_EMAIL || 'admin@hospital.local').toLowerCase();
+  const password = process.env.ADMIN_PASSWORD || 'admin123';
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  await db
+    .insert(users)
+    .values({
+      email,
+      passwordHash,
+      nome: 'Administrador',
+      ativo: true,
+    })
+    .onConflictDoUpdate({
+      target: users.email,
+      set: {
+        passwordHash,
+        nome: 'Administrador',
+        ativo: true,
+        updatedAt: new Date(),
+      },
+    });
+
+  console.log(`Admin user ready: ${email}`);
+}
 
 async function seed() {
   console.log('Seeding database...');
+
+  await seedAdminUser();
 
   const [setor] = await db
     .insert(setores)

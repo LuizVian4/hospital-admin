@@ -5,12 +5,14 @@ import { funcionariosRoutes } from './routes/funcionarios';
 import { escalasRoutes } from './routes/escalas';
 import { importacaoRoutes } from './routes/importacao';
 import { bancoHorasRoutes } from './routes/bancoHoras';
+import { authRoutes } from './routes/auth';
 
 const app = Fastify({ logger: true });
 
 async function start() {
   await registerPlugins(app);
 
+  await app.register(authRoutes);
   await app.register(setoresRoutes);
   await app.register(funcionariosRoutes);
   await app.register(escalasRoutes);

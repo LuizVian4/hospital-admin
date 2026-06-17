@@ -15,6 +15,12 @@ import type {
   ImportPreview,
   BancoHorasComDetalhes,
   BancoHorasAgregado,
+  AuthResponse,
+  User,
+  RegisterRequest,
+  UpdateProfileRequest,
+  ChangePasswordRequest,
+  DeleteAccountRequest,
 } from '@escala/shared';
 
 export interface Competencia {
@@ -68,11 +74,70 @@ export interface DashboardData {
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
+const PUBLIC_AUTH_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/refresh',
+  '/api/auth/logout',
+]);
+
+let onUnauthorized: (() => void) | null = null;
+let refreshPromise: Promise<boolean> | null = null;
+
+export function setUnauthorizedHandler(handler: () => void) {
+  onUnauthorized = handler;
+}
+
+function isPublicAuthPath(path: string): boolean {
+  return PUBLIC_AUTH_PATHS.has(path.split('?')[0]);
+}
+
+function buildHeaders(options?: RequestInit): HeadersInit {
+  const isFormData = options?.body instanceof FormData;
+  return {
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...options?.headers,
+  };
+}
+
+async function tryRefreshSession(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_URL}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => res.ok)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+async function fetchApi(path: string, options?: RequestInit): Promise<Response> {
+  const doFetch = () =>
+    fetch(`${API_URL}${path}`, {
+      ...options,
+      credentials: 'include',
+      headers: buildHeaders(options),
+    });
+
+  const res = await doFetch();
+
+  if (res.status === 401 && !isPublicAuthPath(path)) {
+    const refreshed = await tryRefreshSession();
+    if (refreshed) {
+      return doFetch();
+    }
+    onUnauthorized?.();
+  }
+
+  return res;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    ...options,
-  });
+  const res = await fetchApi(path, options);
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -83,6 +148,34 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  login: (email: string, password: string) =>
+    request<AuthResponse>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  register: (data: RegisterRequest) =>
+    request<AuthResponse>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getMe: () => request<User>('/api/auth/me'),
+
+  logout: () => request<{ success: boolean }>('/api/auth/logout', { method: 'POST' }),
+
+  changePassword: (data: ChangePasswordRequest) =>
+    request<{ success: boolean }>('/api/auth/senha', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  updateProfile: (data: UpdateProfileRequest) =>
+    request<User>('/api/auth/me', { method: 'PUT', body: JSON.stringify(data) }),
+
+  deleteAccount: (data: DeleteAccountRequest) =>
+    request<{ success: boolean }>('/api/auth/me', { method: 'DELETE', body: JSON.stringify(data) }),
+
   getSetores: () => request<Setor[]>('/api/setores'),
 
   getSetoresEscala: () => request<Setor[]>('/api/setores?comTecnicos=true'),
@@ -151,9 +244,8 @@ export const api = {
     ),
 
   createCompetencia: async (setorId: number, mes: number, ano: number, tipo: TipoEscala = 'tecnico') => {
-    const res = await fetch(`${API_URL}/api/setores/${setorId}/competencias`, {
+    const res = await fetchApi(`/api/setores/${setorId}/competencias`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mes, ano, tipo }),
     });
     if (res.status === 409) {
@@ -168,8 +260,8 @@ export const api = {
   },
 
   getCompetencia: async (setorId: number, mes: number, ano: number, tipo: TipoEscala = 'tecnico') => {
-    const res = await fetch(
-      `${API_URL}/api/setores/${setorId}/competencias?mes=${mes}&ano=${ano}&tipo=${tipo}`
+    const res = await fetchApi(
+      `/api/setores/${setorId}/competencias?mes=${mes}&ano=${ano}&tipo=${tipo}`
     );
     if (res.status === 404) return null;
     if (!res.ok) throw new Error('Erro ao buscar competência');
@@ -188,7 +280,7 @@ export const api = {
 
   downloadEscalaExcel: async (competenciaId: number, tipo: TipoEscala = 'tecnico') => {
     const qs = tipo === 'enfermeiro' ? '?tipo=enfermeiro' : '';
-    const res = await fetch(`${API_URL}/api/competencias/${competenciaId}/escala/export${qs}`);
+    const res = await fetchApi(`/api/competencias/${competenciaId}/escala/export${qs}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || `HTTP ${res.status}`);
@@ -209,7 +301,7 @@ export const api = {
 
   downloadEscalaMesCompletoExcel: async (mes: number, ano: number, tipo: TipoEscala = 'tecnico') => {
     const qs = tipo === 'enfermeiro' ? '?tipo=enfermeiro' : '';
-    const res = await fetch(`${API_URL}/api/escala/export/${mes}/${ano}${qs}`);
+    const res = await fetchApi(`/api/escala/export/${mes}/${ano}${qs}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || `HTTP ${res.status}`);
@@ -289,7 +381,7 @@ export const api = {
     if (mes) params.set('mes', String(mes));
     if (ano) params.set('ano', String(ano));
 
-    const res = await fetch(`${API_URL}/api/importacao/ods?${params}`, {
+    const res = await fetchApi(`/api/importacao/ods?${params}`, {
       method: 'POST',
       body: formData,
     });
@@ -303,7 +395,7 @@ export const api = {
   },
 
   downloadImportTemplate: async (tipo: 'equipe' | 'escala') => {
-    const res = await fetch(`${API_URL}/api/importacao/template/${tipo}`);
+    const res = await fetchApi(`/api/importacao/template/${tipo}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || `HTTP ${res.status}`);

@@ -1,11 +1,30 @@
 import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import multipart from '@fastify/multipart';
 import { FastifyInstance } from 'fastify';
+import { registerAuth } from './auth';
+
+function parseCorsOrigins(): string[] {
+  const raw = process.env.CORS_ORIGINS?.trim();
+  if (!raw) {
+    return ['http://localhost:5173'];
+  }
+  return raw.split(',').map((origin) => origin.trim()).filter(Boolean);
+}
 
 export async function registerPlugins(app: FastifyInstance) {
-  await app.register(cors, { origin: true });
+  await app.register(cookie);
+
+  await app.register(cors, {
+    origin: parseCorsOrigins(),
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
+  await registerAuth(app);
 
   await app.register(multipart, {
     limits: { fileSize: 50 * 1024 * 1024 },
@@ -18,6 +37,21 @@ export async function registerPlugins(app: FastifyInstance) {
         description: 'API para gestão de escala de técnicos de enfermagem',
         version: '1.0.0',
       },
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+          },
+          cookieAuth: {
+            type: 'apiKey',
+            in: 'cookie',
+            name: 'access_token',
+          },
+        },
+      },
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }],
     },
   });
 

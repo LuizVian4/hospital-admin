@@ -1,14 +1,18 @@
 import { createTheme } from '@mui/material/styles';
+import { brandColors } from './brand';
 
 export const muiTheme = createTheme({
   palette: {
     primary: {
-      main: '#2563eb',
-      light: '#3b82f6',
-      dark: '#1d4ed8',
+      main: brandColors.darkBlue,
+      light: brandColors.mint,
+      dark: brandColors.darkBlueDark,
+      contrastText: '#ffffff',
     },
     secondary: {
-      main: '#64748b',
+      main: brandColors.mint,
+      dark: brandColors.mintDark,
+      contrastText: brandColors.darkBlue,
     },
     warning: {
       main: '#d97706',
@@ -18,7 +22,7 @@ export const muiTheme = createTheme({
       main: '#16a34a',
     },
     background: {
-      default: '#f8fafc',
+      default: brandColors.lightGray,
       paper: '#ffffff',
     },
   },
