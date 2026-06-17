@@ -22,7 +22,8 @@ function getEmpresaIdFromRequest(request: FastifyRequest): string | undefined {
 
 function isEmpresaOptionalPath(url: string): boolean {
   const path = url.split('?')[0];
-  return EMPRESA_OPTIONAL_PATHS.has(path);
+  if (EMPRESA_OPTIONAL_PATHS.has(path)) return true;
+  return /^\/api\/empresas\/[0-9a-f-]{36}/i.test(path);
 }
 
 export async function registerEmpresaContext(app: FastifyInstance) {

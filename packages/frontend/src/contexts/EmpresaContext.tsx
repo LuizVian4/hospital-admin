@@ -36,6 +36,18 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
   const refreshEmpresas = useCallback(async () => {
     const list = await api.listEmpresas();
     setEmpresas(list);
+
+    const current = empresaIdRef.current;
+    if (current && !list.some((item) => item.id === current)) {
+      if (list.length > 0) {
+        setEmpresaId(list[0].id);
+        localStorage.setItem(STORAGE_KEY, list[0].id);
+      } else {
+        setEmpresaId(null);
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+
     return list;
   }, []);
 

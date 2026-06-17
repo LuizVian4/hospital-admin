@@ -41,21 +41,25 @@ const deleteAccountSchema = z.object({
   senha: z.string().min(1),
 });
 
+const AUTH_RATE_LIMIT_MESSAGE = 'Muitas tentativas. Tente novamente em 15 minutos.';
+
+const authRateLimit =
+  process.env.NODE_ENV === 'production'
+    ? { max: 10, timeWindow: '15 minutes' as const }
+    : undefined;
+
 export const authRoutes: FastifyPluginAsync = async (app) => {
   await app.register(rateLimit, {
     global: false,
+    errorResponseBuilder: () => ({
+      statusCode: 429,
+      error: AUTH_RATE_LIMIT_MESSAGE,
+    }),
   });
 
   app.post<{ Body: z.infer<typeof loginSchema> }>(
     '/api/auth/login',
-    {
-      config: {
-        rateLimit: {
-          max: 5,
-          timeWindow: '15 minutes',
-        },
-      },
-    },
+    authRateLimit ? { config: { rateLimit: authRateLimit } } : {},
     async (request, reply) => {
       const body = loginSchema.parse(request.body);
 
@@ -86,14 +90,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
   app.post<{ Body: z.infer<typeof registerSchema> }>(
     '/api/auth/register',
-    {
-      config: {
-        rateLimit: {
-          max: 5,
-          timeWindow: '15 minutes',
-        },
-      },
-    },
+    authRateLimit ? { config: { rateLimit: authRateLimit } } : {},
     async (request, reply) => {
       const body = registerSchema.parse(request.body);
       const email = body.email.toLowerCase();

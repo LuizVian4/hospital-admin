@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
@@ -19,14 +19,13 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import PersonIcon from '@mui/icons-material/Person';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import MenuIcon from '@mui/icons-material/Menu';
+import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { LogoBrand } from '@/components/LogoBrand';
 import { EmpresaSwitcher } from '@/components/EmpresaSwitcher';
 import { useSetoresPorEscala } from '@/hooks/useFuncionarios';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEmpresa } from '@/contexts/EmpresaContext';
 
 const DRAWER_WIDTH = 256;
 const DRAWER_COLLAPSED_WIDTH = 72;
@@ -40,31 +39,43 @@ const staticNav = [
     isActive: (path: string) => path.startsWith('/funcionarios'),
   },
   {
-    to: '/importacao',
-    label: 'Importação',
-    icon: UploadFileIcon,
-    isActive: (path: string) => path === '/importacao',
-  },
-  {
     to: '/banco-horas',
     label: 'Banco de horas',
     icon: ScheduleIcon,
     isActive: (path: string) => path.startsWith('/banco-horas'),
   },
+  {
+    to: '/importacao',
+    label: 'Importação',
+    icon: UploadFileIcon,
+    isActive: (path: string) => path === '/importacao',
+  },
 ] as const;
 
-const perfilNav = {
-  to: '/perfil',
-  label: 'Meu perfil',
-  icon: PersonIcon,
-  isActive: (path: string) => path.startsWith('/perfil'),
-};
-
 type NavItem = {
-  to: string;
+  to?: string;
+  onClick?: () => void;
   label: string;
   icon: typeof DashboardIcon;
-  isActive: (path: string) => boolean;
+  isActive?: (path: string) => boolean;
+};
+
+const perfilNavBase = {
+  to: '/perfil',
+  icon: PersonIcon,
+  isActive: (path: string) => path.startsWith('/perfil'),
+} as const;
+
+const gerenciarEmpresasNav: NavItem = {
+  to: '/admin/empresa',
+  label: 'Gerenciar Empresas',
+  icon: AdminPanelSettingsIcon,
+  isActive: (path: string) => path.startsWith('/admin/empresa'),
+};
+
+const logoutNav: NavItem = {
+  label: 'Sair',
+  icon: LogoutIcon,
 };
 
 const navButtonSx = (collapsed: boolean) => ({
@@ -89,16 +100,20 @@ const navButtonSx = (collapsed: boolean) => ({
 function NavButton({
   item,
   collapsed,
-  selected,
+  selected = false,
 }: {
   item: NavItem;
   collapsed: boolean;
-  selected: boolean;
+  selected?: boolean;
 }) {
-  const { to, label, icon: Icon } = item;
+  const { to, onClick, label, icon: Icon } = item;
 
   const button = (
-    <ListItemButton component={RouterLink} to={to} selected={selected} sx={navButtonSx(collapsed)}>
+    <ListItemButton
+      {...(to ? { component: RouterLink, to } : { onClick })}
+      selected={selected}
+      sx={navButtonSx(collapsed)}
+    >
       <ListItemIcon
         sx={{
           minWidth: collapsed ? 0 : 36,
@@ -146,12 +161,18 @@ const drawerPaperSx = (collapsed: boolean) => ({
 
 export function Layout() {
   const location = useLocation();
-  const { logout } = useAuth();
-  const { empresa } = useEmpresa();
-  const isEmpresaAdmin = empresa?.papel === 'admin';
+  const { user, logout } = useAuth();
   const { data: setoresTecnicos = [] } = useSetoresPorEscala('tecnico');
   const { data: setoresEnfermeiros = [] } = useSetoresPorEscala('enfermeiro');
   const [collapsed, setCollapsed] = useState(false);
+
+  const perfilNav: NavItem = useMemo(
+    () => ({
+      ...perfilNavBase,
+      label: user?.nome ?? 'Meu perfil',
+    }),
+    [user?.nome]
+  );
 
   const now = new Date();
   const mes = now.getMonth() + 1;
@@ -177,21 +198,13 @@ export function Layout() {
       isActive: (path: string) => path.includes('/escala-enfermeiros/'),
     },
     ...staticNav.slice(1),
-    ...(isEmpresaAdmin
-      ? [
-          {
-            to: '/admin/empresa',
-            label: 'Empresa',
-            icon: AdminPanelSettingsIcon,
-            isActive: (path: string) => path.startsWith('/admin/empresa'),
-          },
-        ]
-      : []),
   ];
 
   const drawer = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box
+        component={RouterLink}
+        to="/dashboard"
         sx={{
           px: collapsed ? 1.5 : 3,
           py: 2.5,
@@ -200,6 +213,10 @@ export function Layout() {
           justifyContent: collapsed ? 'center' : 'flex-start',
           gap: 1.5,
           minHeight: 72,
+          textDecoration: 'none',
+          color: 'inherit',
+          borderRadius: 1.5,
+          '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
         }}
       >
         <LogoBrand
@@ -215,6 +232,13 @@ export function Layout() {
 
       <Box sx={{ px: collapsed ? 1 : 1.5, py: 2 }}>
         <EmpresaSwitcher collapsed={collapsed} />
+        <ListItem disablePadding sx={{ mt: 1, display: 'block' }}>
+          <NavButton
+            item={gerenciarEmpresasNav}
+            collapsed={collapsed}
+            selected={gerenciarEmpresasNav.isActive?.(location.pathname) ?? false}
+          />
+        </ListItem>
       </Box>
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
@@ -222,7 +246,7 @@ export function Layout() {
       <List sx={{ flex: 1, px: collapsed ? 1 : 1.5, py: 2 }}>
         {nav.map((item) => (
           <ListItem key={item.to} disablePadding sx={{ mb: 0.5, display: 'block' }}>
-            <NavButton item={item} collapsed={collapsed} selected={item.isActive(location.pathname)} />
+            <NavButton item={item} collapsed={collapsed} selected={item.isActive?.(location.pathname) ?? false} />
           </ListItem>
         ))}
       </List>
@@ -230,48 +254,31 @@ export function Layout() {
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
 
       <Box sx={{ px: collapsed ? 1 : 1.5, py: 1.5 }}>
-        <Box sx={{ mb: 0.5 }}>
+        <ListItem disablePadding sx={{ mb: 0.5, display: 'block' }}>
           <NavButton
             item={perfilNav}
             collapsed={collapsed}
-            selected={perfilNav.isActive(location.pathname)}
+            selected={perfilNav.isActive?.(location.pathname) ?? false}
           />
-        </Box>
-        <Tooltip title="Sair" placement={collapsed ? 'right' : 'top'} arrow>
-          <IconButton
-            onClick={logout}
-            size="small"
-            aria-label="Sair"
-            sx={{
-              color: 'rgba(255,255,255,0.55)',
-              width: '100%',
-              borderRadius: 1.5,
-              justifyContent: collapsed ? 'center' : 'flex-start',
-              px: collapsed ? 0 : 1.5,
-              '&:hover': { color: 'common.white', bgcolor: 'rgba(255,255,255,0.08)' },
-            }}
-          >
-            <LogoutIcon fontSize="small" />
-            {!collapsed && (
-              <Typography variant="body2" sx={{ ml: 1 }}>
-                Sair
-              </Typography>
-            )}
-          </IconButton>
-        </Tooltip>
+        </ListItem>
+        <ListItem disablePadding sx={{ display: 'block' }}>
+          <NavButton item={{ ...logoutNav, onClick: logout }} collapsed={collapsed} />
+        </ListItem>
       </Box>
 
-      <Box sx={{ p: 1, display: 'flex', justifyContent: 'center' }}>
+      <Box sx={{ px: collapsed ? 1 : 1.5, py: 1 }}>
         <IconButton
           onClick={() => setCollapsed((prev) => !prev)}
           size="small"
           aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
           sx={{
+            width: '100%',
+            borderRadius: 1.5,
             color: 'rgba(255,255,255,0.55)',
             '&:hover': { color: 'common.white', bgcolor: 'rgba(255,255,255,0.08)' },
           }}
         >
-          {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+          {collapsed ? <MenuIcon /> : <MenuOpenIcon />}
         </IconButton>
       </Box>
     </Box>

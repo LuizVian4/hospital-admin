@@ -19,7 +19,15 @@ export function toPublicEmpresa(empresa: typeof empresas.$inferSelect): Empresa 
   };
 }
 
-export async function listEmpresasDoUsuario(userId: number): Promise<EmpresaComPapel[]> {
+export async function listEmpresasDoUsuario(
+  userId: number,
+  options?: { incluirInativas?: boolean }
+): Promise<EmpresaComPapel[]> {
+  const conditions = [eq(usuarioEmpresas.userId, userId)];
+  if (!options?.incluirInativas) {
+    conditions.push(eq(empresas.ativo, true));
+  }
+
   const rows = await db
     .select({
       id: empresas.id,
@@ -30,7 +38,7 @@ export async function listEmpresasDoUsuario(userId: number): Promise<EmpresaComP
     })
     .from(usuarioEmpresas)
     .innerJoin(empresas, eq(usuarioEmpresas.empresaId, empresas.id))
-    .where(and(eq(usuarioEmpresas.userId, userId), eq(empresas.ativo, true)));
+    .where(and(...conditions));
 
   return rows.map((row) => ({
     id: row.id,
@@ -39,6 +47,16 @@ export async function listEmpresasDoUsuario(userId: number): Promise<EmpresaComP
     ativo: row.ativo,
     papel: row.papel as EmpresaComPapel['papel'],
   }));
+}
+
+export async function usuarioTemVinculoEmpresa(userId: number, empresaId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: usuarioEmpresas.id })
+    .from(usuarioEmpresas)
+    .where(and(eq(usuarioEmpresas.userId, userId), eq(usuarioEmpresas.empresaId, empresaId)))
+    .limit(1);
+
+  return Boolean(row);
 }
 
 export async function usuarioTemAcessoEmpresa(userId: number, empresaId: string): Promise<boolean> {
@@ -89,6 +107,19 @@ export async function criarEmpresa(input: {
   return toPublicEmpresa(empresa);
 }
 
+export async function getPapelUsuarioVinculo(
+  userId: number,
+  empresaId: string
+): Promise<PapelEmpresa | null> {
+  const [row] = await db
+    .select({ papel: usuarioEmpresas.papel })
+    .from(usuarioEmpresas)
+    .where(and(eq(usuarioEmpresas.userId, userId), eq(usuarioEmpresas.empresaId, empresaId)))
+    .limit(1);
+
+  return row ? (row.papel as PapelEmpresa) : null;
+}
+
 export async function getPapelUsuarioEmpresa(
   userId: number,
   empresaId: string
@@ -110,7 +141,7 @@ export async function getPapelUsuarioEmpresa(
 }
 
 export async function assertAdminEmpresa(userId: number, empresaId: string) {
-  const papel = await getPapelUsuarioEmpresa(userId, empresaId);
+  const papel = await getPapelUsuarioVinculo(userId, empresaId);
   if (papel !== 'admin') {
     throw new Error('Acesso restrito a administradores da empresa');
   }
@@ -125,7 +156,7 @@ export async function getEmpresaDetalhes(
   });
   if (!empresa) return null;
 
-  const papelAtual = await getPapelUsuarioEmpresa(userId, empresaId);
+  const papelAtual = await getPapelUsuarioVinculo(userId, empresaId);
   if (!papelAtual) return null;
 
   const [agg] = await db

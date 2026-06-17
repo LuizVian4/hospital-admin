@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -37,15 +37,18 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import AddBusinessIcon from '@mui/icons-material/AddBusiness';
-import type { PapelEmpresa, UsuarioEmpresa } from '@escala/shared';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import type { EmpresaComPapel, PapelEmpresa, UsuarioEmpresa } from '@escala/shared';
 import { toast } from 'sonner';
+import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import {
   useCreateEmpresa,
-  useEmpresaAtual,
+  useEmpresaDetalhes,
+  useEmpresasVinculadas,
   useRemoverVinculoUsuarioEmpresa,
-  useUpdateEmpresaAtual,
+  useUpdateEmpresa,
   useUpdateVinculoUsuarioEmpresa,
   useUsuariosCandidatosEmpresa,
   useUsuariosEmpresa,
@@ -67,12 +70,14 @@ function slugify(value: string) {
 function AdicionarMembroDialog({
   open,
   onClose,
+  empresaId,
 }: {
   open: boolean;
   onClose: () => void;
+  empresaId: string;
 }) {
-  const { data: candidatos = [], isLoading } = useUsuariosCandidatosEmpresa(open);
-  const vincular = useVincularUsuarioEmpresa();
+  const { data: candidatos = [], isLoading } = useUsuariosCandidatosEmpresa(empresaId, open);
+  const vincular = useVincularUsuarioEmpresa(empresaId);
   const [userId, setUserId] = useState<number | ''>('');
   const [papel, setPapel] = useState<PapelEmpresa>('membro');
 
@@ -231,12 +236,16 @@ function NovaEmpresaDialog({
 function MembroRow({
   membro,
   currentUserId,
+  empresaId,
+  readOnly = false,
 }: {
   membro: UsuarioEmpresa;
   currentUserId: number;
+  empresaId: string;
+  readOnly?: boolean;
 }) {
-  const updateVinculo = useUpdateVinculoUsuarioEmpresa();
-  const remover = useRemoverVinculoUsuarioEmpresa();
+  const updateVinculo = useUpdateVinculoUsuarioEmpresa(empresaId);
+  const remover = useRemoverVinculoUsuarioEmpresa(empresaId);
   const isSelf = membro.userId === currentUserId;
 
   async function handlePapelChange(papel: PapelEmpresa) {
@@ -283,47 +292,70 @@ function MembroRow({
         />
       </TableCell>
       <TableCell>
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <Select
-            value={membro.papel}
-            onChange={(e) => handlePapelChange(e.target.value as PapelEmpresa)}
-            disabled={updateVinculo.isPending}
-          >
-            <MenuItem value="membro">Membro</MenuItem>
-            <MenuItem value="admin">Administrador</MenuItem>
-          </Select>
-        </FormControl>
-      </TableCell>
-      <TableCell align="right">
-        <Tooltip title={isSelf ? 'Peça a outro administrador para remover seu acesso' : 'Remover vínculo'}>
-          <span>
-            <IconButton
-              color="error"
-              size="small"
-              onClick={handleRemove}
-              disabled={isSelf || remover.isPending}
+        {readOnly ? (
+          <Chip
+            size="small"
+            label={membro.papel === 'admin' ? 'Administrador' : 'Membro'}
+            color={membro.papel === 'admin' ? 'primary' : 'default'}
+            variant="outlined"
+          />
+        ) : (
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <Select
+              value={membro.papel}
+              onChange={(e) => handlePapelChange(e.target.value as PapelEmpresa)}
+              disabled={updateVinculo.isPending}
             >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
+              <MenuItem value="membro">Membro</MenuItem>
+              <MenuItem value="admin">Administrador</MenuItem>
+            </Select>
+          </FormControl>
+        )}
       </TableCell>
+      {!readOnly && (
+        <TableCell align="right">
+          <Tooltip title={isSelf ? 'Peça a outro administrador para remover seu acesso' : 'Remover vínculo'}>
+            <span>
+              <IconButton
+                color="error"
+                size="small"
+                onClick={handleRemove}
+                disabled={isSelf || remover.isPending}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </TableCell>
+      )}
     </TableRow>
   );
 }
 
 export function EmpresasAdminPage() {
+  const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { empresa, refreshEmpresas } = useEmpresa();
-  const { data: detalhes, isLoading, error } = useEmpresaAtual();
-  const isAdmin = empresa?.papel === 'admin' || detalhes?.papelAtual === 'admin';
-  const { data: membros = [], isLoading: loadingMembros } = useUsuariosEmpresa(isAdmin);
-  const updateEmpresa = useUpdateEmpresaAtual();
+  const { empresaId, selectEmpresa, refreshEmpresas } = useEmpresa();
+  const { data: empresasVinculadas = [], isLoading: loadingVinculadas } = useEmpresasVinculadas();
+  const [gestaoEmpresaId, setGestaoEmpresaId] = useState<string | null>(null);
+  const { data: detalhes, isLoading, error } = useEmpresaDetalhes(gestaoEmpresaId);
+  const isAdmin = detalhes?.papelAtual === 'admin';
+  const { data: membros = [], isLoading: loadingMembros } = useUsuariosEmpresa(gestaoEmpresaId);
+  const updateEmpresa = useUpdateEmpresa(gestaoEmpresaId);
 
   const [nome, setNome] = useState('');
   const [ativo, setAtivo] = useState(true);
   const [addMembroOpen, setAddMembroOpen] = useState(false);
   const [novaEmpresaOpen, setNovaEmpresaOpen] = useState(false);
+
+  useEffect(() => {
+    if (gestaoEmpresaId) return;
+    if (empresaId) {
+      setGestaoEmpresaId(empresaId);
+    } else if (empresasVinculadas.length > 0) {
+      setGestaoEmpresaId(empresasVinculadas[0].id);
+    }
+  }, [empresaId, empresasVinculadas, gestaoEmpresaId]);
 
   useEffect(() => {
     if (detalhes) {
@@ -337,8 +369,16 @@ export function EmpresasAdminPage() {
     return nome.trim() !== detalhes.nome || ativo !== detalhes.ativo;
   }, [detalhes, nome, ativo]);
 
-  if (!isLoading && !isAdmin && (detalhes || empresa)) {
-    return <Navigate to="/dashboard" replace />;
+  async function handleSelectEmpresa(item: EmpresaComPapel) {
+    setGestaoEmpresaId(item.id);
+    if (item.ativo && item.id !== empresaId) {
+      selectEmpresa(item.id);
+      queryClient.invalidateQueries({ queryKey: ['empresa-admin'] });
+    }
+  }
+
+  async function handleGerenciarEmpresa(id: string) {
+    setGestaoEmpresaId(id);
   }
 
   async function handleSaveEmpresa() {
@@ -365,29 +405,116 @@ export function EmpresasAdminPage() {
 
   return (
     <Box sx={{ maxWidth: 960, mx: 'auto' }}>
-      <Stack direction="row" sx={{ mb: 3, alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            Gestão da empresa
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Configure a empresa ativa e gerencie quem tem acesso ao ambiente
-          </Typography>
-        </Box>
-        <Button
-          variant="outlined"
-          startIcon={<AddBusinessIcon />}
-          onClick={() => setNovaEmpresaOpen(true)}
-        >
-          Nova empresa
-        </Button>
-      </Stack>
+      <PageHeader
+        heading="Empresas"
+        description="Empresas vinculadas ao seu usuário e gestão do ambiente ativo"
+        actions={
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={<AddBusinessIcon />}
+            onClick={() => setNovaEmpresaOpen(true)}
+          >
+            Nova empresa
+          </Button>
+        }
+      />
 
-      <Stack spacing={3}>
+      <Stack spacing={3} sx={{ mt: 3 }}>
+        <Card>
+          <CardHeader
+            title="Suas empresas"
+            subheader="Selecione uma empresa para gerenciar. Empresas ativas podem ser definidas como ambiente de trabalho."
+          />
+          <Divider />
+          <CardContent>
+            {loadingVinculadas ? (
+              <Stack spacing={1.5}>
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <Skeleton key={i} height={72} sx={{ borderRadius: 2 }} />
+                ))}
+              </Stack>
+            ) : empresasVinculadas.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                Você ainda não possui empresas vinculadas. Crie uma nova empresa para começar.
+              </Typography>
+            ) : (
+              <Stack spacing={1.5}>
+                {empresasVinculadas.map((item) => {
+                  const isAmbienteAtivo = item.ativo && item.id === empresaId;
+                  const isGestao = item.id === gestaoEmpresaId;
+                  return (
+                    <Stack
+                      key={item.id}
+                      direction="row"
+                      spacing={1.5}
+                      sx={{
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 1,
+                        p: 1.5,
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: isGestao ? 'primary.main' : 'divider',
+                        bgcolor: isGestao ? 'primary.50' : 'background.paper',
+                      }}
+                    >
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                          <Typography variant="body1" sx={{ fontWeight: 600 }} noWrap>
+                            {item.nome}
+                          </Typography>
+                          {isAmbienteAtivo && (
+                            <Chip
+                              size="small"
+                              icon={<CheckCircleIcon />}
+                              label="Ambiente ativo"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          )}
+                          {!item.ativo && (
+                            <Chip size="small" label="Inativa" color="default" variant="outlined" />
+                          )}
+                          <Chip
+                            size="small"
+                            label={item.papel === 'admin' ? 'Administrador' : 'Membro'}
+                            color={item.papel === 'admin' ? 'primary' : 'default'}
+                            variant="outlined"
+                          />
+                        </Stack>
+                      </Box>
+                      <Stack direction="row" spacing={1}>
+                        {!isGestao && (
+                          <Button size="small" variant="outlined" onClick={() => handleGerenciarEmpresa(item.id)}>
+                            Gerenciar
+                          </Button>
+                        )}
+                        {item.ativo && !isAmbienteAtivo && (
+                          <Button size="small" variant="contained" onClick={() => handleSelectEmpresa(item)}>
+                            Usar como ambiente
+                          </Button>
+                        )}
+                      </Stack>
+                    </Stack>
+                  );
+                })}
+              </Stack>
+            )}
+          </CardContent>
+        </Card>
+
+        {!isAdmin && detalhes && (
+          <Alert severity="info">
+            Você é <strong>membro</strong> desta empresa. As configurações e vínculos abaixo são somente leitura.
+          </Alert>
+        )}
+
         <Card>
           <CardHeader
             avatar={<BusinessIcon color="primary" />}
-            title={isLoading ? <Skeleton width={200} /> : detalhes?.nome ?? empresa?.nome}
+            title={isLoading ? <Skeleton width={200} /> : detalhes?.nome ?? 'Empresa selecionada'}
             subheader={
               isLoading ? (
                 <Skeleton width={120} />
@@ -403,6 +530,10 @@ export function EmpresasAdminPage() {
                 <Skeleton height={56} />
                 <Skeleton height={40} width={200} />
               </Stack>
+            ) : !detalhes ? (
+              <Typography variant="body2" color="text.secondary">
+                Selecione uma empresa acima para ver os detalhes.
+              </Typography>
             ) : (
               <Stack spacing={2.5}>
                 <TextField
@@ -410,26 +541,37 @@ export function EmpresasAdminPage() {
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   fullWidth
+                  slotProps={{ input: { readOnly: !isAdmin } }}
+                  disabled={!isAdmin}
                 />
                 <FormControlLabel
-                  control={<Switch checked={ativo} onChange={(e) => setAtivo(e.target.checked)} />}
+                  control={
+                    <Switch
+                      checked={ativo}
+                      onChange={(e) => setAtivo(e.target.checked)}
+                      disabled={!isAdmin}
+                    />
+                  }
                   label="Empresa ativa"
                 />
-                {!ativo && (
+                {!ativo && isAdmin && (
                   <Alert severity="warning">
-                    Empresas inativas não aparecem na seleção de ambiente dos usuários vinculados.
+                    Empresas inativas permanecem visíveis nesta tela para reativação futura, mas não
+                    aparecem no seletor de ambiente da barra lateral.
                   </Alert>
                 )}
-                <Box>
-                  <Button
-                    variant="contained"
-                    startIcon={<SaveIcon />}
-                    onClick={handleSaveEmpresa}
-                    disabled={!dadosAlterados || !nome.trim() || updateEmpresa.isPending}
-                  >
-                    Salvar alterações
-                  </Button>
-                </Box>
+                {isAdmin && (
+                  <Box>
+                    <Button
+                      variant="contained"
+                      startIcon={<SaveIcon />}
+                      onClick={handleSaveEmpresa}
+                      disabled={!dadosAlterados || !nome.trim() || updateEmpresa.isPending}
+                    >
+                      Salvar alterações
+                    </Button>
+                  </Box>
+                )}
               </Stack>
             )}
           </CardContent>
@@ -439,17 +581,23 @@ export function EmpresasAdminPage() {
           <CardHeader
             avatar={<AdminPanelSettingsIcon color="primary" />}
             title="Usuários vinculados"
-            subheader="Membros com acesso aos dados desta empresa"
+            subheader={
+              isAdmin
+                ? 'Membros com acesso aos dados desta empresa'
+                : 'Visualização dos membros com acesso a esta empresa'
+            }
             action={
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<PersonAddIcon />}
-                onClick={() => setAddMembroOpen(true)}
-                disabled={isLoading}
-              >
-                Vincular usuário
-              </Button>
+              isAdmin ? (
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<PersonAddIcon />}
+                  onClick={() => setAddMembroOpen(true)}
+                  disabled={isLoading || !detalhes}
+                >
+                  Vincular usuário
+                </Button>
+              ) : undefined
             }
           />
           <Divider />
@@ -461,21 +609,21 @@ export function EmpresasAdminPage() {
                     <TableCell>Usuário</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Papel</TableCell>
-                    <TableCell align="right">Ações</TableCell>
+                    {isAdmin && <TableCell align="right">Ações</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {loadingMembros &&
                     Array.from({ length: 3 }).map((_, i) => (
                       <TableRow key={i}>
-                        <TableCell colSpan={4}>
+                        <TableCell colSpan={isAdmin ? 4 : 3}>
                           <Skeleton height={32} />
                         </TableCell>
                       </TableRow>
                     ))}
                   {!loadingMembros && membros.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4}>
+                      <TableCell colSpan={isAdmin ? 4 : 3}>
                         <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
                           Nenhum usuário vinculado.
                         </Typography>
@@ -488,6 +636,8 @@ export function EmpresasAdminPage() {
                         key={membro.vinculoId}
                         membro={membro}
                         currentUserId={user?.id ?? 0}
+                        empresaId={gestaoEmpresaId!}
+                        readOnly={!isAdmin}
                       />
                     ))}
                 </TableBody>
@@ -496,17 +646,28 @@ export function EmpresasAdminPage() {
           </CardContent>
         </Card>
 
-        <Alert severity="info" icon={<AdminPanelSettingsIcon />}>
-          Somente <strong>administradores</strong> podem alterar configurações e gerenciar vínculos.
-          Cada empresa precisa manter pelo menos um administrador.
-        </Alert>
+        {isAdmin && (
+          <Alert severity="info" icon={<AdminPanelSettingsIcon />}>
+            Como <strong>administrador</strong>, você pode alterar configurações e gerenciar vínculos.
+            Cada empresa precisa manter pelo menos um administrador.
+          </Alert>
+        )}
       </Stack>
 
-      <AdicionarMembroDialog open={addMembroOpen} onClose={() => setAddMembroOpen(false)} />
+      {isAdmin && gestaoEmpresaId && (
+        <AdicionarMembroDialog
+          open={addMembroOpen}
+          onClose={() => setAddMembroOpen(false)}
+          empresaId={gestaoEmpresaId}
+        />
+      )}
       <NovaEmpresaDialog
         open={novaEmpresaOpen}
         onClose={() => setNovaEmpresaOpen(false)}
-        onCreated={() => refreshEmpresas()}
+        onCreated={async () => {
+          await refreshEmpresas();
+          queryClient.invalidateQueries({ queryKey: ['empresa-admin'] });
+        }}
       />
     </Box>
   );

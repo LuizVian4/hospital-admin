@@ -170,7 +170,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `HTTP ${res.status}`);
+    throw new Error(err.error || err.message || `HTTP ${res.status}`);
   }
 
   return res.json();
@@ -191,35 +191,53 @@ export const api = {
 
   getMe: () => request<User>('/api/auth/me'),
 
-  listEmpresas: () => request<EmpresaComPapel[]>('/api/empresas'),
+  listEmpresas: (incluirInativas = false) =>
+    request<EmpresaComPapel[]>(
+      incluirInativas ? '/api/empresas?incluirInativas=1' : '/api/empresas'
+    ),
 
   createEmpresa: (data: { nome: string; slug: string }) =>
     request<Empresa>('/api/empresas', { method: 'POST', body: JSON.stringify(data) }),
+
+  getEmpresa: (empresaId: string) => request<EmpresaDetalhes>(`/api/empresas/${empresaId}`),
+
+  updateEmpresa: (empresaId: string, data: UpdateEmpresaRequest) =>
+    request<EmpresaDetalhes>(`/api/empresas/${empresaId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
 
   getEmpresaAtual: () => request<EmpresaDetalhes>('/api/empresas/atual'),
 
   updateEmpresaAtual: (data: UpdateEmpresaRequest) =>
     request<EmpresaDetalhes>('/api/empresas/atual', { method: 'PUT', body: JSON.stringify(data) }),
 
-  listUsuariosEmpresa: () => request<UsuarioEmpresa[]>('/api/empresas/atual/usuarios'),
+  listUsuariosEmpresa: (empresaId: string) =>
+    request<UsuarioEmpresa[]>(`/api/empresas/${empresaId}/usuarios`),
 
-  listUsuariosCandidatosEmpresa: () =>
-    request<UsuarioEmpresaCandidato[]>('/api/empresas/atual/usuarios/candidatos'),
+  listUsuariosCandidatosEmpresa: (empresaId: string) =>
+    request<UsuarioEmpresaCandidato[]>(`/api/empresas/${empresaId}/usuarios/candidatos`),
 
-  vincularUsuarioEmpresa: (data: VincularUsuarioEmpresaRequest) =>
-    request<{ success: boolean }>('/api/empresas/atual/usuarios', {
+  vincularUsuarioEmpresa: (empresaId: string, data: VincularUsuarioEmpresaRequest) =>
+    request<{ success: boolean }>(`/api/empresas/${empresaId}/usuarios`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  updateVinculoUsuarioEmpresa: (userId: number, data: UpdateVinculoUsuarioRequest) =>
-    request<{ success: boolean }>(`/api/empresas/atual/usuarios/${userId}`, {
+  updateVinculoUsuarioEmpresa: (
+    empresaId: string,
+    userId: number,
+    data: UpdateVinculoUsuarioRequest
+  ) =>
+    request<{ success: boolean }>(`/api/empresas/${empresaId}/usuarios/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
-  removerVinculoUsuarioEmpresa: (userId: number) =>
-    request<{ success: boolean }>(`/api/empresas/atual/usuarios/${userId}`, { method: 'DELETE' }),
+  removerVinculoUsuarioEmpresa: (empresaId: string, userId: number) =>
+    request<{ success: boolean }>(`/api/empresas/${empresaId}/usuarios/${userId}`, {
+      method: 'DELETE',
+    }),
 
   logout: () => request<{ success: boolean }>('/api/auth/logout', { method: 'POST' }),
 
@@ -313,7 +331,7 @@ export const api = {
     }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || `HTTP ${res.status}`);
+      throw new Error(err.error || err.message || `HTTP ${res.status}`);
     }
     return res.json() as Promise<{ id: number }>;
   },
@@ -342,7 +360,7 @@ export const api = {
     const res = await fetchApi(`/api/competencias/${competenciaId}/escala/export${qs}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || `HTTP ${res.status}`);
+      throw new Error(err.error || err.message || `HTTP ${res.status}`);
     }
 
     const blob = await res.blob();
@@ -363,7 +381,7 @@ export const api = {
     const res = await fetchApi(`/api/escala/export/${mes}/${ano}${qs}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || `HTTP ${res.status}`);
+      throw new Error(err.error || err.message || `HTTP ${res.status}`);
     }
 
     const blob = await res.blob();
@@ -447,7 +465,7 @@ export const api = {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || `HTTP ${res.status}`);
+      throw new Error(err.error || err.message || `HTTP ${res.status}`);
     }
 
     return res.json() as Promise<ImportPreview & { persisted?: boolean }>;
@@ -457,7 +475,7 @@ export const api = {
     const res = await fetchApi(`/api/importacao/template/${tipo}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || `HTTP ${res.status}`);
+      throw new Error(err.error || err.message || `HTTP ${res.status}`);
     }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);

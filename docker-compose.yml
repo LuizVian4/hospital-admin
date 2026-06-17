@@ -21,6 +21,7 @@ services:
       dockerfile: packages/backend/Dockerfile
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/escala_hospital
+      NODE_ENV: development
       PORT: 3001
       JWT_SECRET: dev-jwt-secret-change-in-production
       JWT_ACCESS_EXPIRES_IN: 15m

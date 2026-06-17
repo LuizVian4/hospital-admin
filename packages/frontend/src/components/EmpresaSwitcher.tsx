@@ -29,7 +29,8 @@ export function EmpresaSwitcher({ collapsed }: EmpresaSwitcherProps) {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
-  const canSwitch = empresas.length > 1;
+  const empresasAtivas = empresas.filter((item) => item.ativo);
+  const canSwitch = empresasAtivas.length > 1;
 
   if (!empresa) return null;
 
@@ -175,7 +176,7 @@ export function EmpresaSwitcher({ collapsed }: EmpresaSwitcherProps) {
             Trocar empresa
           </Typography>
         </Box>
-        {empresas.map((item) => {
+        {empresasAtivas.map((item) => {
           const selected = item.id === empresaId;
           return (
             <MenuItem
