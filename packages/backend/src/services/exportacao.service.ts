@@ -736,7 +736,7 @@ export async function exportEscalaExcel(
   competenciaId: number,
   tipoEscala: TipoEscala = 'tecnico'
 ): Promise<{ buffer: Buffer; filename: string } | null> {
-  const grade = await getGradeEscala(competenciaId, tipoEscala);
+  const grade = await getGradeEscala(competenciaId, tipoEscala, { ignorarTrocas: true });
   if (!grade) return null;
 
   const gruposEscala = getGruposVisiveisEscala(
@@ -803,7 +803,7 @@ export async function exportEscalaMesCompletoExcel(
     const comp = compBySetorId.get(setor.id);
     if (!comp) continue;
 
-    const grade = await getGradeEscala(comp.id, tipoEscala);
+    const grade = await getGradeEscala(comp.id, tipoEscala, { ignorarTrocas: true });
     if (!grade) continue;
 
     const gruposEscala = getGruposVisiveisEscala(

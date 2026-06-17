@@ -113,7 +113,8 @@ async function getTurnosMesAnterior(
   mes: number,
   ano: number,
   tipo: TipoEscala,
-  funcs: Array<{ id: number; categoria: string | null }>
+  funcs: Array<{ id: number; categoria: string | null }>,
+  ignorarTrocas = false
 ): Promise<Map<number, Record<number, Turno | null>>> {
   const { mes: mesAnt, ano: anoAnt } = mesAnterior(mes, ano);
   const compAnt = await db.query.competencias.findFirst({
@@ -141,7 +142,7 @@ async function getTurnosMesAnterior(
     const padrao = getPadraoParaFuncionario(f.categoria ?? '', escalaInicio?.indicePadrao);
     if (!padrao) continue;
 
-    const overrides = montarOverridesPorTrocas(f.id, trocas);
+    const overrides = ignorarTrocas ? {} : montarOverridesPorTrocas(f.id, trocas);
     const { turnos, turnosProjetados } = montarTurnosFuncionario(
       padrao,
       dias,
@@ -432,10 +433,16 @@ function getTurnoEfetivo(func: FuncionarioComTurnos, dia: number): Turno | null 
   return func.turnos[dia] ?? func.turnosProjetados?.[dia] ?? null;
 }
 
+export type GetGradeEscalaOptions = {
+  ignorarTrocas?: boolean;
+};
+
 export async function getGradeEscala(
   competenciaId: number,
-  tipoEscalaParam?: TipoEscala
+  tipoEscalaParam?: TipoEscala,
+  options?: GetGradeEscalaOptions
 ): Promise<GradeEscalaResponse | null> {
+  const ignorarTrocas = options?.ignorarTrocas ?? false;
   const comp = await db.query.competencias.findFirst({
     where: eq(competencias.id, competenciaId),
     with: { setor: true },
@@ -478,7 +485,14 @@ export async function getGradeEscala(
     if (config) iniciosPorFunc.set(row.funcionarioId, config);
   }
 
-  const turnosMesAnterior = await getTurnosMesAnterior(comp.setorId!, comp.mes, comp.ano, tipoEscala, funcs);
+  const turnosMesAnterior = await getTurnosMesAnterior(
+    comp.setorId!,
+    comp.mes,
+    comp.ano,
+    tipoEscala,
+    funcs,
+    ignorarTrocas
+  );
   const iniciosMesAnterior = await getIniciosMesAnterior(comp.setorId!, comp.mes, comp.ano, tipoEscala);
   const { mes: mesAnt, ano: anoAnt } = mesAnterior(comp.mes, comp.ano);
   const diasNoMesAnterior = getDiasNoMes(mesAnt, anoAnt);
@@ -493,7 +507,7 @@ export async function getGradeEscala(
     const escalaInicio = iniciosPorFunc.get(f.id);
     const statusPorDia = montarStatusPorDia(statusList, f.id, comp.mes, comp.ano, dias);
     const padrao = getPadraoParaFuncionario(f.categoria ?? 'TÉC. DE ENFERMAGEM', escalaInicio?.indicePadrao);
-    const overrides = montarOverridesPorTrocas(f.id, trocasRegistradas);
+    const overrides = ignorarTrocas ? {} : montarOverridesPorTrocas(f.id, trocasRegistradas);
     let turnos = overrides;
     let turnosProjetados: Record<number, Turno> | undefined;
     if (padrao) {
@@ -520,7 +534,9 @@ export async function getGradeEscala(
       ...(turnosProjetados && Object.keys(turnosProjetados).length > 0
         ? { turnosProjetados }
         : {}),
-      ...(observacoesDia && Object.keys(observacoesDia).length > 0 ? { observacoesDia } : {}),
+      ...(observacoesDia && !ignorarTrocas && Object.keys(observacoesDia).length > 0
+        ? { observacoesDia }
+        : {}),
       ...(ocorrenciasDia && Object.keys(ocorrenciasDia).length > 0 ? { ocorrenciasPorDia: ocorrenciasDia } : {}),
       ...(Object.keys(statusPorDia).length > 0 ? { statusPorDia } : {}),
     };
@@ -543,7 +559,7 @@ export async function getGradeEscala(
       pertenceTipoEscala(se.funcionario.categoria ?? '', tipoEscala)
     ),
     ocorrencias: ocorrenciasList,
-    trocas: trocasRegistradas.map(mapEscalaTrocaRow),
+    trocas: ignorarTrocas ? [] : trocasRegistradas.map(mapEscalaTrocaRow),
     observacoes: comp.observacoes ?? undefined,
   };
 }
