@@ -1,11 +1,14 @@
 # Escala Hospital — Sistema de Gestão de Escala
 
-Sistema web para gerenciar a escala mensal de **técnicos de enfermagem** e **enfermeiros** do **Hospital Teresa de Lisieux**, digitalizando o controle atualmente feito em planilhas `.ods` / `.xlsx`.
+Sistema web **multi-tenant** para gerenciar a escala mensal de **técnicos de enfermagem** e **enfermeiros**, digitalizando o controle atualmente feito em planilhas `.ods` / `.xlsx`. Cada **empresa** (hospital ou unidade) possui seus próprios setores, funcionários, competências e escalas — com isolamento total de dados entre organizações.
+
+O seed de desenvolvimento inclui uma **empresa demo** com dados de exemplo.
 
 ## Funcionalidades
 
 | Módulo | Descrição |
 |--------|-----------|
+| **Empresas (multi-tenant)** | Ambientes isolados por organização; troca de empresa no menu lateral; criação de novas empresas; gestão de membros e papéis (`admin` / `membro`) |
 | **Dashboard** | Visão geral do mês: cobertura por setor (técnicos e enfermeiros), funcionários sem setor, competências pendentes, status especiais ativos, resumo por categoria e gráfico de banco de horas |
 | **Escala de técnicos** | Grade interativa por setor/competência, com feriados de Salvador, troca de turnos, ocorrências (plantão extra e falta), observações, exportação Excel, resumo de carga horária e simulação do próximo mês |
 | **Escala de enfermeiros** | Mesma grade interativa, com padrão rotacional próprio (`MT → SN → / → F`) e competências separadas por setor |
@@ -112,14 +115,40 @@ npm run dev
 | `ADMIN_EMAIL` | E-mail do admin inicial (`db:seed`) | `admin@hospital.local` |
 | `ADMIN_PASSWORD` | Senha do admin inicial (`db:seed`) | `admin123` |
 
+## Multi-tenant (empresas)
+
+O sistema isola todos os dados operacionais (setores, funcionários, competências, escalas, banco de horas) por **empresa**. Um usuário pode pertencer a várias empresas, com papel distinto em cada uma.
+
+| Papel | Permissões |
+|-------|------------|
+| **admin** | Acesso completo aos dados da empresa; gestão de membros em `/admin/empresa`; edição do nome e status da empresa |
+| **membro** | Acesso aos módulos operacionais (dashboard, escalas, funcionários etc.) |
+
+### Fluxo no frontend
+
+1. Após o login, o usuário seleciona a empresa ativa (ou é selecionada automaticamente se houver apenas uma).
+2. O seletor de empresa fica no menu lateral e persiste a escolha em `localStorage`.
+3. Todas as requisições à API incluem o header `X-Empresa-Id` com o ID da empresa ativa.
+
+### Contexto na API
+
+Rotas autenticadas (exceto `GET/POST /api/empresas`) exigem contexto de empresa via header `X-Empresa-Id` ou cookie `empresa_id`. Se o usuário tiver acesso a uma única empresa, o backend resolve automaticamente. Usuários sem vínculo recebem `403`; usuários com múltiplas empresas e sem seleção recebem `400` com código `EMPRESA_REQUIRED`.
+
 ## Autenticação
 
-A API usa **JWT em cookies httpOnly** (`access_token` + `refresh_token`). Rotas públicas: `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`. Demais rotas `/api/*` exigem sessão válida.
+A API usa **JWT em cookies httpOnly** (`access_token` + `refresh_token`).
+
+**Rotas públicas:** `POST /api/auth/login`, `POST /api/auth/register`, `POST /api/auth/refresh`, `POST /api/auth/logout`.
+
+**Rotas autenticadas (sem contexto de empresa):** `GET /api/auth/me`, `PUT /api/auth/me`, `PUT /api/auth/senha`, `DELETE /api/auth/me`.
+
+Demais rotas `/api/*` exigem sessão válida e contexto de empresa (quando aplicável).
 
 - Access token curto (padrão **15 min**); refresh automático no frontend
-- Login com **rate limit** (5 tentativas / 15 min por IP)
-- Gestão de usuários em `/usuarios` (criar, desativar, redefinir senha)
-- Alteração da própria senha em `/usuarios` ou via `PUT /api/auth/senha`
+- Login e cadastro com **rate limit** (5 tentativas / 15 min por IP)
+- Cadastro self-service em `/cadastro` (novo usuário ainda precisa ser vinculado a uma empresa por um admin)
+- Alteração de perfil e senha em `/perfil`
+- Gestão de membros da empresa em `/admin/empresa` (somente admins da empresa ativa)
 
 Após `db:seed`, use `ADMIN_EMAIL` / `ADMIN_PASSWORD` (padrão: `admin@hospital.local` / `admin123`). **Altere a senha e o `JWT_SECRET` em produção.**
 
@@ -127,15 +156,18 @@ Após `db:seed`, use `ADMIN_EMAIL` / `ADMIN_PASSWORD` (padrão: `admin@hospital.
 
 | Rota | Página |
 |------|--------|
-| `/` | Landing page com login |
+| `/` | Landing page |
+| `/login` | Login |
+| `/cadastro` | Cadastro de nova conta |
 | `/dashboard` | Dashboard com indicadores, banco de horas e gestão de setores |
 | `/setores/:setorId/escala/:mes/:ano` | Grade de escala de técnicos |
 | `/setores/:setorId/escala-enfermeiros/:mes/:ano` | Grade de escala de enfermeiros |
 | `/funcionarios` | Listagem e cadastro de funcionários |
 | `/funcionarios/:id` | Perfil do funcionário (dados, status e calendário do mês) |
 | `/banco-horas` | Saldo de carga horária por competência ou acumulado geral |
-| `/usuarios` | Gestão de contas de acesso ao sistema |
 | `/importacao` | Importação de equipe e de escala |
+| `/perfil` | Perfil do usuário logado (nome, e-mail, senha, exclusão de conta) |
+| `/admin/empresa` | Administração da empresa ativa (dados, membros e papéis) |
 
 ## Importação de planilhas
 
@@ -156,7 +188,7 @@ Acesse http://localhost:5173/importacao. Há dois fluxos independentes:
 O parser de escala:
 
 - Processa cada aba como um setor/andar
-- Faz upsert de funcionários por matrícula
+- Faz upsert de funcionários por matrícula (única por empresa)
 - Importa status especiais com intervalo de datas
 - Substitui a escala do mês se já existir
 - Converte datas serializadas do Excel automaticamente
@@ -185,6 +217,35 @@ Além do turno base, cada célula pode registrar:
 Plantões extras podem ser vinculados a outro funcionário (ex.: cobertura de colega).
 
 ## API principal
+
+### Empresas
+
+```
+GET    /api/empresas
+POST   /api/empresas
+GET    /api/empresas/atual
+PUT    /api/empresas/atual
+GET    /api/empresas/atual/usuarios
+GET    /api/empresas/atual/usuarios/candidatos
+POST   /api/empresas/atual/usuarios
+PUT    /api/empresas/atual/usuarios/:userId
+DELETE /api/empresas/atual/usuarios/:userId
+```
+
+### Autenticação
+
+```
+POST   /api/auth/login
+POST   /api/auth/register
+POST   /api/auth/refresh
+POST   /api/auth/logout
+GET    /api/auth/me
+PUT    /api/auth/me
+PUT    /api/auth/senha
+DELETE /api/auth/me
+```
+
+### Operação (escopo da empresa ativa)
 
 ```
 GET    /api/dashboard
@@ -227,6 +288,8 @@ GET    /api/relatorios/folgas-mes?mes=&ano=&setorId=
 GET    /api/relatorios/carga-horaria?mes=&ano=
 ```
 
+Rotas de operação exigem o header `X-Empresa-Id` quando o usuário tem acesso a mais de uma empresa.
+
 Documentação interativa em http://localhost:3001/docs
 
 ## Scripts úteis
@@ -244,6 +307,7 @@ npm run db:seed          # popular banco com dados de exemplo
 
 O seed cria:
 
+- Empresa **Demo** com o admin vinculado como `admin`
 - Setor **5 ANDAR** com 5 funcionários
 - Competência **Junho/2026** com grade de turnos completa
 
@@ -274,4 +338,4 @@ Status com período de vigência que sobrescrevem a escala nos dias afetados:
 
 ## Licença
 
-Uso interno — Hospital Teresa de Lisieux
+Plataforma SaaS multi-tenant — Escala360

@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS "usuario_empresas" (
 INSERT INTO "empresas" ("id", "nome", "slug", "ativo")
 VALUES (
   '00000000-0000-4000-8000-000000000001',
-  'HOSPITAL TERESA DE LISIEUX',
-  'hospital-teresa-de-lisieux',
+  'Empresa Demo',
+  'empresa-demo',
   true
 )
 ON CONFLICT ("id") DO NOTHING;

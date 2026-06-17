@@ -610,7 +610,7 @@ export function buildEscalaTemplateBuffer(): Buffer {
   const turnosExemplo = ['MT', 'F', 'SN', '/', 'F', 'MT', 'SN'];
 
   const rows: unknown[][] = [
-    ['EMPRESA', 'Hospital Teresa de Lisieux'],
+    ['EMPRESA', 'Empresa Demo'],
     ['GERENTE', 'Nome do Gerente'],
     ['SETOR', '5º ANDAR'],
     ['COMPETÊNCIA', `${mes}/${ano}`],

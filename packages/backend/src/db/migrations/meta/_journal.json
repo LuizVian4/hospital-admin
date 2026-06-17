@@ -141,6 +141,13 @@
       "when": 1720041600000,
       "tag": "0019_multi_tenant",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1720128000000,
+      "tag": "0020_rename_default_empresa",
+      "breakpoints": true
     }
   ]
 }

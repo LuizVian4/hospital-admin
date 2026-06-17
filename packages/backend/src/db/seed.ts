@@ -48,8 +48,8 @@ async function seed() {
     .insert(empresas)
     .values({
       id: DEFAULT_EMPRESA_ID,
-      nome: 'HOSPITAL TERESA DE LISIEUX',
-      slug: 'hospital-teresa-de-lisieux',
+      nome: 'Empresa Demo',
+      slug: 'empresa-demo',
       ativo: true,
     })
     .onConflictDoNothing();
@@ -61,8 +61,8 @@ async function seed() {
     .values({
       empresaId: DEFAULT_EMPRESA_ID,
       nome: '5 ANDAR',
-      empresa: 'HOSPITAL TERESA DE LISIEUX',
-      gerente: 'DELZUITA NASCIMENTO SOUZA',
+      empresa: 'Empresa Demo',
+      gerente: 'Gerente Demo',
     })
     .onConflictDoNothing()
     .returning();
