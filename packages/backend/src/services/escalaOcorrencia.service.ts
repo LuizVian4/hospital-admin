@@ -112,6 +112,15 @@ async function removerOcorrenciaVinculada(existing: {
   }
 }
 
+async function getEmpresaIdFromCompetencia(competenciaId: number): Promise<string> {
+  const comp = await db.query.competencias.findFirst({
+    where: eq(competencias.id, competenciaId),
+    columns: { empresaId: true },
+  });
+  if (!comp) throw new Error('Competência não encontrada');
+  return comp.empresaId;
+}
+
 async function getTipoEscalaCompetencia(competenciaId: number): Promise<TipoEscala> {
   const comp = await db.query.competencias.findFirst({
     where: eq(competencias.id, competenciaId),
@@ -177,6 +186,7 @@ async function sincronizarPlantaoExtraParaFalta(
     );
 
   await db.insert(escalaOcorrencias).values({
+    empresaId: await getEmpresaIdFromCompetencia(data.competenciaId),
     competenciaId: data.competenciaId,
     funcionarioId: novoCobridor,
     dia: data.dia,
@@ -242,6 +252,7 @@ async function sincronizarFaltaPlantaoExtra(
     );
 
   await db.insert(escalaOcorrencias).values({
+    empresaId: await getEmpresaIdFromCompetencia(data.competenciaId),
     competenciaId: data.competenciaId,
     funcionarioId: novoVinculo,
     dia: data.dia,
@@ -344,9 +355,12 @@ export async function salvarOcorrenciaEscala(
     );
   }
 
+  const empresaId = await getEmpresaIdFromCompetencia(data.competenciaId);
+
   const [created] = await db
     .insert(escalaOcorrencias)
     .values({
+      empresaId,
       competenciaId: data.competenciaId,
       funcionarioId: data.funcionarioId,
       dia: data.dia,

@@ -10,6 +10,7 @@ import {
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { FuncionarioForm, type FuncionarioFormData } from '@/components/FuncionarioForm';
 import { StatusEspecialDialog } from '@/components/StatusEspecialDialog';
+import { PageHeader } from '@/components/PageHeader';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
@@ -610,22 +611,15 @@ export function FuncionariosPage() {
 
   return (
     <Stack spacing={3}>
-      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
-        <Box>
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-            <PeopleIcon color="primary" />
-            <Typography variant="h4" component="h1">
-              Funcionários
-            </Typography>
-          </Stack>
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5, ml: 4.5 }}>
-            Cadastro e gestão de técnicos de enfermagem
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<PersonAddIcon />} onClick={openCreate}>
-          Novo funcionário
-        </Button>
-      </Stack>
+      <PageHeader
+        heading="Funcionários"
+        description="Cadastro e gestão de técnicos de enfermagem"
+        actions={
+          <Button variant="contained" color="secondary" startIcon={<PersonAddIcon />} onClick={openCreate}>
+            Novo funcionário
+          </Button>
+        }
+      />
 
       <Grid container spacing={1.5}>
         <Grid size={{ xs: 6, sm: 4, md: 2 }}>

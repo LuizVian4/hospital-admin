@@ -134,6 +134,13 @@
       "when": 1719955200000,
       "tag": "0018_refresh_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1720041600000,
+      "tag": "0019_multi_tenant",
+      "breakpoints": true
     }
   ]
 }

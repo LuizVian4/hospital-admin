@@ -20,14 +20,14 @@ import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
 import PeopleIcon from '@mui/icons-material/People';
-import BusinessIcon from '@mui/icons-material/Business';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import { api } from '@/api/client';
 import { isEnfermeiro } from '@escala/shared';
+import { useEmpresa } from '@/contexts/EmpresaContext';
+import { PageHeader } from '@/components/PageHeader';
 import { ResumoPorSetor } from '@/components/dashboard/ResumoPorSetor';
 import { GraficoBancoHoras } from '@/components/dashboard/GraficoBancoHoras';
 
@@ -90,8 +90,8 @@ function StatCard({ title, value, subtitle, icon, color = 'primary' }: StatCardP
 function DashboardSkeleton() {
   return (
     <Stack spacing={3}>
+      <Skeleton variant="rounded" height={88} />
       <Skeleton variant="text" width={280} height={40} />
-      <Skeleton variant="text" width={400} height={24} />
       <Grid container spacing={2}>
         {Array.from({ length: 6 }).map((_, i) => (
           <Grid key={i} size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
@@ -121,9 +121,11 @@ function contratoColor(tipo: string): 'default' | 'primary' | 'secondary' | 'suc
 }
 
 export function Dashboard() {
+  const { empresaId } = useEmpresa();
   const { data, isLoading } = useQuery({
-    queryKey: ['dashboard'],
+    queryKey: ['dashboard', empresaId],
     queryFn: api.getDashboard,
+    enabled: !!empresaId,
   });
 
   if (isLoading || !data) return <DashboardSkeleton />;
@@ -135,23 +137,7 @@ export function Dashboard() {
 
   return (
     <Stack spacing={3}>
-      <Box>
-        <Stack direction="row" sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-          <Typography variant="h4" component="h1">
-            Dashboard Administrativo
-          </Typography>
-          <Chip
-            icon={<CalendarMonthIcon />}
-            label={periodoLabel}
-            color="primary"
-            variant="outlined"
-            size="small"
-          />
-        </Stack>
-        <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
-          Hospital Teresa de Lisieux — Gestão de Escala
-        </Typography>
-      </Box>
+      <PageHeader heading="Dashboard Administrativo" periodoLabel={periodoLabel} />
 
 
       {data.setoresSemCompetencia.length > 0 && (

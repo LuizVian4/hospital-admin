@@ -5,6 +5,7 @@ import swaggerUi from '@fastify/swagger-ui';
 import multipart from '@fastify/multipart';
 import { FastifyInstance } from 'fastify';
 import { registerAuth } from './auth';
+import { registerEmpresaContext } from './empresa';
 
 function parseCorsOrigins(): string[] {
   const raw = process.env.CORS_ORIGINS?.trim();
@@ -21,10 +22,11 @@ export async function registerPlugins(app: FastifyInstance) {
     origin: parseCorsOrigins(),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Empresa-Id'],
   });
 
   await registerAuth(app);
+  await registerEmpresaContext(app);
 
   await app.register(multipart, {
     limits: { fileSize: 50 * 1024 * 1024 },

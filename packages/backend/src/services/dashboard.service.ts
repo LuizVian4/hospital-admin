@@ -59,7 +59,7 @@ function calcularCobertura(
   return { total, comEscalaDefinida, percent, semEscala };
 }
 
-export async function getDashboardData(mes?: number, ano?: number) {
+export async function getDashboardData(empresaId: string, mes?: number, ano?: number) {
   const now = new Date();
   const mesAtual = mes ?? now.getMonth() + 1;
   const anoAtual = ano ?? now.getFullYear();
@@ -68,13 +68,26 @@ export async function getDashboardData(mes?: number, ano?: number) {
     (_, i) => i + 1
   );
 
-  const allSetores = await db.select().from(setores).orderBy(setores.id);
-  const allFuncs = await db.select().from(funcionarios).where(eq(funcionarios.ativo, true));
+  const allSetores = await db
+    .select()
+    .from(setores)
+    .where(eq(setores.empresaId, empresaId))
+    .orderBy(setores.id);
+  const allFuncs = await db
+    .select()
+    .from(funcionarios)
+    .where(and(eq(funcionarios.ativo, true), eq(funcionarios.empresaId, empresaId)));
 
   const comps = await db
     .select()
     .from(competencias)
-    .where(and(eq(competencias.mes, mesAtual), eq(competencias.ano, anoAtual)));
+    .where(
+      and(
+        eq(competencias.mes, mesAtual),
+        eq(competencias.ano, anoAtual),
+        eq(competencias.empresaId, empresaId)
+      )
+    );
 
   const compBySetorTecnico = new Map<number, number>();
   const compBySetorEnfermeiro = new Map<number, number>();
@@ -92,7 +105,8 @@ export async function getDashboardData(mes?: number, ano?: number) {
   const statusPorSetor = await listStatusPorSetoresNoMes(
     allSetores.map((s) => s.id),
     mesAtual,
-    anoAtual
+    anoAtual,
+    empresaId
   );
 
   const inicios =
@@ -243,7 +257,10 @@ export async function getDashboardData(mes?: number, ano?: number) {
 
   const inicioMes = new Date(anoAtual, mesAtual - 1, 1);
   const fimMes = new Date(anoAtual, mesAtual, 0);
-  const allStatus = await db.select().from(statusEspeciais);
+  const allStatus = await db
+    .select()
+    .from(statusEspeciais)
+    .where(eq(statusEspeciais.empresaId, empresaId));
   const statusAtivosNoMes = allStatus.filter((s) => {
     if (!s.dataInicio || !s.dataFim) return false;
     const ini = new Date(s.dataInicio);
@@ -260,7 +277,7 @@ export async function getDashboardData(mes?: number, ano?: number) {
     .map(([status, total]) => ({ status, total }))
     .sort((a, b) => b.total - a.total);
 
-  const bancoHorasPendentes = await listBancoHorasPendentes(mesAtual, anoAtual);
+  const bancoHorasPendentes = await listBancoHorasPendentes(empresaId, mesAtual, anoAtual);
 
   return {
     setores: allSetores,

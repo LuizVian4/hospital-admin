@@ -9,6 +9,8 @@ import {
   isAgrupamentoEspecial,
 } from '../utils/funcionarioAgrupamento';
 import { listStatusPorFuncionario } from '../services/statusEspecial.service';
+import { requireEmpresaId } from '../plugins/empresa';
+import { assertFuncionarioEmpresa } from '../services/empresa.service';
 import type { FuncionarioAgrupamentoResumo, FuncionariosResumo } from '@escala/shared';
 
 const funcionarioSchema = z.object({
@@ -34,12 +36,13 @@ type FuncionarioFilterQuery = {
   ativo?: string;
 };
 
-function buildFuncionarioConditions(query: FuncionarioFilterQuery) {
+function buildFuncionarioConditions(query: FuncionarioFilterQuery, empresaId: string) {
   const { setor, agrupamento, nome, contrato, ativo } = query;
-  const conditions = [];
+  const conditions = [eq(funcionarios.empresaId, empresaId)];
 
   if (agrupamento === 'especial') {
-    conditions.push(or(eq(funcionarios.ativo, false), isNull(funcionarios.setorId)));
+    const especialFilter = or(eq(funcionarios.ativo, false), isNull(funcionarios.setorId));
+    if (especialFilter) conditions.push(especialFilter);
   } else if (setor) {
     conditions.push(eq(funcionarios.setorId, parseInt(setor, 10)));
     conditions.push(eq(funcionarios.ativo, true));
@@ -49,7 +52,7 @@ function buildFuncionarioConditions(query: FuncionarioFilterQuery) {
   if (contrato) conditions.push(eq(funcionarios.tipoContrato, contrato));
   if (ativo !== undefined) conditions.push(eq(funcionarios.ativo, ativo === 'true'));
 
-  return conditions.length ? and(...conditions) : undefined;
+  return and(...conditions);
 }
 
 async function buildFuncionariosResumo(
@@ -102,9 +105,10 @@ async function buildFuncionariosResumo(
 }
 
 async function listFuncionariosAgrupamentos(
+  empresaId: string,
   filterQuery: Omit<FuncionarioFilterQuery, 'setor' | 'agrupamento'>
 ): Promise<FuncionarioAgrupamentoResumo[]> {
-  const whereClause = buildFuncionarioConditions(filterQuery);
+  const whereClause = buildFuncionarioConditions(filterQuery, empresaId);
 
   const rows = await db
     .select({
@@ -174,10 +178,12 @@ export const funcionariosRoutes: FastifyPluginAsync = async (app) => {
       setor?: string;
     };
   }>('/api/funcionarios/agrupamentos', async (request) => {
+    const empresaId = requireEmpresaId(request);
     const { setor, ...filterQuery } = request.query;
-    const agrupamentos = await listFuncionariosAgrupamentos(filterQuery);
+    const agrupamentos = await listFuncionariosAgrupamentos(empresaId, filterQuery);
     const whereClause = buildFuncionarioConditions(
-      setor ? { ...filterQuery, setor } : filterQuery
+      setor ? { ...filterQuery, setor } : filterQuery,
+      empresaId
     );
     const resumo = await buildFuncionariosResumo(whereClause);
 
@@ -199,6 +205,7 @@ export const funcionariosRoutes: FastifyPluginAsync = async (app) => {
       pageSize?: string;
     };
   }>('/api/funcionarios', async (request) => {
+    const empresaId = requireEmpresaId(request);
     const { page: pageRaw, pageSize: pageSizeRaw, ...filterQuery } = request.query;
     const page = Math.max(1, parseInt(pageRaw ?? '1', 10) || 1);
     const pageSize = Math.min(
@@ -206,7 +213,7 @@ export const funcionariosRoutes: FastifyPluginAsync = async (app) => {
       Math.max(1, parseInt(pageSizeRaw ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE)
     );
     const offset = (page - 1) * pageSize;
-    const whereClause = buildFuncionarioConditions(filterQuery);
+    const whereClause = buildFuncionarioConditions(filterQuery, empresaId);
     const scopedToGrupo = Boolean(filterQuery.setor || filterQuery.agrupamento === 'especial');
 
     const [countRow] = await db
@@ -243,18 +250,24 @@ export const funcionariosRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get<{ Params: { id: string } }>('/api/funcionarios/:id', async (request, reply) => {
+    const empresaId = requireEmpresaId(request);
     const id = parseInt(request.params.id, 10);
-    const func = await db.query.funcionarios.findFirst({ where: eq(funcionarios.id, id) });
-    if (!func) return reply.status(404).send({ error: 'Funcionário não encontrado' });
-    return mapFuncionario(func);
+    try {
+      const func = await assertFuncionarioEmpresa(id, empresaId);
+      return mapFuncionario(func);
+    } catch {
+      return reply.status(404).send({ error: 'Funcionário não encontrado' });
+    }
   });
 
   app.post('/api/funcionarios', async (request, reply) => {
+    const empresaId = requireEmpresaId(request);
     const body = funcionarioSchema.parse(request.body);
     try {
       const [created] = await db
         .insert(funcionarios)
         .values({
+          empresaId,
           matricula: body.matricula,
           nome: body.nome,
           coren: body.coren,
@@ -273,13 +286,14 @@ export const funcionariosRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.put<{ Params: { id: string } }>('/api/funcionarios/:id', async (request, reply) => {
+    const empresaId = requireEmpresaId(request);
     const id = parseInt(request.params.id, 10);
     const body = funcionarioSchema.partial().parse(request.body);
 
     const [updated] = await db
       .update(funcionarios)
       .set({ ...body, updatedAt: new Date() })
-      .where(eq(funcionarios.id, id))
+      .where(and(eq(funcionarios.id, id), eq(funcionarios.empresaId, empresaId)))
       .returning();
 
     if (!updated) return reply.status(404).send({ error: 'Funcionário não encontrado' });
@@ -287,11 +301,12 @@ export const funcionariosRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.delete<{ Params: { id: string } }>('/api/funcionarios/:id', async (request, reply) => {
+    const empresaId = requireEmpresaId(request);
     const id = parseInt(request.params.id, 10);
     const [updated] = await db
       .update(funcionarios)
       .set({ ativo: false, updatedAt: new Date() })
-      .where(eq(funcionarios.id, id))
+      .where(and(eq(funcionarios.id, id), eq(funcionarios.empresaId, empresaId)))
       .returning();
 
     if (!updated) return reply.status(404).send({ error: 'Funcionário não encontrado' });
@@ -301,9 +316,13 @@ export const funcionariosRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Params: { id: string } }>(
     '/api/funcionarios/:id/status-especiais',
     async (request, reply) => {
+      const empresaId = requireEmpresaId(request);
       const id = parseInt(request.params.id, 10);
-      const func = await db.query.funcionarios.findFirst({ where: eq(funcionarios.id, id) });
-      if (!func) return reply.status(404).send({ error: 'Funcionário não encontrado' });
+      try {
+        await assertFuncionarioEmpresa(id, empresaId);
+      } catch {
+        return reply.status(404).send({ error: 'Funcionário não encontrado' });
+      }
       return listStatusPorFuncionario(id);
     }
   );

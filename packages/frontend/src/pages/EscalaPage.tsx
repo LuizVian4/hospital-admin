@@ -11,14 +11,11 @@ import CardContent from '@mui/material/CardContent';
 import CardHeader from '@mui/material/CardHeader';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DownloadIcon from '@mui/icons-material/Download';
-import BusinessIcon from '@mui/icons-material/Business';
 import NotesIcon from '@mui/icons-material/Notes';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -39,6 +36,7 @@ import { ObservacoesCompetencia } from '@/components/GradeEscala/ObservacoesComp
 import { HistoricoMovimentacoesEscala } from '@/components/GradeEscala/HistoricoMovimentacoesEscala';
 import { ResumoCargaHorariaEscala } from '@/components/GradeEscala/ResumoCargaHorariaEscala';
 import { SetorSelector } from '@/components/SetorSelector';
+import { PageHeader } from '@/components/PageHeader';
 import { toast } from 'sonner';
 
 const MESES = [
@@ -188,25 +186,11 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
 
   return (
     <Stack spacing={3}>
-      <Box>
-        <Stack direction="row" sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-          <CalendarMonthIcon color="primary" />
-          <Typography variant="h4" component="h1">
-            {config.titulo} — {setor?.nome ?? 'Setor'}
-          </Typography>
-          <Chip icon={<CalendarMonthIcon />} label={periodoLabel} color="primary" variant="outlined" size="small" />
-        </Stack>
-        <Stack direction="row" spacing={1} sx={{ mt: 0.75, ml: 4.5, flexWrap: 'wrap', alignItems: 'center' }}>
-          {setor?.empresa && (
-            <Chip icon={<BusinessIcon />} label={setor.empresa} size="small" variant="outlined" />
-          )}
-          {setor?.gerente && (
-            <Typography variant="body2" color="text.secondary">
-              Gerente: <strong>{setor.gerente}</strong>
-            </Typography>
-          )}
-        </Stack>
-      </Box>
+      <PageHeader
+        heading={`${config.titulo} — ${setor?.nome ?? 'Setor'}`}
+        periodoLabel={periodoLabel}
+        gerente={setor?.gerente}
+      />
 
       <Paper sx={{ p: 2 }}>
         <Stack

@@ -18,12 +18,15 @@ import PeopleIcon from '@mui/icons-material/People';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import PersonIcon from '@mui/icons-material/Person';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { LogoBrand } from '@/components/LogoBrand';
+import { EmpresaSwitcher } from '@/components/EmpresaSwitcher';
 import { useSetoresPorEscala } from '@/hooks/useFuncionarios';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 
 const DRAWER_WIDTH = 256;
 const DRAWER_COLLAPSED_WIDTH = 72;
@@ -48,13 +51,84 @@ const staticNav = [
     icon: ScheduleIcon,
     isActive: (path: string) => path.startsWith('/banco-horas'),
   },
-  {
-    to: '/perfil',
-    label: 'Meu perfil',
-    icon: PersonIcon,
-    isActive: (path: string) => path.startsWith('/perfil'),
-  },
 ] as const;
+
+const perfilNav = {
+  to: '/perfil',
+  label: 'Meu perfil',
+  icon: PersonIcon,
+  isActive: (path: string) => path.startsWith('/perfil'),
+};
+
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof DashboardIcon;
+  isActive: (path: string) => boolean;
+};
+
+const navButtonSx = (collapsed: boolean) => ({
+  borderRadius: 1.5,
+  py: 1,
+  px: collapsed ? 1.25 : 2,
+  justifyContent: collapsed ? 'center' : 'flex-start',
+  color: 'rgba(255,255,255,0.75)',
+  '&.Mui-selected': {
+    bgcolor: 'secondary.main',
+    color: 'primary.main',
+    '&:hover': { bgcolor: 'secondary.dark' },
+    '& .MuiListItemIcon-root': { color: 'primary.main' },
+  },
+  '&:hover': {
+    bgcolor: 'rgba(255,255,255,0.08)',
+    color: 'common.white',
+    '& .MuiListItemIcon-root': { color: 'common.white' },
+  },
+});
+
+function NavButton({
+  item,
+  collapsed,
+  selected,
+}: {
+  item: NavItem;
+  collapsed: boolean;
+  selected: boolean;
+}) {
+  const { to, label, icon: Icon } = item;
+
+  const button = (
+    <ListItemButton component={RouterLink} to={to} selected={selected} sx={navButtonSx(collapsed)}>
+      <ListItemIcon
+        sx={{
+          minWidth: collapsed ? 0 : 36,
+          mr: collapsed ? 0 : undefined,
+          justifyContent: 'center',
+          color: selected ? 'primary.main' : 'rgba(255,255,255,0.55)',
+        }}
+      >
+        <Icon fontSize="small" />
+      </ListItemIcon>
+      {!collapsed && (
+        <ListItemText
+          primary={label}
+          slotProps={{ primary: { variant: 'body2', noWrap: true } }}
+          sx={{ '& .MuiListItemText-primary': { fontWeight: selected ? 600 : 400 } }}
+        />
+      )}
+    </ListItemButton>
+  );
+
+  if (collapsed) {
+    return (
+      <Tooltip title={label} placement="right" arrow>
+        {button}
+      </Tooltip>
+    );
+  }
+
+  return button;
+}
 
 const drawerPaperSx = (collapsed: boolean) => ({
   width: collapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH,
@@ -72,7 +146,9 @@ const drawerPaperSx = (collapsed: boolean) => ({
 
 export function Layout() {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
+  const { empresa } = useEmpresa();
+  const isEmpresaAdmin = empresa?.papel === 'admin';
   const { data: setoresTecnicos = [] } = useSetoresPorEscala('tecnico');
   const { data: setoresEnfermeiros = [] } = useSetoresPorEscala('enfermeiro');
   const [collapsed, setCollapsed] = useState(false);
@@ -101,6 +177,16 @@ export function Layout() {
       isActive: (path: string) => path.includes('/escala-enfermeiros/'),
     },
     ...staticNav.slice(1),
+    ...(isEmpresaAdmin
+      ? [
+          {
+            to: '/admin/empresa',
+            label: 'Empresa',
+            icon: AdminPanelSettingsIcon,
+            isActive: (path: string) => path.startsWith('/admin/empresa'),
+          },
+        ]
+      : []),
   ];
 
   const drawer = (
@@ -127,91 +213,30 @@ export function Layout() {
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
 
+      <Box sx={{ px: collapsed ? 1 : 1.5, py: 2 }}>
+        <EmpresaSwitcher collapsed={collapsed} />
+      </Box>
+
+      <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
+
       <List sx={{ flex: 1, px: collapsed ? 1 : 1.5, py: 2 }}>
-        {nav.map(({ to, label, icon: Icon, isActive }) => {
-          const selected = isActive(location.pathname);
-
-          const button = (
-            <ListItemButton
-              component={RouterLink}
-              to={to}
-              selected={selected}
-              sx={{
-                borderRadius: 1.5,
-                py: 1,
-                px: collapsed ? 1.25 : 2,
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                color: 'rgba(255,255,255,0.75)',
-                '&.Mui-selected': {
-                  bgcolor: 'secondary.main',
-                  color: 'primary.main',
-                  '&:hover': { bgcolor: 'secondary.dark' },
-                  '& .MuiListItemIcon-root': { color: 'primary.main' },
-                },
-                '&:hover': {
-                  bgcolor: 'rgba(255,255,255,0.08)',
-                  color: 'common.white',
-                  '& .MuiListItemIcon-root': { color: 'common.white' },
-                },
-              }}
-            >
-              <ListItemIcon
-                sx={{
-                  minWidth: collapsed ? 0 : 36,
-                  mr: collapsed ? 0 : undefined,
-                  justifyContent: 'center',
-                  color: selected ? 'primary.main' : 'rgba(255,255,255,0.55)',
-                }}
-              >
-                <Icon fontSize="small" />
-              </ListItemIcon>
-              {!collapsed && (
-                <ListItemText
-                  primary={label}
-                  slotProps={{ primary: { variant: 'body2', noWrap: true } }}
-                  sx={{ '& .MuiListItemText-primary': { fontWeight: selected ? 600 : 400 } }}
-                />
-              )}
-            </ListItemButton>
-          );
-
-          return (
-            <ListItem key={to} disablePadding sx={{ mb: 0.5, display: 'block' }}>
-              {collapsed ? (
-                <Tooltip title={label} placement="right" arrow>
-                  {button}
-                </Tooltip>
-              ) : (
-                button
-              )}
-            </ListItem>
-          );
-        })}
+        {nav.map((item) => (
+          <ListItem key={item.to} disablePadding sx={{ mb: 0.5, display: 'block' }}>
+            <NavButton item={item} collapsed={collapsed} selected={item.isActive(location.pathname)} />
+          </ListItem>
+        ))}
       </List>
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
 
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
-
-      <Box sx={{ px: collapsed ? 1 : 2, py: 1.5 }}>
-        {!collapsed && user && (
-          <Typography
-            component={RouterLink}
-            to="/perfil"
-            variant="caption"
-            sx={{
-              color: 'rgba(255,255,255,0.55)',
-              display: 'block',
-              mb: 1,
-              px: 0.5,
-              textDecoration: 'none',
-              '&:hover': { color: 'common.white' },
-            }}
-            noWrap
-          >
-            {user.nome}
-          </Typography>
-        )}
+      <Box sx={{ px: collapsed ? 1 : 1.5, py: 1.5 }}>
+        <Box sx={{ mb: 0.5 }}>
+          <NavButton
+            item={perfilNav}
+            collapsed={collapsed}
+            selected={perfilNav.isActive(location.pathname)}
+          />
+        </Box>
         <Tooltip title="Sair" placement={collapsed ? 'right' : 'top'} arrow>
           <IconButton
             onClick={logout}

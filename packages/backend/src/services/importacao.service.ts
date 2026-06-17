@@ -449,22 +449,23 @@ function mergeEquipeSetores(parsed: ParsedSetor[]): ParsedSetor[] {
   );
 }
 
-async function findSetorByNome(nome: string) {
+async function findSetorByNome(nome: string, empresaId: string) {
   const exact = await db.query.setores.findFirst({
-    where: eq(setores.nome, nome),
+    where: and(eq(setores.nome, nome), eq(setores.empresaId, empresaId)),
   });
   if (exact) return exact;
 
   const normalized = normalizeSetorNome(nome);
-  const allSetores = await db.select().from(setores);
+  const allSetores = await db.select().from(setores).where(eq(setores.empresaId, empresaId));
   return allSetores.find((s) => normalizeSetorNome(s.nome) === normalized) ?? null;
 }
 
 async function findOrCreateSetor(
   nome: string,
+  empresaId: string,
   opts?: { empresa?: string; gerente?: string }
 ) {
-  const existing = await findSetorByNome(nome);
+  const existing = await findSetorByNome(nome, empresaId);
   if (existing) {
     if (opts?.empresa || opts?.gerente) {
       await db
@@ -481,6 +482,7 @@ async function findOrCreateSetor(
   const [created] = await db
     .insert(setores)
     .values({
+      empresaId,
       nome,
       empresa: opts?.empresa,
       gerente: opts?.gerente,
@@ -492,10 +494,11 @@ async function findOrCreateSetor(
 
 async function upsertFuncionario(
   f: ParsedFuncionario,
-  setorId: number
+  setorId: number,
+  empresaId: string
 ): Promise<typeof funcionarios.$inferSelect> {
   const existing = await db.query.funcionarios.findFirst({
-    where: eq(funcionarios.matricula, f.matricula),
+    where: and(eq(funcionarios.matricula, f.matricula), eq(funcionarios.empresaId, empresaId)),
   });
 
   if (existing) {
@@ -520,6 +523,7 @@ async function upsertFuncionario(
   const [created] = await db
     .insert(funcionarios)
     .values({
+      empresaId,
       matricula: f.matricula,
       nome: f.nome,
       coren: f.coren,
@@ -644,6 +648,7 @@ export function buildEscalaTemplateBuffer(): Buffer {
 
 export async function buildPreview(
   buffer: Buffer,
+  empresaId: string,
   expectedTipo?: ImportFormat
 ): Promise<ImportPreview> {
   const parsed = parseOdsBuffer(buffer);
@@ -670,7 +675,7 @@ export async function buildPreview(
 
     for (const f of setor.funcionarios) {
       const existing = await db.query.funcionarios.findFirst({
-        where: eq(funcionarios.matricula, f.matricula),
+        where: and(eq(funcionarios.matricula, f.matricula), eq(funcionarios.empresaId, empresaId)),
       });
       if (existing) atualizados++;
       else novos++;
@@ -705,10 +710,11 @@ export async function buildPreview(
 
 export async function persistImport(
   parsed: ParsedSetor[],
+  empresaId: string,
   defaultMes?: number,
   defaultAno?: number
 ): Promise<ImportPreview> {
-  const preview = await buildPreviewFromParsed(parsed);
+  const preview = await buildPreviewFromParsed(parsed, empresaId);
 
   for (const setorData of parsed) {
     const importaEscala = setorData.format === 'escala';
@@ -716,16 +722,16 @@ export async function persistImport(
     if (!importaEscala) {
       for (const f of setorData.funcionarios) {
         const setorNome = f.setorNome ?? setorData.nome;
-        const setor = await findOrCreateSetor(setorNome, {
+        const setor = await findOrCreateSetor(setorNome, empresaId, {
           empresa: setorData.empresa,
           gerente: setorData.gerente,
         });
-        await upsertFuncionario(f, setor.id);
+        await upsertFuncionario(f, setor.id, empresaId);
       }
       continue;
     }
 
-    const setor = await findOrCreateSetor(setorData.nome, {
+    const setor = await findOrCreateSetor(setorData.nome, empresaId, {
       empresa: setorData.empresa,
       gerente: setorData.gerente,
     });
@@ -752,8 +758,8 @@ export async function persistImport(
       }
     }
 
-    const compTecnico = await findOrCreateCompetencia(mesImport, anoImport, setor.id, 'tecnico');
-    const compEnfermeiro = await findOrCreateCompetencia(mesImport, anoImport, setor.id, 'enfermeiro');
+    const compTecnico = await findOrCreateCompetencia(mesImport, anoImport, setor.id, 'tecnico', empresaId);
+    const compEnfermeiro = await findOrCreateCompetencia(mesImport, anoImport, setor.id, 'enfermeiro', empresaId);
 
     if (setorData.observacoes !== undefined) {
       await db
@@ -772,7 +778,7 @@ export async function persistImport(
     };
 
     for (const f of setorData.funcionarios) {
-      const func = await upsertFuncionario(f, setor.id);
+      const func = await upsertFuncionario(f, setor.id, empresaId);
 
       const padrao = getPadraoEscala(func.categoria ?? '');
       const turnoInicio = f.turnos[DIA_INICIO_ESCALA];
@@ -787,6 +793,7 @@ export async function persistImport(
         f.turnos
       );
       await db.insert(escalaInicios).values({
+        empresaId,
         competenciaId: competencia.id,
         funcionarioId: func.id,
         mesInicio: mesImport,
@@ -798,9 +805,15 @@ export async function persistImport(
 
     for (const se of setorData.statusEspeciais) {
       let func = se.matricula
-        ? await db.query.funcionarios.findFirst({ where: eq(funcionarios.matricula, se.matricula) })
+        ? await db.query.funcionarios.findFirst({
+            where: and(eq(funcionarios.matricula, se.matricula), eq(funcionarios.empresaId, empresaId)),
+          })
         : await db.query.funcionarios.findFirst({
-            where: and(eq(funcionarios.nome, se.nome), eq(funcionarios.setorId, setor.id)),
+            where: and(
+              eq(funcionarios.nome, se.nome),
+              eq(funcionarios.setorId, setor.id),
+              eq(funcionarios.empresaId, empresaId)
+            ),
           });
 
       if (!func) {
@@ -808,6 +821,7 @@ export async function persistImport(
         [func] = await db
           .insert(funcionarios)
           .values({
+            empresaId,
             matricula,
             nome: se.nome,
             categoria: 'TÉC. DE ENFERMAGEM',
@@ -821,6 +835,7 @@ export async function persistImport(
       const competenciaStatus = competenciaPorTipo[tipoStatus];
 
       await db.insert(statusEspeciais).values({
+        empresaId,
         competenciaId: competenciaStatus.id,
         funcionarioId: func.id,
         status: normalizarStatusEspecial(se.status),
@@ -833,7 +848,9 @@ export async function persistImport(
   const competenciasSincronizadas = new Set<number>();
   for (const setorData of parsed) {
     if (setorData.format !== 'escala') continue;
-    const setor = await db.query.setores.findFirst({ where: eq(setores.nome, setorData.nome) });
+    const setor = await db.query.setores.findFirst({
+      where: and(eq(setores.nome, setorData.nome), eq(setores.empresaId, empresaId)),
+    });
     if (!setor) continue;
     const mesImport = setorData.mes ?? defaultMes ?? new Date().getMonth() + 1;
     const anoImport = setorData.ano ?? defaultAno ?? new Date().getFullYear();
@@ -859,7 +876,7 @@ export async function persistImport(
   return preview;
 }
 
-async function buildPreviewFromParsed(parsed: ParsedSetor[]): Promise<ImportPreview> {
+async function buildPreviewFromParsed(parsed: ParsedSetor[], empresaId: string): Promise<ImportPreview> {
   const format = parsed[0]?.format ?? 'escala';
   const preview: ImportPreview = {
     format,
@@ -876,7 +893,7 @@ async function buildPreviewFromParsed(parsed: ParsedSetor[]): Promise<ImportPrev
 
     for (const f of setor.funcionarios) {
       const existing = await db.query.funcionarios.findFirst({
-        where: eq(funcionarios.matricula, f.matricula),
+        where: and(eq(funcionarios.matricula, f.matricula), eq(funcionarios.empresaId, empresaId)),
       });
       if (existing) atualizados++;
       else novos++;
@@ -910,6 +927,7 @@ async function buildPreviewFromParsed(parsed: ParsedSetor[]): Promise<ImportPrev
 }
 
 export async function confirmImport(
+  empresaId: string,
   defaultMes?: number,
   defaultAno?: number,
   expectedTipo?: ImportFormat
@@ -918,5 +936,5 @@ export async function confirmImport(
   if (expectedTipo && lastPreview.tipo !== expectedTipo) {
     throw new Error('O preview não corresponde ao tipo de importação selecionado. Gere o preview novamente.');
   }
-  return persistImport(lastPreview.parsed, defaultMes, defaultAno);
+  return persistImport(lastPreview.parsed, empresaId, defaultMes, defaultAno);
 }

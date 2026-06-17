@@ -1,14 +1,16 @@
 import { DIA_INICIO_ESCALA, getPadraoEscala, resolverIndiceNoPadrao } from '@escala/shared';
 import bcrypt from 'bcryptjs';
 import { db } from './index';
-import { setores, funcionarios, competencias, escalaInicios, users } from './schema';
+import { setores, funcionarios, competencias, escalaInicios, users, empresas, usuarioEmpresas } from './schema';
+
+const DEFAULT_EMPRESA_ID = '00000000-0000-4000-8000-000000000001';
 
 async function seedAdminUser() {
   const email = (process.env.ADMIN_EMAIL || 'admin@hospital.local').toLowerCase();
   const password = process.env.ADMIN_PASSWORD || 'admin123';
   const passwordHash = await bcrypt.hash(password, 12);
 
-  await db
+  const [user] = await db
     .insert(users)
     .values({
       email,
@@ -24,7 +26,17 @@ async function seedAdminUser() {
         ativo: true,
         updatedAt: new Date(),
       },
-    });
+    })
+    .returning();
+
+  await db
+    .insert(usuarioEmpresas)
+    .values({
+      userId: user.id,
+      empresaId: DEFAULT_EMPRESA_ID,
+      papel: 'admin',
+    })
+    .onConflictDoNothing();
 
   console.log(`Admin user ready: ${email}`);
 }
@@ -32,11 +44,22 @@ async function seedAdminUser() {
 async function seed() {
   console.log('Seeding database...');
 
+  await db
+    .insert(empresas)
+    .values({
+      id: DEFAULT_EMPRESA_ID,
+      nome: 'HOSPITAL TERESA DE LISIEUX',
+      slug: 'hospital-teresa-de-lisieux',
+      ativo: true,
+    })
+    .onConflictDoNothing();
+
   await seedAdminUser();
 
   const [setor] = await db
     .insert(setores)
     .values({
+      empresaId: DEFAULT_EMPRESA_ID,
       nome: '5 ANDAR',
       empresa: 'HOSPITAL TERESA DE LISIEUX',
       gerente: 'DELZUITA NASCIMENTO SOUZA',
@@ -103,9 +126,9 @@ async function seed() {
   for (const f of funcionariosData) {
     const [func] = await db
       .insert(funcionarios)
-      .values({ ...f, setorId })
+      .values({ ...f, setorId, empresaId: DEFAULT_EMPRESA_ID })
       .onConflictDoUpdate({
-        target: funcionarios.matricula,
+        target: [funcionarios.empresaId, funcionarios.matricula],
         set: { nome: f.nome, coren: f.coren, updatedAt: new Date() },
       })
       .returning();
@@ -114,7 +137,14 @@ async function seed() {
 
   const [comp] = await db
     .insert(competencias)
-    .values({ mes: 6, ano: 2026, setorId, tipo: 'tecnico', observacoes: 'Escala de referência - Junho/2026' })
+    .values({
+      empresaId: DEFAULT_EMPRESA_ID,
+      mes: 6,
+      ano: 2026,
+      setorId,
+      tipo: 'tecnico',
+      observacoes: 'Escala de referência - Junho/2026',
+    })
     .onConflictDoNothing()
     .returning();
 
@@ -135,6 +165,7 @@ async function seed() {
     });
 
     await db.insert(escalaInicios).values({
+      empresaId: DEFAULT_EMPRESA_ID,
       competenciaId,
       funcionarioId: func.id,
       mesInicio: mes,

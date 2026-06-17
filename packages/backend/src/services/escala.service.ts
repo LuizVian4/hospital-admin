@@ -172,6 +172,15 @@ async function removerInicio(competenciaId: number, funcionarioId: number) {
     );
 }
 
+async function getEmpresaIdFromCompetencia(competenciaId: number): Promise<string> {
+  const comp = await db.query.competencias.findFirst({
+    where: eq(competencias.id, competenciaId),
+    columns: { empresaId: true },
+  });
+  if (!comp) throw new Error('Competência não encontrada');
+  return comp.empresaId;
+}
+
 async function criarInicioAtivo(
   competenciaId: number,
   funcionarioId: number,
@@ -180,8 +189,10 @@ async function criarInicioAtivo(
   turnoInicio: Turno,
   indicePadrao?: number
 ) {
+  const empresaId = await getEmpresaIdFromCompetencia(competenciaId);
   await removerInicio(competenciaId, funcionarioId);
   await db.insert(escalaInicios).values({
+    empresaId,
     competenciaId,
     funcionarioId,
     mesInicio,
@@ -340,9 +351,11 @@ async function registrarTrocaEscala(
   turnoNovo: Turno,
   funcionarioTrocaId: number
 ) {
+  const empresaId = await getEmpresaIdFromCompetencia(competenciaId);
   const [created] = await db
     .insert(escalaTrocas)
     .values({
+      empresaId,
       competenciaId,
       funcionarioId,
       dia,
@@ -431,7 +444,7 @@ export async function getGradeEscala(
   const totalDias = getDiasNoMes(comp.mes, comp.ano);
   const dias = Array.from({ length: totalDias }, (_, i) => i + 1);
 
-  const statusList = await listStatusPorSetorNoMes(comp.setorId!, comp.mes, comp.ano);
+  const statusList = await listStatusPorSetorNoMes(comp.setorId!, comp.mes, comp.ano, comp.empresaId);
 
   const allFuncs = await db
     .select()
@@ -597,6 +610,7 @@ export async function batchUpdateEscalaDias(
     if (!padrao) continue;
 
     inicios.push({
+      empresaId: comp.empresaId,
       competenciaId,
       funcionarioId,
       mesInicio: comp.mes,
@@ -711,7 +725,12 @@ export async function zerarEscalaFuncionario(
   return getGradeEscala(competenciaId, comp.tipo as TipoEscala);
 }
 
-export async function getRelatorioFolgas(mes: number, ano: number, setorId?: number) {
+export async function getRelatorioFolgas(
+  empresaId: string,
+  mes: number,
+  ano: number,
+  setorId?: number
+) {
   const comps = await db
     .select()
     .from(competencias)
@@ -719,6 +738,7 @@ export async function getRelatorioFolgas(mes: number, ano: number, setorId?: num
       and(
         eq(competencias.mes, mes),
         eq(competencias.ano, ano),
+        eq(competencias.empresaId, empresaId),
         setorId ? eq(competencias.setorId, setorId) : undefined
       )
     );
@@ -759,12 +779,14 @@ export async function getRelatorioFolgas(mes: number, ano: number, setorId?: num
   return results;
 }
 
-export async function getRelatorioCargaHoraria(mes: number, ano: number) {
+export async function getRelatorioCargaHoraria(empresaId: string, mes: number, ano: number) {
   const { HORAS_POR_TURNO } = await import('@escala/shared');
   const comps = await db
     .select()
     .from(competencias)
-    .where(and(eq(competencias.mes, mes), eq(competencias.ano, ano)));
+    .where(
+      and(eq(competencias.mes, mes), eq(competencias.ano, ano), eq(competencias.empresaId, empresaId))
+    );
 
   const results = [];
   for (const comp of comps) {
@@ -798,12 +820,16 @@ export async function getRelatorioCargaHoraria(mes: number, ano: number) {
   return results;
 }
 
-export async function listSetoresPorTipoEscala(tipo: TipoEscala) {
-  const allSetores = await db.select().from(setores).orderBy(setores.id);
+export async function listSetoresPorTipoEscala(tipo: TipoEscala, empresaId: string) {
+  const allSetores = await db
+    .select()
+    .from(setores)
+    .where(eq(setores.empresaId, empresaId))
+    .orderBy(setores.id);
   const allFuncs = await db
     .select({ setorId: funcionarios.setorId, categoria: funcionarios.categoria })
     .from(funcionarios)
-    .where(eq(funcionarios.ativo, true));
+    .where(and(eq(funcionarios.ativo, true), eq(funcionarios.empresaId, empresaId)));
 
   const setoresCom = new Set<number>();
   for (const f of allFuncs) {
@@ -815,33 +841,35 @@ export async function listSetoresPorTipoEscala(tipo: TipoEscala) {
   return allSetores.filter((s) => setoresCom.has(s.id));
 }
 
-export async function listSetoresComTecnicosEnfermagem() {
-  return listSetoresPorTipoEscala('tecnico');
+export async function listSetoresComTecnicosEnfermagem(empresaId: string) {
+  return listSetoresPorTipoEscala('tecnico', empresaId);
 }
 
-export async function listSetoresComEnfermeiros() {
-  return listSetoresPorTipoEscala('enfermeiro');
+export async function listSetoresComEnfermeiros(empresaId: string) {
+  return listSetoresPorTipoEscala('enfermeiro', empresaId);
 }
 
 export async function findOrCreateCompetencia(
   mes: number,
   ano: number,
   setorId: number,
-  tipo: TipoEscala = 'tecnico'
+  tipo: TipoEscala = 'tecnico',
+  empresaId: string
 ) {
   const existing = await db.query.competencias.findFirst({
     where: and(
       eq(competencias.mes, mes),
       eq(competencias.ano, ano),
       eq(competencias.setorId, setorId),
-      eq(competencias.tipo, tipo)
+      eq(competencias.tipo, tipo),
+      eq(competencias.empresaId, empresaId)
     ),
   });
   if (existing) return existing;
 
   const [created] = await db
     .insert(competencias)
-    .values({ mes, ano, setorId, tipo })
+    .values({ mes, ano, setorId, tipo, empresaId })
     .returning();
   return created;
 }
@@ -869,7 +897,7 @@ export async function simularProximoMes(
   if (!grade) throw new Error('Competência não encontrada');
 
   const { mes: proxMes, ano: proxAno } = mesSeguinte(comp.mes, comp.ano);
-  const proxComp = await findOrCreateCompetencia(proxMes, proxAno, comp.setorId, tipoEscala);
+  const proxComp = await findOrCreateCompetencia(proxMes, proxAno, comp.setorId, tipoEscala, comp.empresaId);
 
   let processados = 0;
   let ignorados = 0;

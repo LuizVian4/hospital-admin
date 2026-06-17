@@ -6,6 +6,55 @@ export type StatusEspecial = 'FÉRIAS' | 'LICENÇA INSS' | 'LICENÇA GESTACIONAL
 
 export type CargaHoraria = '180H' | '144H';
 
+export interface Empresa {
+  id: string;
+  nome: string;
+  slug: string;
+  ativo: boolean;
+}
+
+export type PapelEmpresa = 'admin' | 'membro';
+
+export interface EmpresaComPapel extends Empresa {
+  papel: PapelEmpresa;
+}
+
+export interface EmpresaDetalhes extends Empresa {
+  totalUsuarios: number;
+  papelAtual: PapelEmpresa;
+}
+
+export interface UsuarioEmpresa {
+  vinculoId: number;
+  userId: number;
+  email: string;
+  nome: string;
+  ativo: boolean;
+  papel: PapelEmpresa;
+  createdAt?: string;
+}
+
+export interface UsuarioEmpresaCandidato {
+  id: number;
+  email: string;
+  nome: string;
+  ativo: boolean;
+}
+
+export interface UpdateEmpresaRequest {
+  nome?: string;
+  ativo?: boolean;
+}
+
+export interface VincularUsuarioEmpresaRequest {
+  userId: number;
+  papel?: PapelEmpresa;
+}
+
+export interface UpdateVinculoUsuarioRequest {
+  papel: PapelEmpresa;
+}
+
 export interface Setor {
   id: number;
   nome: string;

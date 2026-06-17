@@ -29,6 +29,13 @@ import {
   invalidateAndSyncBancoHorasCompetencia,
 } from '../services/bancoHoras.service';
 import { STATUS_ESPECIAIS_OPCOES, TIPOS_OCORRENCIA_ESCALA, type StatusEspecial, type TipoEscala } from '@escala/shared';
+import { requireEmpresaId } from '../plugins/empresa';
+import type { FastifyRequest } from 'fastify';
+import { assertCompetenciaEmpresa } from '../services/empresa.service';
+
+async function ensureCompetenciaAccess(request: FastifyRequest, competenciaId: number) {
+  await assertCompetenciaEmpresa(competenciaId, requireEmpresaId(request));
+}
 
 const escalaDiaBatchSchema = z.object({
   competenciaId: z.number().int(),
@@ -88,6 +95,11 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
     const id = parseInt(request.params.id, 10);
     const tipo = parseTipoEscala(request.query.tipo);
+    try {
+      await ensureCompetenciaAccess(request, id);
+    } catch {
+      return reply.status(404).send({ error: 'Competência não encontrada' });
+    }
     const grade = await getGradeEscala(id, tipo);
     if (!grade) return reply.status(404).send({ error: 'Competência não encontrada' });
     return grade;
@@ -98,6 +110,11 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
     const id = parseInt(request.params.id, 10);
     const tipo = parseTipoEscala(request.query.tipo);
+    try {
+      await ensureCompetenciaAccess(request, id);
+    } catch {
+      return reply.status(404).send({ error: 'Competência não encontrada' });
+    }
     const grade = await getGradeEscala(id, tipo);
     if (!grade) return reply.status(404).send({ error: 'Competência não encontrada' });
     return grade;
@@ -124,10 +141,11 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Params: { mes: string; ano: string }; Querystring: { tipo?: string } }>(
     '/api/escala/export/:mes/:ano',
     async (request, reply) => {
+      const empresaId = requireEmpresaId(request);
       const mes = parseInt(request.params.mes, 10);
       const ano = parseInt(request.params.ano, 10);
       const tipo = parseTipoEscala(request.query.tipo);
-      const result = await exportEscalaMesCompletoExcel(mes, ano, tipo);
+      const result = await exportEscalaMesCompletoExcel(empresaId, mes, ano, tipo);
       if (!result) {
         return reply.status(404).send({ error: 'Nenhuma competência encontrada para o período' });
       }
@@ -288,7 +306,7 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
       });
       if (!comp?.setorId) return [];
 
-      return listStatusPorSetorNoMes(comp.setorId, comp.mes, comp.ano);
+      return listStatusPorSetorNoMes(comp.setorId, comp.mes, comp.ano, comp.empresaId);
     }
   );
 
@@ -333,17 +351,19 @@ export const escalasRoutes: FastifyPluginAsync = async (app) => {
   app.get<{
     Querystring: { mes: string; ano: string; setorId?: string };
   }>('/api/relatorios/folgas-mes', async (request) => {
+    const empresaId = requireEmpresaId(request);
     const mes = parseInt(request.query.mes, 10);
     const ano = parseInt(request.query.ano, 10);
     const setorId = request.query.setorId ? parseInt(request.query.setorId, 10) : undefined;
-    return getRelatorioFolgas(mes, ano, setorId);
+    return getRelatorioFolgas(empresaId, mes, ano, setorId);
   });
 
   app.get<{
     Querystring: { mes: string; ano: string };
   }>('/api/relatorios/carga-horaria', async (request) => {
+    const empresaId = requireEmpresaId(request);
     const mes = parseInt(request.query.mes, 10);
     const ano = parseInt(request.query.ano, 10);
-    return getRelatorioCargaHoraria(mes, ano);
+    return getRelatorioCargaHoraria(empresaId, mes, ano);
   });
 };

@@ -8,8 +8,18 @@ import {
   timestamp,
   unique,
   real,
+  uuid,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+
+export const empresas = pgTable('empresas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nome: text('nome').notNull(),
+  slug: text('slug').notNull().unique(),
+  ativo: boolean('ativo').default(true).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+});
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -20,6 +30,24 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
+
+export const usuarioEmpresas = pgTable(
+  'usuario_empresas',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    empresaId: uuid('empresa_id')
+      .notNull()
+      .references(() => empresas.id, { onDelete: 'cascade' }),
+    papel: text('papel').notNull().default('membro'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    uniqueUsuarioEmpresa: unique().on(t.userId, t.empresaId),
+  })
+);
 
 export const refreshTokens = pgTable('refresh_tokens', {
   id: serial('id').primaryKey(),
@@ -32,18 +60,32 @@ export const refreshTokens = pgTable('refresh_tokens', {
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
 });
 
-export const setores = pgTable('setores', {
-  id: serial('id').primaryKey(),
-  nome: text('nome').notNull().unique(),
-  empresa: text('empresa'),
-  gerente: text('gerente'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-});
+export const setores = pgTable(
+  'setores',
+  {
+    id: serial('id').primaryKey(),
+    empresaId: uuid('empresa_id')
+      .notNull()
+      .references(() => empresas.id),
+    nome: text('nome').notNull(),
+    empresa: text('empresa'),
+    gerente: text('gerente'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    uniqueSetorEmpresa: unique().on(t.empresaId, t.nome),
+  })
+);
 
-export const funcionarios = pgTable('funcionarios', {
-  id: serial('id').primaryKey(),
-  matricula: text('matricula').notNull().unique(),
-  nome: text('nome').notNull(),
+export const funcionarios = pgTable(
+  'funcionarios',
+  {
+    id: serial('id').primaryKey(),
+    empresaId: uuid('empresa_id')
+      .notNull()
+      .references(() => empresas.id),
+    matricula: text('matricula').notNull(),
+    nome: text('nome').notNull(),
   coren: text('coren'),
   categoria: text('categoria'),
   tipoContrato: text('tipo_contrato'),
@@ -51,15 +93,22 @@ export const funcionarios = pgTable('funcionarios', {
   cargaHoraria: text('carga_horaria').default('180H'),
   setorId: integer('setor_id').references(() => setores.id),
   ordemEscala: integer('ordem_escala').default(0),
-  ativo: boolean('ativo').default(true),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
-});
+    ativo: boolean('ativo').default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    uniqueMatriculaEmpresa: unique().on(t.empresaId, t.matricula),
+  })
+);
 
 export const competencias = pgTable(
   'competencias',
   {
     id: serial('id').primaryKey(),
+    empresaId: uuid('empresa_id')
+      .notNull()
+      .references(() => empresas.id),
     mes: integer('mes').notNull(),
     ano: integer('ano').notNull(),
     setorId: integer('setor_id').references(() => setores.id),
@@ -78,6 +127,9 @@ export const escalaInicios = pgTable(
   'escala_inicios',
   {
     id: serial('id').primaryKey(),
+    empresaId: uuid('empresa_id')
+      .notNull()
+      .references(() => empresas.id),
     competenciaId: integer('competencia_id')
       .notNull()
       .references(() => competencias.id, { onDelete: 'cascade' }),
@@ -96,6 +148,9 @@ export const escalaInicios = pgTable(
 
 export const escalaTrocas = pgTable('escala_trocas', {
   id: serial('id').primaryKey(),
+  empresaId: uuid('empresa_id')
+    .notNull()
+    .references(() => empresas.id),
   competenciaId: integer('competencia_id')
     .notNull()
     .references(() => competencias.id, { onDelete: 'cascade' }),
@@ -115,6 +170,9 @@ export const escalaOcorrencias = pgTable(
   'escala_ocorrencias',
   {
     id: serial('id').primaryKey(),
+    empresaId: uuid('empresa_id')
+      .notNull()
+      .references(() => empresas.id),
     competenciaId: integer('competencia_id')
       .notNull()
       .references(() => competencias.id, { onDelete: 'cascade' }),
@@ -135,6 +193,9 @@ export const escalaOcorrencias = pgTable(
 
 export const statusEspeciais = pgTable('status_especiais', {
   id: serial('id').primaryKey(),
+  empresaId: uuid('empresa_id')
+    .notNull()
+    .references(() => empresas.id),
   competenciaId: integer('competencia_id').references(() => competencias.id, {
     onDelete: 'cascade',
   }),
@@ -150,6 +211,9 @@ export const bancoHoras = pgTable(
   'banco_horas',
   {
     id: serial('id').primaryKey(),
+    empresaId: uuid('empresa_id')
+      .notNull()
+      .references(() => empresas.id),
     competenciaId: integer('competencia_id')
       .notNull()
       .references(() => competencias.id, { onDelete: 'cascade' }),
@@ -170,12 +234,26 @@ export const bancoHoras = pgTable(
   })
 );
 
-export const setoresRelations = relations(setores, ({ many }) => ({
+export const empresasRelations = relations(empresas, ({ many }) => ({
+  usuarioEmpresas: many(usuarioEmpresas),
+  setores: many(setores),
+  funcionarios: many(funcionarios),
+  competencias: many(competencias),
+}));
+
+export const usuarioEmpresasRelations = relations(usuarioEmpresas, ({ one }) => ({
+  user: one(users, { fields: [usuarioEmpresas.userId], references: [users.id] }),
+  empresa: one(empresas, { fields: [usuarioEmpresas.empresaId], references: [empresas.id] }),
+}));
+
+export const setoresRelations = relations(setores, ({ one, many }) => ({
+  empresa: one(empresas, { fields: [setores.empresaId], references: [empresas.id] }),
   funcionarios: many(funcionarios),
   competencias: many(competencias),
 }));
 
 export const funcionariosRelations = relations(funcionarios, ({ one, many }) => ({
+  empresa: one(empresas, { fields: [funcionarios.empresaId], references: [empresas.id] }),
   setor: one(setores, { fields: [funcionarios.setorId], references: [setores.id] }),
   escalaInicios: many(escalaInicios),
   escalaTrocas: many(escalaTrocas),
@@ -187,6 +265,7 @@ export const funcionariosRelations = relations(funcionarios, ({ one, many }) => 
 }));
 
 export const competenciasRelations = relations(competencias, ({ one, many }) => ({
+  empresa: one(empresas, { fields: [competencias.empresaId], references: [empresas.id] }),
   setor: one(setores, { fields: [competencias.setorId], references: [setores.id] }),
   escalaInicios: many(escalaInicios),
   escalaTrocas: many(escalaTrocas),

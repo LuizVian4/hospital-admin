@@ -771,15 +771,21 @@ export async function exportEscalaExcel(
 }
 
 export async function exportEscalaMesCompletoExcel(
+  empresaId: string,
   mes: number,
   ano: number,
   tipoEscala: TipoEscala = 'tecnico'
 ): Promise<{ buffer: Buffer; filename: string } | null> {
-  const setores = await listSetoresPorTipoEscala(tipoEscala);
+  const setores = await listSetoresPorTipoEscala(tipoEscala, empresaId);
   const gruposEscala = getGruposPorTipoEscala(tipoEscala);
 
   const comps = await db.query.competencias.findMany({
-    where: and(eq(competencias.mes, mes), eq(competencias.ano, ano), eq(competencias.tipo, tipoEscala)),
+    where: and(
+      eq(competencias.mes, mes),
+      eq(competencias.ano, ano),
+      eq(competencias.tipo, tipoEscala),
+      eq(competencias.empresaId, empresaId)
+    ),
     with: { setor: true },
   });
   const compBySetorId = new Map(comps.map((c) => [c.setorId, c]));

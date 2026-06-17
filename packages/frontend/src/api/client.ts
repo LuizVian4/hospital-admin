@@ -21,6 +21,15 @@ import type {
   UpdateProfileRequest,
   ChangePasswordRequest,
   DeleteAccountRequest,
+  EmpresaComPapel,
+  Empresa,
+  EmpresaDetalhes,
+  UsuarioEmpresa,
+  UsuarioEmpresaCandidato,
+  UpdateEmpresaRequest,
+  VincularUsuarioEmpresaRequest,
+  UpdateVinculoUsuarioRequest,
+  PapelEmpresa,
 } from '@escala/shared';
 
 export interface Competencia {
@@ -81,21 +90,40 @@ const PUBLIC_AUTH_PATHS = new Set([
   '/api/auth/logout',
 ]);
 
+const EMPRESA_OPTIONAL_PATHS = new Set(['/api/empresas']);
+
 let onUnauthorized: (() => void) | null = null;
 let refreshPromise: Promise<boolean> | null = null;
+let getEmpresaId: (() => string | null) | null = null;
 
 export function setUnauthorizedHandler(handler: () => void) {
   onUnauthorized = handler;
+}
+
+export function setEmpresaIdProvider(provider: () => string | null) {
+  getEmpresaId = provider;
 }
 
 function isPublicAuthPath(path: string): boolean {
   return PUBLIC_AUTH_PATHS.has(path.split('?')[0]);
 }
 
-function buildHeaders(options?: RequestInit): HeadersInit {
+function needsEmpresaHeader(path: string): boolean {
+  const normalized = path.split('?')[0];
+  return (
+    normalized.startsWith('/api/') &&
+    !isPublicAuthPath(path) &&
+    !EMPRESA_OPTIONAL_PATHS.has(normalized)
+  );
+}
+
+function buildHeaders(path: string, options?: RequestInit): HeadersInit {
   const isFormData = options?.body instanceof FormData;
+  const empresaId = needsEmpresaHeader(path) ? getEmpresaId?.() : null;
+
   return {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(empresaId ? { 'X-Empresa-Id': empresaId } : {}),
     ...options?.headers,
   };
 }
@@ -106,6 +134,7 @@ async function tryRefreshSession(): Promise<boolean> {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
+      body: '{}',
     })
       .then((res) => res.ok)
       .finally(() => {
@@ -120,7 +149,7 @@ async function fetchApi(path: string, options?: RequestInit): Promise<Response> 
     fetch(`${API_URL}${path}`, {
       ...options,
       credentials: 'include',
-      headers: buildHeaders(options),
+      headers: buildHeaders(path, options),
     });
 
   const res = await doFetch();
@@ -161,6 +190,36 @@ export const api = {
     }),
 
   getMe: () => request<User>('/api/auth/me'),
+
+  listEmpresas: () => request<EmpresaComPapel[]>('/api/empresas'),
+
+  createEmpresa: (data: { nome: string; slug: string }) =>
+    request<Empresa>('/api/empresas', { method: 'POST', body: JSON.stringify(data) }),
+
+  getEmpresaAtual: () => request<EmpresaDetalhes>('/api/empresas/atual'),
+
+  updateEmpresaAtual: (data: UpdateEmpresaRequest) =>
+    request<EmpresaDetalhes>('/api/empresas/atual', { method: 'PUT', body: JSON.stringify(data) }),
+
+  listUsuariosEmpresa: () => request<UsuarioEmpresa[]>('/api/empresas/atual/usuarios'),
+
+  listUsuariosCandidatosEmpresa: () =>
+    request<UsuarioEmpresaCandidato[]>('/api/empresas/atual/usuarios/candidatos'),
+
+  vincularUsuarioEmpresa: (data: VincularUsuarioEmpresaRequest) =>
+    request<{ success: boolean }>('/api/empresas/atual/usuarios', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateVinculoUsuarioEmpresa: (userId: number, data: UpdateVinculoUsuarioRequest) =>
+    request<{ success: boolean }>(`/api/empresas/atual/usuarios/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  removerVinculoUsuarioEmpresa: (userId: number) =>
+    request<{ success: boolean }>(`/api/empresas/atual/usuarios/${userId}`, { method: 'DELETE' }),
 
   logout: () => request<{ success: boolean }>('/api/auth/logout', { method: 'POST' }),
 

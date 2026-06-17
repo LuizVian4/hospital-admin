@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardHeader from '@mui/material/CardHeader';
@@ -17,6 +16,7 @@ import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { api } from '@/api/client';
+import { PageHeader } from '@/components/PageHeader';
 import {
   TabelaBancoHorasCompetencia,
   TabelaBancoHorasGeral,
@@ -65,18 +65,15 @@ export function BancoHorasPage() {
   const periodoLabel =
     modo === 'competencia'
       ? `${MESES.find((m) => m.value === mes)?.label}/${ano}`
-      : 'todas as competências';
+      : undefined;
 
   return (
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h4" component="h1">
-          Banco de horas
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
-          Acompanhe saldos de carga horária por competência ou acumulado geral.
-        </Typography>
-      </Box>
+      <PageHeader
+        heading="Banco de horas"
+        description="Acompanhe saldos de carga horária por competência ou acumulado geral."
+        periodoLabel={periodoLabel}
+      />
 
       <Card>
         <CardHeader

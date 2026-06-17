@@ -86,6 +86,7 @@ export async function syncBancoHorasCompetencia(
       .insert(bancoHoras)
       .values(
         resumos.map((r) => ({
+          empresaId: comp.empresaId,
           competenciaId,
           funcionarioId: r.funcionarioId,
           cargaContratada: r.cargaContratada,
@@ -180,19 +181,24 @@ function resolverStatusSaldo(saldoHoras: number): StatusBancoHoras {
   return 'atingiu';
 }
 
-export async function listBancoHorasCompetencia(competenciaId: number): Promise<BancoHorasComDetalhes[]> {
-  return queryBancoHoras({ competenciaId });
+export async function listBancoHorasCompetencia(
+  empresaId: string,
+  competenciaId: number
+): Promise<BancoHorasComDetalhes[]> {
+  return queryBancoHoras({ empresaId, competenciaId });
 }
 
 export async function listBancoHorasMes(
+  empresaId: string,
   mes: number,
   ano: number,
   options?: { apenasPendentes?: boolean }
 ): Promise<BancoHorasComDetalhes[]> {
-  return queryBancoHoras({ mes, ano, apenasPendentes: options?.apenasPendentes });
+  return queryBancoHoras({ empresaId, mes, ano, apenasPendentes: options?.apenasPendentes });
 }
 
 async function queryBancoHoras(filters: {
+  empresaId: string;
   competenciaId?: number;
   mes?: number;
   ano?: number;
@@ -218,6 +224,7 @@ async function queryBancoHoras(filters: {
     .leftJoin(setores, eq(funcionarios.setorId, setores.id))
     .where(
       and(
+        eq(bancoHoras.empresaId, filters.empresaId),
         filters.competenciaId != null
           ? eq(bancoHoras.competenciaId, filters.competenciaId)
           : undefined,
@@ -251,11 +258,17 @@ async function queryBancoHoras(filters: {
     });
 }
 
-export async function listBancoHorasPendentes(mes: number, ano: number): Promise<BancoHorasComDetalhes[]> {
-  return listBancoHorasMes(mes, ano, { apenasPendentes: true });
+export async function listBancoHorasPendentes(
+  empresaId: string,
+  mes: number,
+  ano: number
+): Promise<BancoHorasComDetalhes[]> {
+  return listBancoHorasMes(empresaId, mes, ano, { apenasPendentes: true });
 }
 
-export async function listBancoHorasGeral(options?: {
+export async function listBancoHorasGeral(
+  empresaId: string,
+  options?: {
   apenasPendentes?: boolean;
 }): Promise<BancoHorasAgregado[]> {
   const rows = await db
@@ -276,6 +289,7 @@ export async function listBancoHorasGeral(options?: {
     .from(bancoHoras)
     .innerJoin(funcionarios, eq(bancoHoras.funcionarioId, funcionarios.id))
     .leftJoin(setores, eq(funcionarios.setorId, setores.id))
+    .where(eq(bancoHoras.empresaId, empresaId))
     .groupBy(
       funcionarios.id,
       funcionarios.nome,

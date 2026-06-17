@@ -60,7 +60,8 @@ export async function listStatusPorFuncionario(funcionarioId: number) {
 export async function listStatusPorSetoresNoMes(
   setorIds: number[],
   mes: number,
-  ano: number
+  ano: number,
+  empresaId: string
 ): Promise<Map<number, StatusEspecialItem[]>> {
   const result = new Map<number, StatusEspecialItem[]>();
   for (const setorId of setorIds) {
@@ -71,7 +72,13 @@ export async function listStatusPorSetoresNoMes(
   const funcs = await db
     .select({ id: funcionarios.id, setorId: funcionarios.setorId })
     .from(funcionarios)
-    .where(and(inArray(funcionarios.setorId, setorIds), eq(funcionarios.ativo, true)));
+    .where(
+      and(
+        inArray(funcionarios.setorId, setorIds),
+        eq(funcionarios.ativo, true),
+        eq(funcionarios.empresaId, empresaId)
+      )
+    );
 
   const funcIds = funcs.map((f) => f.id);
   if (funcIds.length === 0) return result;
@@ -79,7 +86,7 @@ export async function listStatusPorSetoresNoMes(
   const setorPorFuncionario = new Map(funcs.map((f) => [f.id, f.setorId!]));
 
   const rows = await db.query.statusEspeciais.findMany({
-    where: inArray(statusEspeciais.funcionarioId, funcIds),
+    where: and(inArray(statusEspeciais.funcionarioId, funcIds), eq(statusEspeciais.empresaId, empresaId)),
     with: { funcionario: true, competencia: true },
   });
 
@@ -96,8 +103,13 @@ export async function listStatusPorSetoresNoMes(
   return result;
 }
 
-export async function listStatusPorSetorNoMes(setorId: number, mes: number, ano: number) {
-  const porSetor = await listStatusPorSetoresNoMes([setorId], mes, ano);
+export async function listStatusPorSetorNoMes(
+  setorId: number,
+  mes: number,
+  ano: number,
+  empresaId: string
+) {
+  const porSetor = await listStatusPorSetoresNoMes([setorId], mes, ano, empresaId);
   return porSetor.get(setorId) ?? [];
 }
 
@@ -151,6 +163,7 @@ export async function criarStatusEspecial(input: {
   const [created] = await db
     .insert(statusEspeciais)
     .values({
+      empresaId: func.empresaId,
       funcionarioId: input.funcionarioId,
       status: input.status,
       dataInicio: input.dataInicio,

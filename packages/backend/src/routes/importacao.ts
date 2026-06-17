@@ -8,6 +8,7 @@ import {
   buildEquipeTemplateBuffer,
   buildEscalaTemplateBuffer,
 } from '../services/importacao.service';
+import { requireEmpresaId } from '../plugins/empresa';
 
 type ImportTipo = 'equipe' | 'escala';
 
@@ -38,6 +39,7 @@ export const importacaoRoutes: FastifyPluginAsync = async (app) => {
   app.post<{
     Querystring: { confirmar?: string; mes?: string; ano?: string; tipo?: string };
   }>('/api/importacao/ods', async (request, reply) => {
+    const empresaId = requireEmpresaId(request);
     const data = await request.file();
     if (!data) {
       return reply.status(400).send({ error: 'Arquivo não enviado' });
@@ -63,7 +65,7 @@ export const importacaoRoutes: FastifyPluginAsync = async (app) => {
             });
           }
         }
-        const result = await persistImport(parsed, mes, ano);
+        const result = await persistImport(parsed, empresaId, mes, ano);
         setLastPreview(parsed, tipo);
         return reply.status(201).send({ ...result, persisted: true });
       } catch (err) {
@@ -73,7 +75,7 @@ export const importacaoRoutes: FastifyPluginAsync = async (app) => {
     }
 
     try {
-      const preview = await buildPreview(buffer, tipo);
+      const preview = await buildPreview(buffer, empresaId, tipo);
       return preview;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao processar arquivo';
