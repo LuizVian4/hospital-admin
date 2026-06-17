@@ -15,11 +15,34 @@ function parseCorsOrigins(): string[] {
   return raw.split(',').map((origin) => origin.trim()).filter(Boolean);
 }
 
+function isAllowedCorsOrigin(origin: string): boolean {
+  if (parseCorsOrigins().includes(origin)) {
+    return true;
+  }
+
+  // Staging no Railway: front e API em subdomínios distintos de up.railway.app
+  if (/^https:\/\/[a-z0-9-]+\.up\.railway\.app$/i.test(origin)) {
+    return true;
+  }
+
+  return false;
+}
+
 export async function registerPlugins(app: FastifyInstance) {
   await app.register(cookie);
 
   await app.register(cors, {
-    origin: parseCorsOrigins(),
+    origin: (origin, cb) => {
+      if (!origin) {
+        cb(null, true);
+        return;
+      }
+      if (isAllowedCorsOrigin(origin)) {
+        cb(null, origin);
+        return;
+      }
+      cb(null, false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Empresa-Id'],

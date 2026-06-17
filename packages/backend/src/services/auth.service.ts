@@ -10,12 +10,27 @@ export const ACCESS_COOKIE = 'access_token';
 export const REFRESH_COOKIE = 'refresh_token';
 
 function cookieBaseOptions() {
-  return {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const options: {
+    httpOnly: boolean;
+    secure: boolean;
+    sameSite: 'lax' | 'none';
+    path: string;
+    domain?: string;
+  } = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
+    secure: isProduction,
+    // Frontend e API em hosts diferentes (ex.: *.up.railway.app) exigem None + Secure.
+    sameSite: isProduction ? 'none' : 'lax',
     path: '/',
   };
+
+  const domain = process.env.COOKIE_DOMAIN?.trim();
+  if (domain) {
+    options.domain = domain;
+  }
+
+  return options;
 }
 
 export function parseDurationSeconds(value: string, fallbackSeconds: number): number {
