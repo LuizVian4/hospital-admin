@@ -42,7 +42,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: packages/frontend/Dockerfile
+      dockerfile: packages/frontend/Dockerfile.dev
     environment:
       VITE_API_URL: http://localhost:3001
     ports:
