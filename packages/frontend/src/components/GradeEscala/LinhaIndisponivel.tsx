@@ -1,13 +1,13 @@
 import { memo, useMemo } from 'react';
 import type { FuncionarioComTurnos } from '@escala/shared';
-import { LARGURA_COLUNAS_FIXAS } from '@/constants/turnos';
+import { COLUNAS_FIXAS, LARGURA_COLUNAS_FIXAS_DESKTOP } from '@/constants/turnos';
 import { cn } from '@/lib/utils';
 import { FuncionarioInfoPopover } from './FuncionarioInfoPopover';
 import {
   DiasLeituraVirtualizados,
   buildDadosLeituraPorDia,
 } from './DiasLeituraVirtualizados';
-import { CelulaFixa, ColunasFixas, LinhaGrade, ViewportDias } from './GradeEscalaLayout';
+import { CelulaFixa, CelulaNomeScroll, ColunasFixas, LinhaGrade, ViewportDias } from './GradeEscalaLayout';
 
 export interface LinhaIndisponivelProps {
   funcionario: FuncionarioComTurnos;
@@ -47,7 +47,7 @@ function LinhaIndisponivelComponent({
     <LinhaGrade virtualTop={virtualTop} virtualHeight={virtualHeight} className={rowBg}>
       <ColunasFixas className={rowBg}>
         <CelulaFixa
-          width={LARGURA_COLUNAS_FIXAS}
+          width={LARGURA_COLUNAS_FIXAS_DESKTOP}
           className={cn('font-medium text-foreground', rowBg)}
         >
           <span className="truncate min-w-0">
@@ -56,6 +56,11 @@ function LinhaIndisponivelComponent({
         </CelulaFixa>
       </ColunasFixas>
       <ViewportDias>
+        <CelulaNomeScroll className={cn('font-medium text-foreground', rowBg)}>
+          <span className="truncate min-w-0">
+            <FuncionarioInfoPopover funcionario={funcionario} />
+          </span>
+        </CelulaNomeScroll>
         <DiasLeituraVirtualizados
           visibleDiaIndices={visibleDiaIndices}
           padStart={diasPadStart}

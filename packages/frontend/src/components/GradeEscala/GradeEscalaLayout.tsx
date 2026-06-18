@@ -1,5 +1,4 @@
 import { useLayoutEffect, useRef, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
-import { LARGURA_COLUNAS_FIXAS } from '@/constants/turnos';
 import { cn } from '@/lib/utils';
 import { useGradeEscalaScroll } from './GradeEscalaScrollContext';
 
@@ -40,10 +39,13 @@ export function ColunasFixas({
   className?: string;
   children: ReactNode;
 }) {
+  const { larguraColunasFixas } = useGradeEscalaScroll();
+  if (larguraColunasFixas === 0) return null;
+
   return (
     <div
       className={cn('flex shrink-0 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] z-10', className)}
-      style={{ width: LARGURA_COLUNAS_FIXAS }}
+      style={{ width: larguraColunasFixas }}
     >
       {children}
     </div>
@@ -72,8 +74,27 @@ export function CelulaFixa({
   );
 }
 
+export function CelulaNomeScroll({
+  className,
+  title,
+  children,
+}: {
+  className?: string;
+  title?: string;
+  children: ReactNode;
+}) {
+  const { isMobile, larguraLeading } = useGradeEscalaScroll();
+  if (!isMobile) return null;
+
+  return (
+    <CelulaFixa width={larguraLeading} className={className} title={title}>
+      {children}
+    </CelulaFixa>
+  );
+}
+
 export function ViewportDias({ children }: { children: ReactNode }) {
-  const { horizontalScrollRef, totalDiasWidth } = useGradeEscalaScroll();
+  const { horizontalScrollRef, totalStripWidth } = useGradeEscalaScroll();
   const stripRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -96,7 +117,7 @@ export function ViewportDias({ children }: { children: ReactNode }) {
       <div
         ref={stripRef}
         className="flex will-change-transform"
-        style={{ width: totalDiasWidth }}
+        style={{ width: totalStripWidth }}
       >
         {children}
       </div>
@@ -142,13 +163,41 @@ export function ScrollHorizontalDias({
 }
 
 export function RodapeScrollHorizontal() {
-  const { footerScrollRef, totalDiasWidth } = useGradeEscalaScroll();
+  const { footerScrollRef, totalStripWidth, larguraColunasFixas } = useGradeEscalaScroll();
 
   return (
     <div className="flex shrink-0 border-t bg-slate-50/80">
-      <div className="shrink-0" style={{ width: LARGURA_COLUNAS_FIXAS }} />
+      {larguraColunasFixas > 0 && (
+        <div className="shrink-0" style={{ width: larguraColunasFixas }} />
+      )}
       <div ref={footerScrollRef} className="overflow-x-auto flex-1 min-w-0 h-3">
-        <div style={{ width: totalDiasWidth, height: 1 }} aria-hidden />
+        <div style={{ width: totalStripWidth, height: 1 }} aria-hidden />
+      </div>
+    </div>
+  );
+}
+
+export function CabecalhoLeadingColunas() {
+  const { isMobile, larguraLeading } = useGradeEscalaScroll();
+  if (!isMobile) return null;
+
+  return (
+    <div className="flex shrink-0 flex-col border-r border-slate-200" style={{ width: larguraLeading }}>
+      <div className="flex bg-slate-100">
+        <CelulaFixa
+          width={larguraLeading}
+          className="py-2 text-[11px] font-bold uppercase tracking-wide text-slate-600 bg-slate-100 text-left"
+        >
+          NOME
+        </CelulaFixa>
+      </div>
+      <div className="flex bg-slate-50 border-t border-slate-200">
+        <CelulaFixa
+          width={larguraLeading}
+          className="py-1 text-[10px] font-medium uppercase tracking-wider text-slate-500 bg-slate-50 text-left"
+        >
+          Escala
+        </CelulaFixa>
       </div>
     </div>
   );

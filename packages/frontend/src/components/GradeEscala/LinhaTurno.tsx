@@ -9,7 +9,8 @@ import { ZerarEscalaButton } from './ZerarEscalaButton';
 import { CelulaEspacadorDias } from './DiasVirtualizados';
 import { LinhaTurnoCelula, type LinhaTurnoCelulaProps } from './LinhaTurnoCelula';
 import type { EscalaCellChangeOptions } from './CelulaEscala';
-import { CelulaFixa, ColunasFixas, LinhaGrade, ViewportDias } from './GradeEscalaLayout';
+import { CelulaFixa, CelulaNomeScroll, ColunasFixas, LinhaGrade, ViewportDias } from './GradeEscalaLayout';
+import { useGradeEscalaScroll } from './GradeEscalaScrollContext';
 import { GripVertical } from 'lucide-react';
 
 export interface LinhaTurnoProps {
@@ -80,6 +81,7 @@ function LinhaTurnoComponent({
   const trocaOrigemDia = trocaOrigem?.dia ?? null;
   const modoSomenteTroca = comGrupo && !somenteLeitura;
   const onChange = onCellChange ?? ESCALA_CELL_NOOP;
+  const { showCategoria } = useGradeEscalaScroll();
 
   return (
     <LinhaGrade
@@ -113,15 +115,33 @@ function LinhaTurnoComponent({
             />
           </span>
         </CelulaFixa>
-        <CelulaFixa
-          width={COLUNAS_FIXAS[1].width}
-          className={cn('text-muted-foreground truncate group-hover:bg-blue-50/60', rowBg)}
-          title={funcionario.categoria}
-        >
-          {funcionario.categoria || '—'}
-        </CelulaFixa>
+        {showCategoria && (
+          <CelulaFixa
+            width={COLUNAS_FIXAS[1].width}
+            className={cn('text-muted-foreground truncate group-hover:bg-blue-50/60', rowBg)}
+            title={funcionario.categoria}
+          >
+            {funcionario.categoria || '—'}
+          </CelulaFixa>
+        )}
       </ColunasFixas>
       <ViewportDias>
+        <CelulaNomeScroll className={cn('font-medium text-foreground group-hover:bg-blue-50/60', rowBg)}>
+          <span className="flex items-center gap-1 min-w-0">
+            {arrastavel && (
+              <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 cursor-grab active:cursor-grabbing" />
+            )}
+            <span className="truncate min-w-0">
+              <FuncionarioInfoPopover funcionario={funcionario} />
+            </span>
+            <ZerarEscalaButton
+              competenciaId={competenciaId}
+              tipoEscala={tipoEscala}
+              funcionarioId={funcionario.id}
+              funcionarioNome={funcionario.nome}
+            />
+          </span>
+        </CelulaNomeScroll>
         <CelulaEspacadorDias width={diasPadStart} />
         {visibleDiaIndices.map((idx) => {
           const dia = dias[idx];

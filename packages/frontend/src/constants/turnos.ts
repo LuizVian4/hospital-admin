@@ -30,7 +30,12 @@ export const COLUNAS_FIXAS = [
 
 export const LARGURA_COLUNA_DIA = 40;
 
+/** Largura da coluna de nome quando ela rola junto com os dias (mobile). */
+export const LARGURA_COLUNA_NOME_MOBILE = 160;
+
 export const LARGURA_COLUNAS_FIXAS = COLUNAS_FIXAS.reduce((sum, col) => sum + col.width, 0);
+
+export const LARGURA_COLUNAS_FIXAS_DESKTOP = LARGURA_COLUNAS_FIXAS;
 
 export function stickyLeft(index: number): number {
   return COLUNAS_FIXAS.slice(0, index).reduce((sum, col) => sum + col.width, 0);

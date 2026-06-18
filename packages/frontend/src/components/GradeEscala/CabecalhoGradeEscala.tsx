@@ -2,18 +2,23 @@ import { memo } from 'react';
 import {
   COLUNAS_FIXAS,
   LARGURA_COLUNA_DIA,
-  LARGURA_COLUNAS_FIXAS,
   colunaCalendarioClass,
 } from '@/constants/turnos';
 import { cn } from '@/lib/utils';
 import { CelulaEspacadorDias } from './DiasVirtualizados';
 import { CabecalhoViewportDias, CelulaFixa, ColunasFixas } from './GradeEscalaLayout';
+import { useGradeEscalaScroll } from './GradeEscalaScrollContext';
 
 export const CabecalhoFixoGradeEscala = memo(function CabecalhoFixoGradeEscala() {
+  const { showCategoria, larguraColunasFixas } = useGradeEscalaScroll();
+  if (larguraColunasFixas === 0) return null;
+
+  const colunas = showCategoria ? COLUNAS_FIXAS : [COLUNAS_FIXAS[0]];
+
   return (
     <ColunasFixas className="flex-col border-r border-slate-200">
       <div className="flex bg-slate-100">
-        {COLUNAS_FIXAS.map((coluna) => (
+        {colunas.map((coluna) => (
           <CelulaFixa
             key={coluna.key}
             width={coluna.width}
@@ -28,7 +33,7 @@ export const CabecalhoFixoGradeEscala = memo(function CabecalhoFixoGradeEscala()
       </div>
       <div className="flex bg-slate-50 border-t border-slate-200">
         <CelulaFixa
-          width={LARGURA_COLUNAS_FIXAS}
+          width={colunas.reduce((sum, col) => sum + col.width, 0)}
           className="py-1 text-[10px] font-medium uppercase tracking-wider text-slate-500 bg-slate-50 text-left"
         >
           Escala

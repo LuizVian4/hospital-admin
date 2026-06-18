@@ -6,11 +6,26 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
+import {
+  LARGURA_COLUNA_NOME_MOBILE,
+  LARGURA_COLUNAS_FIXAS_DESKTOP,
+} from '@/constants/turnos';
 
 interface GradeEscalaScrollContextValue {
   horizontalScrollRef: RefObject<HTMLDivElement>;
   footerScrollRef: RefObject<HTMLDivElement>;
+  /** Largura total só dos dias (sem coluna de nome). */
   totalDiasWidth: number;
+  /** Largura da faixa horizontal (nome mobile + dias). */
+  totalStripWidth: number;
+  /** Coluna de nome dentro da faixa rolável (mobile). */
+  larguraLeading: number;
+  /** Largura das colunas fixas à esquerda (desktop). */
+  larguraColunasFixas: number;
+  isMobile: boolean;
+  showCategoria: boolean;
 }
 
 const GradeEscalaScrollContext = createContext<GradeEscalaScrollContextValue | null>(null);
@@ -64,6 +79,12 @@ export function GradeEscalaScrollProvider({
   totalDiasWidth: number;
   children: ReactNode;
 }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const larguraLeading = isMobile ? LARGURA_COLUNA_NOME_MOBILE : 0;
+  const larguraColunasFixas = isMobile ? 0 : LARGURA_COLUNAS_FIXAS_DESKTOP;
+  const totalStripWidth = larguraLeading + totalDiasWidth;
+
   const horizontalScrollRef = useRef<HTMLDivElement>(null);
   const footerScrollRef = useRef<HTMLDivElement>(null);
 
@@ -71,7 +92,16 @@ export function GradeEscalaScrollProvider({
 
   return (
     <GradeEscalaScrollContext.Provider
-      value={{ horizontalScrollRef, footerScrollRef, totalDiasWidth }}
+      value={{
+        horizontalScrollRef,
+        footerScrollRef,
+        totalDiasWidth,
+        totalStripWidth,
+        larguraLeading,
+        larguraColunasFixas,
+        isMobile,
+        showCategoria: !isMobile,
+      }}
     >
       {children}
     </GradeEscalaScrollContext.Provider>

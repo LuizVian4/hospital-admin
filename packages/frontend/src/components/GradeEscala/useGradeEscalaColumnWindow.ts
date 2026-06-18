@@ -13,15 +13,17 @@ export interface GradeEscalaColumnWindow {
 function measureColumnWindow(
   scrollLeft: number,
   clientWidth: number,
-  diasCount: number
+  diasCount: number,
+  leadingWidth: number
 ): GradeEscalaColumnWindow {
   const totalDiasWidth = diasCount * LARGURA_COLUNA_DIA;
-  const dayViewport = Math.max(LARGURA_COLUNA_DIA, clientWidth);
+  const dayScrollLeft = Math.max(0, scrollLeft - leadingWidth);
+  const dayViewport = Math.max(LARGURA_COLUNA_DIA, clientWidth - Math.max(0, leadingWidth - scrollLeft));
 
-  const firstIndex = Math.max(0, Math.floor(scrollLeft / LARGURA_COLUNA_DIA) - COLUMN_OVERSCAN);
+  const firstIndex = Math.max(0, Math.floor(dayScrollLeft / LARGURA_COLUNA_DIA) - COLUMN_OVERSCAN);
   const lastIndex = Math.min(
     diasCount - 1,
-    Math.ceil((scrollLeft + dayViewport) / LARGURA_COLUNA_DIA) - 1 + COLUMN_OVERSCAN
+    Math.ceil((dayScrollLeft + dayViewport) / LARGURA_COLUNA_DIA) - 1 + COLUMN_OVERSCAN
   );
 
   const visibleDiaIndices: number[] = [];
@@ -42,10 +44,11 @@ function columnWindowKey(window: GradeEscalaColumnWindow): string {
 
 export function useGradeEscalaColumnWindow(
   horizontalScrollRef: RefObject<HTMLDivElement>,
-  diasCount: number
+  diasCount: number,
+  leadingWidth = 0
 ): GradeEscalaColumnWindow {
   const [window, setWindow] = useState<GradeEscalaColumnWindow>(() =>
-    measureColumnWindow(0, 800, diasCount)
+    measureColumnWindow(0, 800, diasCount, leadingWidth)
   );
   const windowKeyRef = useRef(columnWindowKey(window));
 
@@ -65,7 +68,7 @@ export function useGradeEscalaColumnWindow(
       lastLeft = scrollLeft;
       lastWidth = clientWidth;
 
-      const next = measureColumnWindow(scrollLeft, clientWidth, diasCount);
+      const next = measureColumnWindow(scrollLeft, clientWidth, diasCount, leadingWidth);
       const nextKey = columnWindowKey(next);
       if (nextKey === windowKeyRef.current) return;
 
@@ -88,7 +91,7 @@ export function useGradeEscalaColumnWindow(
       el.removeEventListener('scroll', onScroll);
       resizeObserver.disconnect();
     };
-  }, [horizontalScrollRef, diasCount]);
+  }, [horizontalScrollRef, diasCount, leadingWidth]);
 
   return window;
 }

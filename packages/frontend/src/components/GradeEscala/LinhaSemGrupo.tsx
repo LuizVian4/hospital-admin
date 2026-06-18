@@ -7,7 +7,7 @@ import {
   DiasLeituraVirtualizados,
   buildDadosLeituraPorDia,
 } from './DiasLeituraVirtualizados';
-import { CelulaFixa, ColunasFixas, LinhaGrade, ViewportDias } from './GradeEscalaLayout';
+import { CelulaFixa, CelulaNomeScroll, ColunasFixas, LinhaGrade, ViewportDias } from './GradeEscalaLayout';
 import { GripVertical } from 'lucide-react';
 import {
   Select,
@@ -114,6 +114,33 @@ function LinhaSemGrupoComponent({
         </CelulaFixa>
       </ColunasFixas>
       <ViewportDias>
+        <CelulaNomeScroll className={cn('font-medium text-foreground', rowBg)}>
+          <span className="flex flex-col gap-1 min-w-0">
+            <span className="flex items-center gap-1 min-w-0">
+              <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 cursor-grab active:cursor-grabbing" />
+              <span className="truncate min-w-0">
+                <FuncionarioInfoPopover funcionario={funcionario} />
+              </span>
+            </span>
+            <Select onValueChange={handleGrupoChange}>
+              <SelectTrigger className="h-7 w-full text-xs border-dashed border-amber-300/80 bg-white/80">
+                <SelectValue placeholder="Grupo..." />
+              </SelectTrigger>
+              <SelectContent align="start" className="min-w-[280px]">
+                {gruposEscala.map((grupo) => (
+                  <SelectItem key={grupo.id} value={String(grupo.id)} className="py-2">
+                    <span className="flex flex-col items-start gap-0.5">
+                      <span className="font-semibold">{grupo.label}</span>
+                      <span className="text-[11px] text-muted-foreground font-normal">
+                        {grupo.descricao}
+                      </span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </span>
+        </CelulaNomeScroll>
         <DiasLeituraVirtualizados
           visibleDiaIndices={visibleDiaIndices}
           padStart={diasPadStart}

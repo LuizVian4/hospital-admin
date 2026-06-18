@@ -1,9 +1,9 @@
 import { memo, useCallback } from 'react';
 import type { GrupoEscala } from '@escala/shared';
-import { LARGURA_COLUNAS_FIXAS } from '@/constants/turnos';
+import { LARGURA_COLUNAS_FIXAS_DESKTOP } from '@/constants/turnos';
 import { cn } from '@/lib/utils';
 import { DiasVaziosVirtualizados } from './DiasVaziosVirtualizados';
-import { CelulaFixa, ColunasFixas, LinhaGrade, ViewportDias } from './GradeEscalaLayout';
+import { CelulaFixa, CelulaNomeScroll, ColunasFixas, LinhaGrade, ViewportDias } from './GradeEscalaLayout';
 import { GripVertical } from 'lucide-react';
 
 export interface LinhaGrupoEscalaProps {
@@ -62,7 +62,7 @@ function LinhaGrupoEscalaComponent({
       )}
     >
       <ColunasFixas className={isDragOver ? 'bg-primary/10' : 'bg-slate-100/90'}>
-        <CelulaFixa width={LARGURA_COLUNAS_FIXAS} className="py-2">
+        <CelulaFixa width={LARGURA_COLUNAS_FIXAS_DESKTOP} className="py-2">
           <div className="flex items-center gap-2">
             <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
             <div>
@@ -74,6 +74,15 @@ function LinhaGrupoEscalaComponent({
         </CelulaFixa>
       </ColunasFixas>
       <ViewportDias>
+        <CelulaNomeScroll className="py-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+            <div className="min-w-0">
+              <span className="text-xs font-semibold text-foreground block truncate">{grupo.label}</span>
+              <span className="text-[10px] text-muted-foreground block truncate">{grupo.descricao}</span>
+            </div>
+          </div>
+        </CelulaNomeScroll>
         <DiasVaziosVirtualizados
           visibleDiaIndices={visibleDiaIndices}
           padStart={diasPadStart}

@@ -5,7 +5,11 @@ import { GradeEscalaScrollProvider, useGradeEscalaScroll } from './GradeEscalaSc
 import { useGradeEscalaColumnWindow } from './useGradeEscalaColumnWindow';
 import { CabecalhoDiasGradeEscala, CabecalhoFixoGradeEscala } from './CabecalhoGradeEscala';
 import { GradeEscalaCorpoVirtual } from './GradeEscalaCorpoVirtual';
-import { RodapeScrollHorizontal, ScrollHorizontalDias } from './GradeEscalaLayout';
+import {
+  CabecalhoLeadingColunas,
+  RodapeScrollHorizontal,
+  ScrollHorizontalDias,
+} from './GradeEscalaLayout';
 import type { CelulaTroca } from './ConfirmarTrocaDialog';
 
 interface GradeEscalaTabelaVirtualProps {
@@ -67,10 +71,11 @@ function GradeEscalaTabelaInner({
   onSelecionarDestinoTroca,
   onSolicitarOcorrencia,
 }: GradeEscalaTabelaVirtualProps) {
-  const { horizontalScrollRef } = useGradeEscalaScroll();
+  const { horizontalScrollRef, larguraLeading, totalStripWidth } = useGradeEscalaScroll();
   const { visibleDiaIndices, diasPadStart, diasPadEnd } = useGradeEscalaColumnWindow(
     horizontalScrollRef,
-    dias.length
+    dias.length,
+    larguraLeading
   );
 
   return (
@@ -82,7 +87,9 @@ function GradeEscalaTabelaInner({
       <div className="flex shrink-0 z-20 border-b border-slate-200">
         <CabecalhoFixoGradeEscala />
         <ScrollHorizontalDias>
-          <CabecalhoDiasGradeEscala
+          <div className="flex shrink-0" style={{ width: totalStripWidth }}>
+            <CabecalhoLeadingColunas />
+            <CabecalhoDiasGradeEscala
             dias={dias}
             diasSemana={diasSemana}
             hoje={hoje}
@@ -92,6 +99,7 @@ function GradeEscalaTabelaInner({
             diasPadStart={diasPadStart}
             diasPadEnd={diasPadEnd}
           />
+          </div>
         </ScrollHorizontalDias>
       </div>
       <GradeEscalaCorpoVirtual

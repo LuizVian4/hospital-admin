@@ -1,8 +1,8 @@
 import { memo } from 'react';
-import { COLUNAS_FIXAS, LARGURA_COLUNAS_FIXAS } from '@/constants/turnos';
+import { LARGURA_COLUNAS_FIXAS_DESKTOP } from '@/constants/turnos';
 import { cn } from '@/lib/utils';
 import { DiasVaziosVirtualizados } from './DiasVaziosVirtualizados';
-import { CelulaFixa, ColunasFixas, LinhaGrade, ViewportDias } from './GradeEscalaLayout';
+import { CelulaFixa, CelulaNomeScroll, ColunasFixas, LinhaGrade, ViewportDias } from './GradeEscalaLayout';
 
 export interface LinhaSecaoEscalaProps {
   section: 'indisponivel' | 'semAtribuicao' | 'semPadrao';
@@ -59,7 +59,7 @@ function LinhaSecaoEscalaComponent({
     <LinhaGrade virtualTop={virtualTop} virtualHeight={virtualHeight} className={config.rowClass}>
       <ColunasFixas className={config.cellClass}>
         <CelulaFixa
-          width={LARGURA_COLUNAS_FIXAS}
+          width={LARGURA_COLUNAS_FIXAS_DESKTOP}
           className={cn(
             'py-1.5 text-[11px] font-semibold uppercase tracking-wide',
             config.cellClass,
@@ -70,6 +70,15 @@ function LinhaSecaoEscalaComponent({
         </CelulaFixa>
       </ColunasFixas>
       <ViewportDias>
+        <CelulaNomeScroll
+          className={cn(
+            'py-1.5 text-[10px] font-semibold uppercase tracking-wide',
+            config.cellClass,
+            config.textClass
+          )}
+        >
+          <span className="line-clamp-2">{config.label}</span>
+        </CelulaNomeScroll>
         <DiasVaziosVirtualizados
           visibleDiaIndices={visibleDiaIndices}
           padStart={diasPadStart}
