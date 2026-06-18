@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
@@ -11,6 +13,8 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
@@ -22,6 +26,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import MenuIcon from '@mui/icons-material/Menu';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import LogoutIcon from '@mui/icons-material/Logout';
+import CloseIcon from '@mui/icons-material/Close';
 import { LogoBrand } from '@/components/LogoBrand';
 import { EmpresaSwitcher } from '@/components/EmpresaSwitcher';
 import { useSetoresPorEscala } from '@/hooks/useFuncionarios';
@@ -29,6 +34,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const DRAWER_WIDTH = 256;
 const DRAWER_COLLAPSED_WIDTH = 72;
+const MOBILE_APP_BAR_HEIGHT = 56;
 
 const staticNav = [
   { to: '/dashboard', label: 'Dashboard', icon: DashboardIcon, isActive: (path: string) => path === '/dashboard' },
@@ -101,16 +107,23 @@ function NavButton({
   item,
   collapsed,
   selected = false,
+  onNavigate,
 }: {
   item: NavItem;
   collapsed: boolean;
   selected?: boolean;
+  onNavigate?: () => void;
 }) {
   const { to, onClick, label, icon: Icon } = item;
 
+  const handleClick = () => {
+    onClick?.();
+    onNavigate?.();
+  };
+
   const button = (
     <ListItemButton
-      {...(to ? { component: RouterLink, to } : { onClick })}
+      {...(to ? { component: RouterLink, to, onClick: onNavigate } : { onClick: handleClick })}
       selected={selected}
       sx={navButtonSx(collapsed)}
     >
@@ -160,11 +173,18 @@ const drawerPaperSx = (collapsed: boolean) => ({
 });
 
 export function Layout() {
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const location = useLocation();
   const { user, logout } = useAuth();
   const { data: setoresTecnicos = [] } = useSetoresPorEscala('tecnico');
   const { data: setoresEnfermeiros = [] } = useSetoresPorEscala('enfermeiro');
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   const perfilNav: NavItem = useMemo(
     () => ({
@@ -200,107 +220,186 @@ export function Layout() {
     ...staticNav.slice(1),
   ];
 
+  const closeMobile = () => setMobileOpen(false);
+  const drawerCollapsed = isDesktop ? collapsed : false;
+
   const drawer = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box
-        component={RouterLink}
-        to="/dashboard"
         sx={{
-          px: collapsed ? 1.5 : 3,
+          px: drawerCollapsed ? 1.5 : 3,
           py: 2.5,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'flex-start',
+          justifyContent: drawerCollapsed ? 'center' : 'space-between',
           gap: 1.5,
           minHeight: 72,
-          textDecoration: 'none',
-          color: 'inherit',
-          borderRadius: 1.5,
-          '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
         }}
       >
-        <LogoBrand
-          size={collapsed ? 44 : 56}
-          showText={!collapsed}
-          subtitle="Gestão de escalas"
-          textColor="text-white"
-          subtitleColor="text-white/55"
-        />
+        <Box
+          component={RouterLink}
+          to="/dashboard"
+          onClick={closeMobile}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: drawerCollapsed ? 'center' : 'flex-start',
+            gap: 1.5,
+            textDecoration: 'none',
+            color: 'inherit',
+            borderRadius: 1.5,
+            flex: 1,
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
+          }}
+        >
+          <LogoBrand
+            size={drawerCollapsed ? 44 : 56}
+            showText={!drawerCollapsed}
+            subtitle="Gestão de escalas"
+            textColor="text-white"
+            subtitleColor="text-white/55"
+          />
+        </Box>
+
+        {!isDesktop && (
+          <IconButton onClick={closeMobile} aria-label="Fechar menu" sx={{ color: 'rgba(255,255,255,0.75)' }}>
+            <CloseIcon />
+          </IconButton>
+        )}
       </Box>
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
 
-      <Box sx={{ px: collapsed ? 1 : 1.5, py: 2 }}>
-        <EmpresaSwitcher collapsed={collapsed} />
+      <Box sx={{ px: drawerCollapsed ? 1 : 1.5, py: 2 }}>
+        <EmpresaSwitcher collapsed={drawerCollapsed} />
         <ListItem disablePadding sx={{ mt: 1, display: 'block' }}>
           <NavButton
             item={gerenciarEmpresasNav}
-            collapsed={collapsed}
+            collapsed={drawerCollapsed}
             selected={gerenciarEmpresasNav.isActive?.(location.pathname) ?? false}
+            onNavigate={closeMobile}
           />
         </ListItem>
       </Box>
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
 
-      <List sx={{ flex: 1, px: collapsed ? 1 : 1.5, py: 2 }}>
+      <List sx={{ flex: 1, px: drawerCollapsed ? 1 : 1.5, py: 2, overflowY: 'auto' }}>
         {nav.map((item) => (
           <ListItem key={item.to} disablePadding sx={{ mb: 0.5, display: 'block' }}>
-            <NavButton item={item} collapsed={collapsed} selected={item.isActive?.(location.pathname) ?? false} />
+            <NavButton
+              item={item}
+              collapsed={drawerCollapsed}
+              selected={item.isActive?.(location.pathname) ?? false}
+              onNavigate={closeMobile}
+            />
           </ListItem>
         ))}
       </List>
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
 
-      <Box sx={{ px: collapsed ? 1 : 1.5, py: 1.5 }}>
+      <Box sx={{ px: drawerCollapsed ? 1 : 1.5, py: 1.5 }}>
         <ListItem disablePadding sx={{ mb: 0.5, display: 'block' }}>
           <NavButton
             item={perfilNav}
-            collapsed={collapsed}
+            collapsed={drawerCollapsed}
             selected={perfilNav.isActive?.(location.pathname) ?? false}
+            onNavigate={closeMobile}
           />
         </ListItem>
         <ListItem disablePadding sx={{ display: 'block' }}>
-          <NavButton item={{ ...logoutNav, onClick: logout }} collapsed={collapsed} />
+          <NavButton
+            item={{ ...logoutNav, onClick: logout }}
+            collapsed={drawerCollapsed}
+            onNavigate={closeMobile}
+          />
         </ListItem>
       </Box>
 
-      <Box sx={{ px: collapsed ? 1 : 1.5, py: 1 }}>
-        <IconButton
-          onClick={() => setCollapsed((prev) => !prev)}
-          size="small"
-          aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-          sx={{
-            width: '100%',
-            borderRadius: 1.5,
-            color: 'rgba(255,255,255,0.55)',
-            '&:hover': { color: 'common.white', bgcolor: 'rgba(255,255,255,0.08)' },
-          }}
-        >
-          {collapsed ? <MenuIcon /> : <MenuOpenIcon />}
-        </IconButton>
-      </Box>
+      {isDesktop && (
+        <Box sx={{ px: drawerCollapsed ? 1 : 1.5, py: 1 }}>
+          <IconButton
+            onClick={() => setCollapsed((prev) => !prev)}
+            size="small"
+            aria-label={drawerCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            sx={{
+              width: '100%',
+              borderRadius: 1.5,
+              color: 'rgba(255,255,255,0.55)',
+              '&:hover': { color: 'common.white', bgcolor: 'rgba(255,255,255,0.08)' },
+            }}
+          >
+            {drawerCollapsed ? <MenuIcon /> : <MenuOpenIcon />}
+          </IconButton>
+        </Box>
+      )}
     </Box>
   );
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: collapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH,
-          flexShrink: 0,
-          transition: (theme) =>
-            theme.transitions.create('width', {
-              easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
-              duration: 225,
-            }),
-          '& .MuiDrawer-paper': drawerPaperSx(collapsed),
-        }}
-      >
-        {drawer}
-      </Drawer>
+      {!isDesktop && (
+        <AppBar
+          position="fixed"
+          elevation={0}
+          sx={{
+            bgcolor: 'primary.main',
+            borderBottom: '1px solid rgba(255,255,255,0.12)',
+          }}
+        >
+          <Toolbar sx={{ minHeight: MOBILE_APP_BAR_HEIGHT, px: 1.5 }}>
+            <IconButton
+              color="inherit"
+              edge="start"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Abrir menu"
+              sx={{ mr: 1 }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Box component={RouterLink} to="/dashboard" sx={{ display: 'flex', textDecoration: 'none', color: 'inherit' }}>
+              <LogoBrand size={36} showText={false} />
+            </Box>
+            <Typography variant="body2" noWrap sx={{ ml: 1.5, fontWeight: 600, color: 'common.white' }}>
+              Escala360
+            </Typography>
+          </Toolbar>
+        </AppBar>
+      )}
+
+      {isDesktop ? (
+        <Drawer
+          variant="permanent"
+          sx={{
+            width: drawerCollapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH,
+            flexShrink: 0,
+            transition: (t) =>
+              t.transitions.create('width', {
+                easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                duration: 225,
+              }),
+            '& .MuiDrawer-paper': drawerPaperSx(drawerCollapsed),
+          }}
+        >
+          {drawer}
+        </Drawer>
+      ) : (
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={closeMobile}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            '& .MuiDrawer-paper': {
+              ...drawerPaperSx(false),
+              width: DRAWER_WIDTH,
+            },
+          }}
+        >
+          {drawer}
+        </Drawer>
+      )}
 
       <Box
         component="main"
@@ -308,9 +407,16 @@ export function Layout() {
           flexGrow: 1,
           overflow: 'auto',
           bgcolor: 'background.default',
+          width: '100%',
+          minWidth: 0,
+          ...(isDesktop
+            ? {}
+            : {
+                pt: `${MOBILE_APP_BAR_HEIGHT}px`,
+              }),
         }}
       >
-        <Box sx={{ p: 4 }}>
+        <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
           <Outlet />
         </Box>
       </Box>

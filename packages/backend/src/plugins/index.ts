@@ -25,6 +25,11 @@ function isAllowedCorsOrigin(origin: string): boolean {
     return true;
   }
 
+  // Domínios customizados Escala360 (app, api, www)
+  if (/^https:\/\/([a-z0-9-]+\.)?escala360\.(app|com\.br)$/i.test(origin)) {
+    return true;
+  }
+
   return false;
 }
 

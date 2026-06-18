@@ -16,6 +16,7 @@ import type {
   BancoHorasComDetalhes,
   BancoHorasAgregado,
   AuthResponse,
+  RefreshTokenRequest,
   User,
   RegisterRequest,
   UpdateProfileRequest,
@@ -31,6 +32,12 @@ import type {
   UpdateVinculoUsuarioRequest,
   PapelEmpresa,
 } from '@escala/shared';
+import {
+  clearStoredTokens,
+  getAccessToken,
+  getRefreshToken,
+  storeTokens,
+} from '@/lib/authStorage';
 
 export interface Competencia {
   id: number;
@@ -120,23 +127,36 @@ function needsEmpresaHeader(path: string): boolean {
 function buildHeaders(path: string, options?: RequestInit): HeadersInit {
   const isFormData = options?.body instanceof FormData;
   const empresaId = needsEmpresaHeader(path) ? getEmpresaId?.() : null;
+  const accessToken = getAccessToken();
 
   return {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     ...(empresaId ? { 'X-Empresa-Id': empresaId } : {}),
     ...options?.headers,
   };
 }
 
+async function persistAuthResponse(data: AuthResponse): Promise<AuthResponse> {
+  storeTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
+  return data;
+}
+
 async function tryRefreshSession(): Promise<boolean> {
   if (!refreshPromise) {
+    const refreshToken = getRefreshToken();
     refreshPromise = fetch(`${API_URL}/api/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}',
+      body: JSON.stringify({ refreshToken: refreshToken ?? undefined } satisfies RefreshTokenRequest),
     })
-      .then((res) => res.ok)
+      .then(async (res) => {
+        if (!res.ok) return false;
+        const data = (await res.json()) as AuthResponse;
+        storeTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
+        return true;
+      })
       .finally(() => {
         refreshPromise = null;
       });
@@ -159,6 +179,7 @@ async function fetchApi(path: string, options?: RequestInit): Promise<Response> 
     if (refreshed) {
       return doFetch();
     }
+    clearStoredTokens();
     onUnauthorized?.();
   }
 
@@ -177,17 +198,21 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  login: (email: string, password: string) =>
-    request<AuthResponse>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    }),
+  login: async (email: string, password: string) =>
+    persistAuthResponse(
+      await request<AuthResponse>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
+    ),
 
-  register: (data: RegisterRequest) =>
-    request<AuthResponse>('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  register: async (data: RegisterRequest) =>
+    persistAuthResponse(
+      await request<AuthResponse>('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+    ),
 
   getMe: () => request<User>('/api/auth/me'),
 
@@ -239,7 +264,17 @@ export const api = {
       method: 'DELETE',
     }),
 
-  logout: () => request<{ success: boolean }>('/api/auth/logout', { method: 'POST' }),
+  logout: async () => {
+    const refreshToken = getRefreshToken();
+    try {
+      return await request<{ success: boolean }>('/api/auth/logout', {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken: refreshToken ?? undefined } satisfies RefreshTokenRequest),
+      });
+    } finally {
+      clearStoredTokens();
+    }
+  },
 
   changePassword: (data: ChangePasswordRequest) =>
     request<{ success: boolean }>('/api/auth/senha', {

@@ -41,6 +41,21 @@ const deleteAccountSchema = z.object({
   senha: z.string().min(1),
 });
 
+const refreshSchema = z.object({
+  refreshToken: z.string().min(1).optional(),
+});
+
+const logoutSchema = z.object({
+  refreshToken: z.string().min(1).optional(),
+});
+
+function resolveRefreshToken(
+  cookieToken: string | undefined,
+  bodyToken: string | undefined
+): string | undefined {
+  return cookieToken ?? bodyToken;
+}
+
 const AUTH_RATE_LIMIT_MESSAGE = 'Muitas tentativas. Tente novamente em 15 minutos.';
 
 const authRateLimit =
@@ -78,10 +93,11 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         return reply.code(401).send({ error: 'E-mail ou senha inválidos' });
       }
 
-      await issueSession(app, reply, user);
+      const tokens = await issueSession(app, reply, user);
 
       const response: AuthResponse = {
         user: toPublicUser(user),
+        ...tokens,
       };
 
       return response;
@@ -111,38 +127,42 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         })
         .returning();
 
-      await issueSession(app, reply, created);
+      const tokens = await issueSession(app, reply, created);
 
       const response: AuthResponse = {
         user: toPublicUser(created),
+        ...tokens,
       };
 
       return response;
     }
   );
 
-  app.post('/api/auth/refresh', async (request, reply) => {
-    const refreshToken = request.cookies[REFRESH_COOKIE];
+  app.post<{ Body: z.infer<typeof refreshSchema> }>('/api/auth/refresh', async (request, reply) => {
+    const body = refreshSchema.parse(request.body ?? {});
+    const refreshToken = resolveRefreshToken(request.cookies[REFRESH_COOKIE], body.refreshToken);
     if (!refreshToken) {
       clearAuthCookies(reply);
       return reply.code(401).send({ error: 'Sessão expirada' });
     }
 
-    const user = await rotateRefreshSession(app, reply, refreshToken);
-    if (!user) {
+    const session = await rotateRefreshSession(app, reply, refreshToken);
+    if (!session) {
       clearAuthCookies(reply);
       return reply.code(401).send({ error: 'Sessão expirada' });
     }
 
     const response: AuthResponse = {
-      user: toPublicUser(user),
+      user: toPublicUser(session.user),
+      ...session.tokens,
     };
 
     return response;
   });
 
-  app.post('/api/auth/logout', async (request, reply) => {
-    await revokeRefreshToken(request.cookies[REFRESH_COOKIE]);
+  app.post<{ Body: z.infer<typeof logoutSchema> }>('/api/auth/logout', async (request, reply) => {
+    const body = logoutSchema.parse(request.body ?? {});
+    await revokeRefreshToken(resolveRefreshToken(request.cookies[REFRESH_COOKIE], body.refreshToken));
     clearAuthCookies(reply);
     return { success: true };
   });

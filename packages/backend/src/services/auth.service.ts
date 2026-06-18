@@ -77,11 +77,16 @@ export function toPublicUser(user: typeof users.$inferSelect): User {
   };
 }
 
+export interface SessionTokens {
+  accessToken: string;
+  refreshToken: string;
+}
+
 export async function issueSession(
   app: FastifyInstance,
   reply: FastifyReply,
   user: typeof users.$inferSelect
-) {
+): Promise<SessionTokens> {
   const accessToken = await reply.jwtSign(
     { sub: user.id, email: user.email } satisfies JwtPayload,
     { expiresIn: getAccessTokenTtl() }
@@ -109,6 +114,8 @@ export async function issueSession(
     ...cookieOptions,
     maxAge: refreshTtlSeconds,
   });
+
+  return { accessToken, refreshToken };
 }
 
 export function clearAuthCookies(reply: FastifyReply) {
@@ -130,7 +137,7 @@ export async function rotateRefreshSession(
   app: FastifyInstance,
   reply: FastifyReply,
   refreshToken: string
-) {
+): Promise<{ user: typeof users.$inferSelect; tokens: SessionTokens } | null> {
   const tokenHash = hashRefreshToken(refreshToken);
   const now = new Date();
 
@@ -160,6 +167,6 @@ export async function rotateRefreshSession(
     return null;
   }
 
-  await issueSession(app, reply, user);
-  return user;
+  const tokens = await issueSession(app, reply, user);
+  return { user, tokens };
 }

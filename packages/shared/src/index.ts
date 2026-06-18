@@ -82,6 +82,7 @@ export {
   type UpdateVinculoUsuarioRequest,
   type LoginRequest,
   type AuthResponse,
+  type RefreshTokenRequest,
   type RegisterRequest,
   type CreateUserRequest,
   type UpdateUserRequest,

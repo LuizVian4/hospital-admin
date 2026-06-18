@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { User } from '@escala/shared';
 import { api, setUnauthorizedHandler } from '@/api/client';
+import { clearStoredTokens } from '@/lib/authStorage';
 
 interface AuthContextValue {
   user: User | null;
@@ -24,12 +25,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Sessão já pode ter expirado; limpa o estado local mesmo assim.
     } finally {
+      clearStoredTokens();
       setUser(null);
     }
   }, []);
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
+      clearStoredTokens();
       setUser(null);
     });
   }, []);
