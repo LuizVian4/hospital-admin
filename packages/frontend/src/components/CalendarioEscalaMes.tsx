@@ -60,6 +60,12 @@ function getDiaInfo(funcionario: FuncionarioComTurnos, dia: number): DiaEscalaIn
   return { turno, status, isProjetado, label };
 }
 
+const gridSx = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+  gap: 0.5,
+} as const;
+
 export function CalendarioEscalaMes({
   mes,
   ano,
@@ -68,22 +74,13 @@ export function CalendarioEscalaMes({
   compact = false,
 }: CalendarioEscalaMesProps) {
   const weeks = buildWeeks(mes, ano);
-  const cellSize = compact ? 84 : 64;
-  const gap = compact ? 0.25 : 0.5;
-  const headerFont = compact ? '0.8rem' : '1rem';
-  const dayFont = compact ? '0.9rem' : '2rem';
-  const turnoFont = compact ? '0.7rem' : '1rem';
+  const headerFont = compact ? '0.7rem' : '0.75rem';
+  const dayFont = compact ? '0.75rem' : '0.875rem';
+  const turnoFont = compact ? '0.625rem' : '0.75rem';
 
   return (
-    <Box sx={{ width: 'fit-content', maxWidth: '100%', mx: compact ? 'auto' : undefined }}>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(7, ${cellSize}px)`,
-          gap,
-          mb: gap,
-        }}
-      >
+    <Box sx={{ width: '100%', maxWidth: compact ? 420 : 480, mx: 'auto' }}>
+      <Box sx={{ ...gridSx, mb: 0.5 }}>
         {DIAS_SEMANA_HEADER.map((label) => (
           <Typography
             key={label}
@@ -93,8 +90,7 @@ export function CalendarioEscalaMes({
               fontWeight: 600,
               color: 'text.secondary',
               fontSize: headerFont,
-              py: compact ? 0 : 0.25,
-              width: cellSize,
+              py: 0.25,
             }}
           >
             {label}
@@ -102,24 +98,16 @@ export function CalendarioEscalaMes({
         ))}
       </Box>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         {weeks.map((week, weekIdx) => (
-          <Box
-            key={weekIdx}
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(7, ${cellSize}px)`,
-              gap,
-            }}
-          >
+          <Box key={weekIdx} sx={gridSx}>
             {week.map((dia, cellIdx) => {
               if (dia == null) {
                 return (
                   <Box
                     key={`empty-${weekIdx}-${cellIdx}`}
                     sx={{
-                      width: cellSize,
-                      height: cellSize,
+                      aspectRatio: '1',
                       borderRadius: compact ? 0.75 : 1,
                       bgcolor: 'grey.50',
                     }}
@@ -144,8 +132,7 @@ export function CalendarioEscalaMes({
                   )}
                   title={info.status ?? info.turno ?? undefined}
                   sx={{
-                    width: cellSize,
-                    height: cellSize,
+                    aspectRatio: '1',
                     minWidth: 0,
                     border: isHoje ? (compact ? 1.5 : 2) : 1,
                     borderColor: isHoje ? 'primary.main' : 'divider',
@@ -171,7 +158,7 @@ export function CalendarioEscalaMes({
                       fontSize: turnoFont,
                       fontWeight: 700,
                       lineHeight: 1,
-                      mt: compact ? 0.125 : 0.25,
+                      mt: 0.125,
                       textAlign: 'center',
                       px: 0.125,
                       overflow: 'hidden',

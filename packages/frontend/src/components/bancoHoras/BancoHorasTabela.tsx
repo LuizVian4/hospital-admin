@@ -212,12 +212,14 @@ export function TabelaBancoHorasCompetencia({ dados }: TabelaBancoHorasCompetenc
           Nenhum resultado para os filtros selecionados.
         </Typography>
       ) : (
-        <TableContainer sx={{ maxHeight: 560, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+        <TableContainer sx={{ maxHeight: 560, border: 1, borderColor: 'divider', borderRadius: 1, overflowX: 'auto' }}>
           <Table size="small" stickyHeader aria-label="Banco de horas por competência">
             <TableHead>
               <TableRow>
                 <TableCell sx={headCellSx}>Funcionário</TableCell>
-                <TableCell sx={headCellSx}>Competência</TableCell>
+                <TableCell sx={{ ...headCellSx, display: { xs: 'none', sm: 'table-cell' } }}>
+                  Competência
+                </TableCell>
                 <TableCell sx={{ ...headCellSx, minWidth: 140 }}>Realização</TableCell>
                 <TableCell sx={{ ...headCellSx, width: 88 }} align="center">
                   Saldo
@@ -238,7 +240,7 @@ export function TabelaBancoHorasCompetencia({ dados }: TabelaBancoHorasCompetenc
                       setor={row.setorNome}
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <Stack spacing={0.5}>
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>
                         {MESES_CURTOS[row.competenciaMes - 1]}/{row.competenciaAno}
@@ -301,7 +303,7 @@ export function TabelaBancoHorasGeral({ dados }: TabelaBancoHorasGeralProps) {
           Nenhum resultado para os filtros selecionados.
         </Typography>
       ) : (
-        <TableContainer sx={{ maxHeight: 560, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+        <TableContainer sx={{ maxHeight: 560, border: 1, borderColor: 'divider', borderRadius: 1, overflowX: 'auto' }}>
           <Table size="small" stickyHeader aria-label="Banco de horas acumulado">
             <TableHead>
               <TableRow>

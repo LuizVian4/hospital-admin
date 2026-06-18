@@ -165,7 +165,7 @@ export function EmpresaSwitcher({ collapsed }: EmpresaSwitcherProps) {
           paper: {
             sx: {
               minWidth: 280,
-              maxWidth: 320,
+              maxWidth: 'min(320px, calc(100vw - 2rem))',
               mt: -1,
             },
           },

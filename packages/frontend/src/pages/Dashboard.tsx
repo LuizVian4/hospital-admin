@@ -309,13 +309,13 @@ export function Dashboard() {
               Funcionários com padrão de escala que ainda não têm início configurado em{' '}
               {periodoLabel}.
             </Typography>
-            <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 360 }}>
+            <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 360, overflowX: 'auto' }}>
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Matrícula</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Matrícula</TableCell>
                     <TableCell>Nome</TableCell>
-                    <TableCell>Categoria</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Categoria</TableCell>
                     <TableCell>Setor</TableCell>
                   </TableRow>
                 </TableHead>
@@ -327,9 +327,9 @@ export function Dashboard() {
                       : 'escala';
                     return (
                       <TableRow key={f.id} hover>
-                        <TableCell>{f.matricula}</TableCell>
+                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{f.matricula}</TableCell>
                         <TableCell>{f.nome}</TableCell>
-                        <TableCell>{f.categoria}</TableCell>
+                        <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{f.categoria}</TableCell>
                         <TableCell>
                           {setor ? (
                             <Link

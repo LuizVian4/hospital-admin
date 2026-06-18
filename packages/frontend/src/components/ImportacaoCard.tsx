@@ -204,7 +204,7 @@ export function ImportacaoCard({ tipo }: ImportacaoCardProps) {
               Preview da importação
             </div>
 
-            <div className={`grid gap-3 ${tipo === 'escala' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div className={`grid gap-3 ${tipo === 'escala' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
               <div className="border rounded-lg p-3 text-center bg-white">
                 <div className="text-xl font-bold">{preview.setores.length}</div>
                 <div className="text-xs text-muted-foreground">Setores</div>
@@ -221,8 +221,8 @@ export function ImportacaoCard({ tipo }: ImportacaoCardProps) {
               )}
             </div>
 
-            <div className="border rounded-lg overflow-hidden bg-white">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-lg border bg-white">
+              <table className="w-full min-w-[320px] text-sm">
                 <thead className="bg-slate-100">
                   <tr>
                     <th className="text-left p-2">Setor</th>

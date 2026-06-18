@@ -96,7 +96,10 @@ export function BancoHorasPage() {
             <Tabs
               value={modo}
               onChange={(_, value: ModoVisualizacao) => setModo(value)}
-              sx={{ flex: 1 }}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
+              sx={{ flex: 1, minWidth: 0 }}
             >
               <Tab value="competencia" label="Por competência" />
               <Tab value="geral" label="Geral" />

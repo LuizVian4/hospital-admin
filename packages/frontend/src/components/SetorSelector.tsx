@@ -30,7 +30,7 @@ export function SetorSelector({
         : todos;
 
   return (
-    <FormControl size={size} sx={{ minWidth: 200 }}>
+    <FormControl size={size} sx={{ minWidth: { xs: '100%', sm: 200 }, width: { xs: '100%', sm: 'auto' } }}>
       <InputLabel id="setor-select-label">Setor</InputLabel>
       <Select
         labelId="setor-select-label"

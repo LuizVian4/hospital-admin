@@ -354,13 +354,15 @@ export function PerfilPage() {
             <p className="mt-3 text-sm text-red-600">As senhas não coincidem</p>
           )}
 
-          <div className="mt-5 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light">
-              <Shield className="h-5 w-5 text-brand-dark/60" />
+          <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-light">
+                <Shield className="h-5 w-5 text-brand-dark/60" />
+              </div>
+              <p className="text-sm text-brand-dark/55">
+                Após alterar a senha, sua sessão será renovada automaticamente.
+              </p>
             </div>
-            <p className="flex-1 text-sm text-brand-dark/55">
-              Após alterar a senha, sua sessão será renovada automaticamente.
-            </p>
             <button
               type="button"
               onClick={handleChangePassword}
@@ -371,7 +373,7 @@ export function PerfilPage() {
                 passwordMismatch ||
                 changePassword.isPending
               }
-              className="shrink-0 rounded-xl bg-brand-dark px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-dark/90 disabled:opacity-50"
+              className="w-full shrink-0 rounded-xl bg-brand-dark px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-dark/90 disabled:opacity-50 sm:w-auto"
             >
               Atualizar senha
             </button>

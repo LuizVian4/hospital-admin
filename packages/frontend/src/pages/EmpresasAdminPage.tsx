@@ -602,7 +602,7 @@ export function EmpresasAdminPage() {
           />
           <Divider />
           <CardContent sx={{ p: 0 }}>
-            <TableContainer component={Paper} elevation={0}>
+            <TableContainer component={Paper} elevation={0} sx={{ overflowX: 'auto' }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>

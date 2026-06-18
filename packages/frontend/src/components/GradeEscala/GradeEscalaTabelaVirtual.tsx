@@ -80,7 +80,7 @@ function GradeEscalaTabelaInner({
 
   return (
     <div
-      className="flex flex-col max-h-[calc(100vh-320px)] text-sm border border-slate-200 rounded-sm overflow-hidden"
+      className="flex flex-col max-h-[calc(100vh-200px)] md:max-h-[calc(100vh-320px)] text-sm border border-slate-200 rounded-sm overflow-hidden"
       role="grid"
       aria-label="Grade de escala"
     >

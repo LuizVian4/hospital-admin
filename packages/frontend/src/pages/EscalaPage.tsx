@@ -23,6 +23,8 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContentText from '@mui/material/DialogContentText';
 import FastForwardIcon from '@mui/icons-material/FastForward';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import { api } from '@/api/client';
 import { useEscala, useUpdateObservacoes, useSimularProximoMes } from '@/hooks/useEscala';
 import { competenciaQueryKey, useCompetenciasNavegacao } from '@/hooks/useCompetencia';
@@ -65,6 +67,8 @@ interface EscalaPageProps {
 }
 
 export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const config = ESCALA_CONFIG[tipoEscala];
   const { setorId, mes, ano } = useParams<{ setorId: string; mes: string; ano: string }>();
   const navigate = useNavigate();
@@ -206,7 +210,11 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
             tipoEscala={tipoEscala}
           />
 
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', md: 'auto' } }}
+          >
             <Paper variant="outlined" sx={{ display: 'flex', alignItems: 'center' }}>
               {temCompetenciaAnterior && (
                 <Tooltip title="Mês anterior">
@@ -217,7 +225,13 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
               )}
               <Typography
                 variant="body2"
-                sx={{ fontWeight: 600, minWidth: 140, textAlign: 'center', px: 1, fontVariantNumeric: 'tabular-nums' }}
+                sx={{
+                  fontWeight: 600,
+                  minWidth: { xs: 'auto', sm: 140 },
+                  textAlign: 'center',
+                  px: 1,
+                  fontVariantNumeric: 'tabular-nums',
+                }}
               >
                 {periodoLabel}
               </Typography>
@@ -238,7 +252,13 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
                 onClick={() => setConfirmSimular(true)}
                 disabled={isLoading || simularProximoMes.isPending}
               >
-                {simularProximoMes.isPending ? 'Simulando...' : 'Simular próximo mês'}
+                {isMobile
+                  ? simularProximoMes.isPending
+                    ? '...'
+                    : 'Simular'
+                  : simularProximoMes.isPending
+                    ? 'Simulando...'
+                    : 'Simular próximo mês'}
               </Button>
             )}
 
@@ -249,7 +269,7 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
               onClick={handleExportExcel}
               disabled={!competenciaId || exportando || exportandoMesCompleto || isLoading}
             >
-              {exportando ? 'Exportando...' : 'Exportar Setor'}
+              {exportando ? 'Exportando...' : isMobile ? 'Setor' : 'Exportar Setor'}
             </Button>
 
             <Button
@@ -259,7 +279,7 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
               onClick={handleExportMesCompleto}
               disabled={exportando || exportandoMesCompleto || isLoading}
             >
-              {exportandoMesCompleto ? 'Exportando...' : 'Exportar mês completo'}
+              {exportandoMesCompleto ? 'Exportando...' : isMobile ? 'Mês' : 'Exportar mês completo'}
             </Button>
           </Stack>
         </Stack>

@@ -85,18 +85,18 @@ export function ResumoCargaHorariaEscala({ escala }: ResumoCargaHorariaEscalaPro
             Nenhum funcionário devendo ou excedendo a carga horária.
           </Typography>
         ) : (
-          <TableContainer>
+          <TableContainer sx={{ overflowX: 'auto' }}>
             <Table size="small" aria-label="Resumo de carga horária">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600, minWidth: 180 }}>Funcionário</TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 80 }} align="center">
+                  <TableCell sx={{ fontWeight: 600, minWidth: 140 }}>Funcionário</TableCell>
+                  <TableCell sx={{ fontWeight: 600, width: 80, display: { xs: 'none', sm: 'table-cell' } }} align="center">
                     Carga
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 90 }} align="center">
+                  <TableCell sx={{ fontWeight: 600, width: 90, display: { xs: 'none', md: 'table-cell' } }} align="center">
                     Turnos
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 100 }} align="center">
+                  <TableCell sx={{ fontWeight: 600, width: 100, display: { xs: 'none', md: 'table-cell' } }} align="center">
                     Horas
                   </TableCell>
                   <TableCell sx={{ fontWeight: 600, width: 90 }} align="center">
@@ -118,11 +118,13 @@ export function ResumoCargaHorariaEscala({ escala }: ResumoCargaHorariaEscalaPro
                         {item.matricula}
                       </Typography>
                     </TableCell>
-                    <TableCell align="center">{item.cargaContratada}</TableCell>
-                    <TableCell align="center" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                      {item.cargaContratada}
+                    </TableCell>
+                    <TableCell align="center" sx={{ fontVariantNumeric: 'tabular-nums', display: { xs: 'none', md: 'table-cell' } }}>
                       {formatTurnos(item.turnosTrabalhados)}
                     </TableCell>
-                    <TableCell align="center" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    <TableCell align="center" sx={{ fontVariantNumeric: 'tabular-nums', display: { xs: 'none', md: 'table-cell' } }}>
                       {item.horasTrabalhadas}h
                     </TableCell>
                     <TableCell

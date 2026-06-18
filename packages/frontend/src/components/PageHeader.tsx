@@ -35,7 +35,11 @@ export function PageHeader({
         boxShadow: 2,
       }}
     >
-      <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        sx={{ alignItems: { sm: 'flex-start' } }}
+      >
         <Box
           sx={{
             width: 48,
@@ -72,7 +76,12 @@ export function PageHeader({
           <Typography
             variant="h4"
             component="h1"
-            sx={{ fontWeight: 700, lineHeight: 1.2, mt: 1.5 }}
+            sx={{
+              fontWeight: 700,
+              lineHeight: 1.2,
+              mt: 1.5,
+              fontSize: { xs: '1.35rem', sm: '1.75rem', md: '2.125rem' },
+            }}
           >
             {heading}
           </Typography>
@@ -115,7 +124,11 @@ export function PageHeader({
           )}
         </Box>
 
-        {actions && <Box sx={{ flexShrink: 0, pt: 0.5 }}>{actions}</Box>}
+        {actions && (
+          <Box sx={{ flexShrink: 0, pt: { xs: 0, sm: 0.5 }, width: { xs: '100%', sm: 'auto' } }}>
+            {actions}
+          </Box>
+        )}
       </Stack>
     </Box>
   );

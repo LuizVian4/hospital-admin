@@ -58,14 +58,16 @@ export function HistoricoMovimentacoesEscala({ escala }: HistoricoMovimentacoesE
             Nenhuma movimentação registrada nesta competência.
           </Typography>
         ) : (
-          <TableContainer>
+          <TableContainer sx={{ overflowX: 'auto' }}>
             <Table size="small" aria-label="Histórico de movimentações da escala">
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 600, width: 56 }}>Dia</TableCell>
                   <TableCell sx={{ fontWeight: 600, width: 130 }}>Tipo</TableCell>
-                  <TableCell sx={{ fontWeight: 600, minWidth: 160 }}>Funcionário</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Detalhes</TableCell>
+                  <TableCell sx={{ fontWeight: 600, minWidth: 120 }}>Funcionário</TableCell>
+                  <TableCell sx={{ fontWeight: 600, display: { xs: 'none', sm: 'table-cell' } }}>
+                    Detalhes
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -77,8 +79,19 @@ export function HistoricoMovimentacoesEscala({ escala }: HistoricoMovimentacoesE
                     <TableCell>
                       <Chip size="small" {...chipProps(item.tipo)} />
                     </TableCell>
-                    <TableCell>{item.funcionarioNome}</TableCell>
                     <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {item.funcionarioNome}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: { xs: 'block', sm: 'none' } }}
+                      >
+                        {item.descricao}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                       <Typography variant="body2" color="text.secondary">
                         {item.descricao}
                       </Typography>
