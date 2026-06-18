@@ -335,6 +335,23 @@ export async function assertSetorEmpresa(setorId: number, empresaId: string) {
   return setor;
 }
 
+export async function assertSetorNomeDisponivel(
+  empresaId: string,
+  nome: string,
+  excludeSetorId?: number
+) {
+  const duplicate = await db.query.setores.findFirst({
+    where: (s, { and, eq, ne }) =>
+      excludeSetorId != null
+        ? and(eq(s.empresaId, empresaId), eq(s.nome, nome), ne(s.id, excludeSetorId))
+        : and(eq(s.empresaId, empresaId), eq(s.nome, nome)),
+  });
+
+  if (duplicate) {
+    throw new Error('SETOR_NOME_DUPLICADO');
+  }
+}
+
 export async function assertCompetenciaEmpresa(competenciaId: number, empresaId: string) {
   const competencia = await db.query.competencias.findFirst({
     where: and(eq(competencias.id, competenciaId), eq(competencias.empresaId, empresaId)),
@@ -353,4 +370,21 @@ export async function assertFuncionarioEmpresa(funcionarioId: number, empresaId:
     throw new Error('Funcionário não encontrado');
   }
   return funcionario;
+}
+
+export async function assertFuncionarioMatriculaDisponivel(
+  empresaId: string,
+  matricula: string,
+  excludeFuncionarioId?: number
+) {
+  const duplicate = await db.query.funcionarios.findFirst({
+    where: (f, { and, eq, ne }) =>
+      excludeFuncionarioId != null
+        ? and(eq(f.empresaId, empresaId), eq(f.matricula, matricula), ne(f.id, excludeFuncionarioId))
+        : and(eq(f.empresaId, empresaId), eq(f.matricula, matricula)),
+  });
+
+  if (duplicate) {
+    throw new Error('FUNCIONARIO_MATRICULA_DUPLICADA');
+  }
 }

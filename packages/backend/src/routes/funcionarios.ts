@@ -10,12 +10,12 @@ import {
 } from '../utils/funcionarioAgrupamento';
 import { listStatusPorFuncionario } from '../services/statusEspecial.service';
 import { requireEmpresaId } from '../plugins/empresa';
-import { assertFuncionarioEmpresa } from '../services/empresa.service';
+import { assertFuncionarioEmpresa, assertFuncionarioMatriculaDisponivel } from '../services/empresa.service';
 import type { FuncionarioAgrupamentoResumo, FuncionariosResumo } from '@escala/shared';
 
 const funcionarioSchema = z.object({
-  matricula: z.string().min(1),
-  nome: z.string().min(1),
+  matricula: z.string().trim().min(1),
+  nome: z.string().trim().min(1),
   coren: z.string().optional(),
   categoria: z.string().default('TÉC. DE ENFERMAGEM'),
   tipoContrato: z.string().default('EFETIVO'),
@@ -263,6 +263,16 @@ export const funcionariosRoutes: FastifyPluginAsync = async (app) => {
   app.post('/api/funcionarios', async (request, reply) => {
     const empresaId = requireEmpresaId(request);
     const body = funcionarioSchema.parse(request.body);
+
+    try {
+      await assertFuncionarioMatriculaDisponivel(empresaId, body.matricula);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'FUNCIONARIO_MATRICULA_DUPLICADA') {
+        return reply.status(409).send({ error: 'Já existe um funcionário com esta matrícula nesta empresa' });
+      }
+      throw error;
+    }
+
     try {
       const [created] = await db
         .insert(funcionarios)
@@ -281,7 +291,7 @@ export const funcionariosRoutes: FastifyPluginAsync = async (app) => {
         .returning();
       return reply.status(201).send(mapFuncionario(created));
     } catch {
-      return reply.status(409).send({ error: 'Matrícula já cadastrada' });
+      return reply.status(409).send({ error: 'Já existe um funcionário com esta matrícula nesta empresa' });
     }
   });
 
@@ -290,14 +300,35 @@ export const funcionariosRoutes: FastifyPluginAsync = async (app) => {
     const id = parseInt(request.params.id, 10);
     const body = funcionarioSchema.partial().parse(request.body);
 
-    const [updated] = await db
-      .update(funcionarios)
-      .set({ ...body, updatedAt: new Date() })
-      .where(and(eq(funcionarios.id, id), eq(funcionarios.empresaId, empresaId)))
-      .returning();
+    try {
+      await assertFuncionarioEmpresa(id, empresaId);
+    } catch {
+      return reply.status(404).send({ error: 'Funcionário não encontrado' });
+    }
 
-    if (!updated) return reply.status(404).send({ error: 'Funcionário não encontrado' });
-    return mapFuncionario(updated);
+    if (body.matricula) {
+      try {
+        await assertFuncionarioMatriculaDisponivel(empresaId, body.matricula, id);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'FUNCIONARIO_MATRICULA_DUPLICADA') {
+          return reply.status(409).send({ error: 'Já existe um funcionário com esta matrícula nesta empresa' });
+        }
+        throw error;
+      }
+    }
+
+    try {
+      const [updated] = await db
+        .update(funcionarios)
+        .set({ ...body, updatedAt: new Date() })
+        .where(and(eq(funcionarios.id, id), eq(funcionarios.empresaId, empresaId)))
+        .returning();
+
+      if (!updated) return reply.status(404).send({ error: 'Funcionário não encontrado' });
+      return mapFuncionario(updated);
+    } catch {
+      return reply.status(409).send({ error: 'Já existe um funcionário com esta matrícula nesta empresa' });
+    }
   });
 
   app.delete<{ Params: { id: string } }>('/api/funcionarios/:id', async (request, reply) => {

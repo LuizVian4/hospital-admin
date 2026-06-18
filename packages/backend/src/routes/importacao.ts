@@ -24,7 +24,8 @@ export const importacaoRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(400).send({ error: 'Tipo inválido. Use equipe ou escala.' });
     }
 
-    const buffer = tipo === 'equipe' ? buildEquipeTemplateBuffer() : buildEscalaTemplateBuffer();
+    const buffer =
+      tipo === 'equipe' ? await buildEquipeTemplateBuffer() : await buildEscalaTemplateBuffer();
     const filename = tipo === 'equipe' ? 'template_equipe.xlsx' : 'template_escala.xlsx';
 
     return reply

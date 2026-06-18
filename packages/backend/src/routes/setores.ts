@@ -9,12 +9,12 @@ import {
   listSetoresComTecnicosEnfermagem,
 } from '../services/escala.service';
 import { getDashboardData } from '../services/dashboard.service';
-import { assertSetorEmpresa } from '../services/empresa.service';
+import { assertSetorEmpresa, assertSetorNomeDisponivel } from '../services/empresa.service';
 import { requireEmpresaId } from '../plugins/empresa';
 import type { TipoEscala } from '@escala/shared';
 
 const setorSchema = z.object({
-  nome: z.string().min(1),
+  nome: z.string().trim().min(1),
   empresa: z.string().optional(),
   gerente: z.string().optional(),
 });
@@ -49,11 +49,21 @@ export const setoresRoutes: FastifyPluginAsync = async (app) => {
   app.post('/api/setores', async (request, reply) => {
     const empresaId = requireEmpresaId(request);
     const body = setorSchema.parse(request.body);
+
+    try {
+      await assertSetorNomeDisponivel(empresaId, body.nome);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'SETOR_NOME_DUPLICADO') {
+        return reply.status(409).send({ error: 'Já existe um setor com este nome nesta empresa' });
+      }
+      throw error;
+    }
+
     try {
       const [created] = await db.insert(setores).values({ ...body, empresaId }).returning();
       return reply.status(201).send(created);
     } catch {
-      return reply.status(409).send({ error: 'Setor já existe' });
+      return reply.status(409).send({ error: 'Já existe um setor com este nome nesta empresa' });
     }
   });
 
@@ -61,6 +71,21 @@ export const setoresRoutes: FastifyPluginAsync = async (app) => {
     const empresaId = requireEmpresaId(request);
     const id = parseInt(request.params.id, 10);
     const body = setorSchema.parse(request.body);
+
+    try {
+      await assertSetorEmpresa(id, empresaId);
+    } catch {
+      return reply.status(404).send({ error: 'Setor não encontrado' });
+    }
+
+    try {
+      await assertSetorNomeDisponivel(empresaId, body.nome, id);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'SETOR_NOME_DUPLICADO') {
+        return reply.status(409).send({ error: 'Já existe um setor com este nome nesta empresa' });
+      }
+      throw error;
+    }
 
     try {
       const [updated] = await db
@@ -72,7 +97,7 @@ export const setoresRoutes: FastifyPluginAsync = async (app) => {
       if (!updated) return reply.status(404).send({ error: 'Setor não encontrado' });
       return updated;
     } catch {
-      return reply.status(409).send({ error: 'Já existe um setor com este nome' });
+      return reply.status(409).send({ error: 'Já existe um setor com este nome nesta empresa' });
     }
   });
 
