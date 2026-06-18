@@ -21,10 +21,7 @@ export function LandingMidCta() {
           assistencial em uma única plataforma.
         </p>
         <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <ShimmerButton
-            className="bg-brand-mint text-brand-dark shadow-brand-mint/20"
-            onClick={() => scrollToSection('contato')}
-          >
+          <ShimmerButton variant="mint" onClick={() => scrollToSection('contato')}>
             Agendar demonstração
             <ArrowRight className="h-4 w-4" />
           </ShimmerButton>

@@ -61,13 +61,13 @@ npm install
 cp .env.example .env
 
 # 3. Subir todos os serviços (banco, migrations e apps)
-docker-compose up --build
+npm start
 ```
 
 O backend executa migrations automaticamente na subida. Para popular dados de exemplo:
 
 ```bash
-docker-compose exec backend npm run db:seed -w @escala/backend
+npm run seed
 ```
 
 ### URLs
@@ -84,7 +84,7 @@ docker-compose exec backend npm run db:seed -w @escala/backend
 
 ```bash
 # Terminal 1 — banco
-docker-compose up -d db
+npm run start:db
 
 # Terminal 2 — backend
 npm run db:migrate
@@ -295,7 +295,11 @@ Documentação interativa em http://localhost:3001/docs
 ## Scripts úteis
 
 ```bash
-npm run dev              # backend + frontend em paralelo
+npm start                # sobe tudo via Docker (banco + API + frontend)
+npm run start:db         # sobe apenas o PostgreSQL (dev local)
+npm run stop             # para os containers Docker
+npm run seed             # popula o banco via Docker (após npm start)
+npm run dev              # backend + frontend em paralelo (sem Docker)
 npm run dev:backend      # apenas API
 npm run dev:frontend     # apenas frontend
 npm run build            # build de shared, backend e frontend

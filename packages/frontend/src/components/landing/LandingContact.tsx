@@ -9,6 +9,44 @@ const CONTACT_POINTS = [
   { icon: Mail, text: 'contato@escala360.com.br' },
 ];
 
+function focusContactForm() {
+  const form = document.querySelector<HTMLFormElement>('#contato form');
+  form?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  form?.querySelector<HTMLInputElement>('input[name="nome"]')?.focus();
+}
+
+function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  e.preventDefault();
+
+  const data = new FormData(e.currentTarget);
+  const nome = String(data.get('nome') ?? '');
+  const hospital = String(data.get('hospital') ?? '');
+  const cargo = String(data.get('cargo') ?? '');
+  const email = String(data.get('email') ?? '');
+  const telefone = String(data.get('telefone') ?? '');
+  const profissionais = String(data.get('profissionais') ?? '');
+  const mensagem = String(data.get('mensagem') ?? '');
+
+  const body = [
+    `Nome: ${nome}`,
+    `Hospital: ${hospital}`,
+    `Cargo: ${cargo}`,
+    `E-mail: ${email}`,
+    telefone ? `Telefone: ${telefone}` : null,
+    profissionais ? `Profissionais gerenciados: ${profissionais}` : null,
+    mensagem ? `\nMensagem:\n${mensagem}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const params = new URLSearchParams({
+    subject: 'Demonstração Escala360',
+    body,
+  });
+
+  window.location.href = `mailto:contato@escala360.com.br?${params.toString()}`;
+}
+
 export function LandingContact() {
   return (
     <SectionContainer id="contato" className="relative overflow-hidden bg-brand-dark" dark>
@@ -35,17 +73,14 @@ export function LandingContact() {
             ))}
           </ul>
 
-          <ShimmerButton
-            className="bg-brand-mint text-brand-dark shadow-brand-mint/20 hover:bg-brand-mint/90"
-            onClick={() => window.open('mailto:contato@escala360.com.br?subject=Demonstração%20Escala360')}
-          >
+          <ShimmerButton variant="mint" onClick={focusContactForm}>
             Solicitar Demonstração
             <ArrowRight className="h-4 w-4" />
           </ShimmerButton>
         </div>
 
         <form
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={handleSubmit}
           className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm md:p-8"
         >
           <h3 className="mb-1 text-lg font-bold text-white">Fale conosco</h3>
@@ -56,15 +91,16 @@ export function LandingContact() {
 
           <div className="grid gap-3">
             {[
-              { label: 'Nome completo', type: 'text', placeholder: 'Seu nome' },
-              { label: 'Hospital / Instituição', type: 'text', placeholder: 'Nome do hospital' },
-              { label: 'Cargo', type: 'text', placeholder: 'Ex: Coordenador(a) de Enfermagem' },
-              { label: 'E-mail corporativo', type: 'email', placeholder: 'seu@hospital.com.br' },
-              { label: 'Telefone (opcional)', type: 'tel', placeholder: '(00) 00000-0000' },
-            ].map(({ label, type, placeholder }) => (
-              <div key={label}>
+              { name: 'nome', label: 'Nome completo', type: 'text', placeholder: 'Seu nome' },
+              { name: 'hospital', label: 'Hospital / Instituição', type: 'text', placeholder: 'Nome do hospital' },
+              { name: 'cargo', label: 'Cargo', type: 'text', placeholder: 'Ex: Coordenador(a) de Enfermagem' },
+              { name: 'email', label: 'E-mail corporativo', type: 'email', placeholder: 'seu@hospital.com.br' },
+              { name: 'telefone', label: 'Telefone (opcional)', type: 'tel', placeholder: '(00) 00000-0000' },
+            ].map(({ name, label, type, placeholder }) => (
+              <div key={name}>
                 <label className="mb-1 block text-xs font-medium text-white/70">{label}</label>
                 <input
+                  name={name}
                   type={type}
                   required={type !== 'tel'}
                   className="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-brand-mint/50 focus:ring-1 focus:ring-brand-mint/30"
@@ -76,27 +112,37 @@ export function LandingContact() {
               <label className="mb-1 block text-xs font-medium text-white/70">
                 Quantos profissionais você gerencia?
               </label>
-              <select className="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-brand-mint/50 focus:ring-1 focus:ring-brand-mint/30">
-                <option value="" className="text-brand-dark">Selecione</option>
-                <option value="1-50" className="text-brand-dark">Até 50</option>
-                <option value="51-150" className="text-brand-dark">51 a 150</option>
-                <option value="151-300" className="text-brand-dark">151 a 300</option>
-                <option value="300+" className="text-brand-dark">Mais de 300</option>
+              <select
+                name="profissionais"
+                className="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-brand-mint/50 focus:ring-1 focus:ring-brand-mint/30"
+              >
+                <option value="" className="text-brand-dark">
+                  Selecione
+                </option>
+                <option value="Até 50" className="text-brand-dark">
+                  Até 50
+                </option>
+                <option value="51 a 150" className="text-brand-dark">
+                  51 a 150
+                </option>
+                <option value="151 a 300" className="text-brand-dark">
+                  151 a 300
+                </option>
+                <option value="Mais de 300" className="text-brand-dark">
+                  Mais de 300
+                </option>
               </select>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-white/70">Mensagem</label>
               <textarea
+                name="mensagem"
                 rows={3}
                 className="w-full resize-none rounded-lg border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-brand-mint/50 focus:ring-1 focus:ring-brand-mint/30"
                 placeholder="Conte-nos sobre sua operação ou dúvidas..."
               />
             </div>
-            <ShimmerButton
-              type="button"
-              className="mt-1 w-full bg-brand-mint text-brand-dark"
-              onClick={() => window.open('mailto:contato@escala360.com.br?subject=Demonstração%20Escala360')}
-            >
+            <ShimmerButton type="submit" variant="mint" className="mt-1 w-full">
               <Mail className="h-4 w-4" />
               Enviar mensagem
             </ShimmerButton>

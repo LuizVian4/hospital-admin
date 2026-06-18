@@ -1,15 +1,20 @@
 import { Link, type LinkProps } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
-type ShimmerButtonVariant = 'primary' | 'outline';
+type ShimmerButtonVariant = 'primary' | 'outline' | 'mint';
 
 const baseClassName =
   'relative inline-flex h-11 items-center justify-center overflow-hidden rounded-full px-6 text-sm font-semibold no-underline transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50';
 
 function variantClassName(variant: ShimmerButtonVariant) {
-  return variant === 'primary'
-    ? 'bg-brand-dark text-white shadow-lg shadow-brand-dark/20'
-    : 'border border-brand-dark/15 bg-white text-brand-dark hover:bg-brand-light';
+  switch (variant) {
+    case 'mint':
+      return 'bg-brand-mint text-brand-dark shadow-lg hover:bg-brand-mint/90';
+    case 'outline':
+      return 'border border-brand-dark/15 bg-white text-brand-dark hover:bg-brand-light';
+    default:
+      return 'bg-brand-dark text-white shadow-lg shadow-brand-dark/20';
+  }
 }
 
 interface ShimmerButtonContentProps {
@@ -23,7 +28,10 @@ function ShimmerButtonContent({ variant, children }: ShimmerButtonContentProps) 
       {variant === 'primary' && (
         <span className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/25 to-transparent" />
       )}
-      <span className="relative z-10 flex items-center gap-2">{children}</span>
+      {variant === 'mint' && (
+        <span className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-brand-dark/20 to-transparent" />
+      )}
+      <span className="relative z-10 flex w-full items-center justify-center gap-2">{children}</span>
     </>
   );
 }
