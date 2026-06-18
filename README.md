@@ -31,7 +31,7 @@ Cada tipo de escala segue seu padrão rotacional, com grupos de início e suport
 | Backend | Node.js 20, Fastify 4, Drizzle ORM, PostgreSQL 16, Zod |
 | Frontend | React 18, Vite, Material UI 9, Tailwind CSS, TanStack Query |
 | Shared | Tipos e regras de negócio compartilhados (`@escala/shared`) |
-| Infra | Docker Compose |
+| Infra | Docker Compose (dev), Railway (produção) |
 
 ## Estrutura do monorepo
 
@@ -42,6 +42,9 @@ escala-hospital/
 │   ├── backend/     # API Fastify + migrations Drizzle
 │   └── frontend/    # React + Vite
 ├── docker-compose.yml
+├── railway.toml              # deploy do backend (API)
+├── railway.frontend.toml     # deploy do frontend
+├── railway.env.example       # variáveis de referência para o Railway
 └── package.json
 ```
 
@@ -64,7 +67,7 @@ cp .env.example .env
 npm start
 ```
 
-O backend executa migrations automaticamente na subida. Para popular dados de exemplo:
+O backend executa migrations automaticamente na subida (Docker local e produção no Railway). Para popular dados de exemplo:
 
 ```bash
 npm run seed
@@ -114,6 +117,45 @@ npm run dev
 | `CORS_ORIGINS` | Origens permitidas (vírgula; obrigatório com cookies) | `http://localhost:5173` |
 | `ADMIN_EMAIL` | E-mail do admin inicial (`db:seed`) | `admin@hospital.local` |
 | `ADMIN_PASSWORD` | Senha do admin inicial (`db:seed`) | `admin123` |
+
+No Railway, use `DATABASE_URL=${{Postgres.DATABASE_URL}}` no serviço da API (rede interna). Para rodar `db:migrate` ou `db:seed` da sua máquina contra o banco remoto, use `DATABASE_PUBLIC_URL` do painel do Postgres.
+
+## Deploy (Railway)
+
+Produção usa **dois serviços** no mesmo projeto Railway:
+
+| Serviço | Config-as-code | Dockerfile |
+|---------|----------------|------------|
+| API | `railway.toml` | `packages/backend/Dockerfile` |
+| Frontend | `railway.frontend.toml` | `packages/frontend/Dockerfile` |
+
+Variáveis de ambiente de referência: `railway.env.example`.
+
+### Migrations
+
+As migrations Drizzle em `packages/backend/src/db/migrations/` são aplicadas **automaticamente** antes da API subir:
+
+| Ambiente | Como roda |
+|----------|-----------|
+| Docker local (`npm start`) | `Dockerfile.dev` executa `db:migrate` na subida |
+| Dev sem Docker | `npm run db:migrate` manualmente |
+| Railway (produção) | `packages/backend/Dockerfile` executa `node dist/db/migrate.js` a cada deploy |
+
+Um push na branch conectada ao Railway (ex.: `main`) dispara rebuild e deploy; migrations pendentes rodam no container antes de `server.js`. Se uma migration falhar, o deploy não conclui — o schema não fica inconsistente com o código.
+
+Para criar uma nova migration após alterar o schema Drizzle:
+
+```bash
+npm run db:generate -w @escala/backend   # gera o .sql em src/db/migrations/
+```
+
+Revise o arquivo gerado, commite e faça merge; o próximo deploy aplica no banco de produção.
+
+### Checklist de deploy
+
+1. Configurar Postgres + serviço API com `railway.toml` e variáveis do `railway.env.example` (`JWT_SECRET`, `CORS_ORIGINS`, etc.)
+2. Configurar serviço frontend com `railway.frontend.toml` e `VITE_API_URL` apontando para a URL pública da API
+3. Garantir que `CORS_ORIGINS` inclui a URL do frontend em produção
 
 ## Multi-tenant (empresas)
 
@@ -303,7 +345,8 @@ npm run dev              # backend + frontend em paralelo (sem Docker)
 npm run dev:backend      # apenas API
 npm run dev:frontend     # apenas frontend
 npm run build            # build de shared, backend e frontend
-npm run db:migrate       # aplicar migrations
+npm run db:migrate       # aplicar migrations (dev local; produção roda no deploy)
+npm run db:generate -w @escala/backend  # gerar migration a partir do schema Drizzle
 npm run db:seed          # popular banco com dados de exemplo
 ```
 
