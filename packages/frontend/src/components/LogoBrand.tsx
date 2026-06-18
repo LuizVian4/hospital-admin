@@ -1,4 +1,5 @@
 import logoSrc from '@/assets/logo.png';
+import { BrandName, brandSizeFromLogo } from '@/components/BrandName';
 
 interface LogoBrandProps {
   size?: number;
@@ -17,6 +18,8 @@ export function LogoBrand({
   subtitleColor = 'text-brand-dark/60',
   className = '',
 }: LogoBrandProps) {
+  const variant = textColor.includes('white') ? 'light' : 'default';
+
   return (
     <div className={`flex min-w-0 items-center gap-3 ${className}`}>
       <img
@@ -29,9 +32,9 @@ export function LogoBrand({
       />
       {showText && (
         <div className="min-w-0 overflow-hidden">
-          <p className={`truncate text-sm font-bold leading-tight ${textColor}`}>Escala360</p>
+          <BrandName size={brandSizeFromLogo(size)} variant={variant} />
           {subtitle && (
-            <p className={`truncate text-xs leading-tight ${subtitleColor}`}>{subtitle}</p>
+            <p className={`mt-0.5 truncate text-xs leading-tight ${subtitleColor}`}>{subtitle}</p>
           )}
         </div>
       )}

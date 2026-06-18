@@ -1,11 +1,20 @@
 import { Check, X } from 'lucide-react';
+import { BrandName } from '@/components/BrandName';
 import { COMPARISON_ROWS } from './data';
 import { SectionContainer } from './SectionContainer';
 
 export function LandingComparison() {
   return (
     <SectionContainer
-      title="Planilha vs. Escala360"
+      title={
+        <span className="inline-flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 text-3xl md:text-4xl">
+          <span className="font-medium text-brand-dark/30 line-through decoration-red-400/70 decoration-2">
+            Planilha
+          </span>
+          <span className="font-normal text-brand-dark">vs</span>
+          <BrandName size="inherit" className="inline align-baseline" />
+        </span>
+      }
       subtitle="Compare lado a lado o que muda quando você sai do Excel e adota uma plataforma feita para hospitais."
       className="bg-white"
     >
@@ -14,7 +23,9 @@ export function LandingComparison() {
         <div className="hidden border-b border-brand-dark/10 bg-brand-light px-4 py-3 text-sm font-semibold text-brand-dark md:grid md:grid-cols-3 md:px-6">
           <span>Funcionalidade</span>
           <span className="text-center text-brand-dark/50">Planilha Excel</span>
-          <span className="text-center text-brand-mint">Escala360</span>
+          <span className="flex justify-center">
+            <BrandName size="sm" />
+          </span>
         </div>
 
         {COMPARISON_ROWS.map(({ feature, spreadsheet, escala360 }, i) => (
@@ -34,7 +45,9 @@ export function LandingComparison() {
                   </p>
                 </div>
                 <div className="rounded-lg border border-brand-mint/30 bg-brand-mint/5 p-3">
-                  <p className="mb-1 font-medium text-brand-mint">Escala360</p>
+                  <p className="mb-1">
+                    <BrandName size="sm" />
+                  </p>
                   <p className="flex items-start gap-1 font-medium text-brand-dark">
                     <Check className="mt-0.5 h-3 w-3 shrink-0 text-brand-mint" />
                     {escala360}

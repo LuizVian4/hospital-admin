@@ -1,6 +1,7 @@
 import { Navigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import { ArrowLeft, Check } from 'lucide-react';
 import { LogoBrand } from '@/components/LogoBrand';
+import { BrandName } from '@/components/BrandName';
 import { LoginForm } from '@/components/LoginForm';
 import { RegisterForm } from '@/components/RegisterForm';
 import { DotPattern } from '@/components/magicui/dot-pattern';
@@ -174,7 +175,8 @@ export function AuthPage({ mode }: AuthPageProps) {
         </div>
 
         <footer className="px-6 py-4 text-center text-xs text-brand-dark/40 sm:px-8">
-          © {new Date().getFullYear()} Escala360. Todos os direitos reservados.
+          © {new Date().getFullYear()}{' '}
+          <BrandName size="sm" className="inline align-baseline" />. Todos os direitos reservados.
         </footer>
       </main>
     </div>

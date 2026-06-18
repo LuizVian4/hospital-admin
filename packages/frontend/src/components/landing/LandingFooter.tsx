@@ -1,5 +1,6 @@
 import { Link as RouterLink } from 'react-router-dom';
 import { LogoBrand } from '@/components/LogoBrand';
+import { BrandName } from '@/components/BrandName';
 import { NAV_LINKS } from './data';
 
 export function LandingFooter() {
@@ -62,7 +63,9 @@ export function LandingFooter() {
         </div>
 
         <div className="mt-10 flex flex-col items-start justify-between gap-2 border-t border-brand-dark/5 pt-6 md:flex-row md:items-center">
-          <p className="text-xs text-brand-dark/40">© {year} Escala360. Todos os direitos reservados.</p>
+          <p className="text-xs text-brand-dark/40">
+            © {year} <BrandName size="sm" className="inline align-baseline" />. Todos os direitos reservados.
+          </p>
           <p className="text-xs text-brand-dark/40">
             Sistema de escala hospitalar · Banco de horas · Cobertura assistencial
           </p>

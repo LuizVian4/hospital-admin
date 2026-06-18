@@ -2,6 +2,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowRight, Check, Play } from 'lucide-react';
 import { AnimatedGradientText } from '@/components/magicui/animated-gradient-text';
+import { BrandName } from '@/components/BrandName';
 import { AnimatedList } from '@/components/magicui/animated-list';
 import { BorderBeam } from '@/components/magicui/border-beam';
 import { DotPattern } from '@/components/magicui/dot-pattern';
@@ -50,7 +51,7 @@ export function LandingHero() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="mb-6 max-w-2xl text-base leading-relaxed text-brand-dark/60 md:text-lg"
           >
-            O Escala360 centraliza a gestão de técnicos, enfermeiros e plantões hospitalares.
+            O <BrandName size="sm" className="inline align-baseline" /> centraliza a gestão de técnicos, enfermeiros e plantões hospitalares.
             Elimine planilhas, reduza erros operacionais e tenha visibilidade total da cobertura
             assistencial — do cadastro ao fechamento mensal.
           </motion.p>

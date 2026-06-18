@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 interface SectionContainerProps {
   id?: string;
-  title?: string;
+  title?: ReactNode;
   subtitle?: string;
   children: ReactNode;
   className?: string;
@@ -33,8 +33,9 @@ export function SectionContainer({
             {title && (
               <h2
                 className={cn(
-                  'mb-4 text-3xl font-extrabold tracking-tight md:text-4xl',
-                  dark ? 'text-white' : 'text-brand-dark',
+                  'mb-4 tracking-tight text-balance',
+                  typeof title === 'string' && 'text-3xl font-extrabold md:text-4xl',
+                  dark ? 'text-white' : typeof title === 'string' && 'text-brand-dark',
                 )}
               >
                 {title}

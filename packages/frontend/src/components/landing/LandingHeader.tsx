@@ -18,7 +18,7 @@ export function LandingHeader() {
       <header className="sticky top-0 z-50 border-b border-brand-dark/5 bg-white/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 md:h-[4.5rem]">
           <RouterLink to="/" className="text-inherit no-underline">
-            <LogoBrand size={60} />
+            <LogoBrand size={48} />
           </RouterLink>
 
           <nav className="hidden items-center gap-8 md:flex">

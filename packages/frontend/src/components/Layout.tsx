@@ -28,6 +28,7 @@ import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import LogoutIcon from '@mui/icons-material/Logout';
 import CloseIcon from '@mui/icons-material/Close';
 import { LogoBrand } from '@/components/LogoBrand';
+import { BrandName } from '@/components/BrandName';
 import { EmpresaSwitcher } from '@/components/EmpresaSwitcher';
 import { useSetoresPorEscala } from '@/hooks/useFuncionarios';
 import { useAuth } from '@/contexts/AuthContext';
@@ -361,9 +362,9 @@ export function Layout() {
             <Box component={RouterLink} to="/dashboard" sx={{ display: 'flex', textDecoration: 'none', color: 'inherit' }}>
               <LogoBrand size={36} showText={false} />
             </Box>
-            <Typography variant="body2" noWrap sx={{ ml: 1.5, fontWeight: 600, color: 'common.white' }}>
-              Escala360
-            </Typography>
+            <Box component="span" sx={{ ml: 1.5, display: 'inline-flex', alignItems: 'center' }}>
+              <BrandName size="md" variant="light" />
+            </Box>
           </Toolbar>
         </AppBar>
       )}
