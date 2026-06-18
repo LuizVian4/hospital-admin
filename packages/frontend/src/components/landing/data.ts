@@ -145,6 +145,11 @@ export const FEATURES = [
     icon: 'file' as const,
   },
   {
+    name: 'Exportação de relatórios',
+    description: 'Gere planilhas por setor ou mês completo para conferência com RH, auditorias e arquivamento.',
+    icon: 'export' as const,
+  },
+  {
     name: 'Auditoria completa',
     description: 'Histórico de trocas, faltas, plantões extras e afastamentos. Saiba quem alterou, quando e o que mudou.',
     icon: 'gavel' as const,

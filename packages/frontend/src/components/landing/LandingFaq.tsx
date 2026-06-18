@@ -13,7 +13,7 @@ export function LandingFaq() {
       subtitle="Tudo o que você precisa saber antes de adotar o Escala360 no seu hospital."
       className="bg-white"
     >
-      <div className="mx-auto max-w-2xl space-y-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
         {FAQ_ITEMS.map(({ question, answer }, index) => {
           const isOpen = openIndex === index;
 

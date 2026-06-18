@@ -16,6 +16,9 @@ interface BentoCardProps {
   href?: string;
   cta?: string;
   background?: React.ReactNode;
+  iconClassName?: string;
+  titleClassName?: string;
+  descriptionClassName?: string;
 }
 
 export function BentoCard({
@@ -24,23 +27,35 @@ export function BentoCard({
   description,
   icon,
   background,
+  iconClassName,
+  titleClassName,
+  descriptionClassName,
 }: BentoCardProps) {
   return (
     <div
       className={cn(
-        'group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-brand-dark/10 bg-white p-6 shadow-sm transition-shadow hover:shadow-md',
+        'group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-brand-dark/10 bg-brand-light p-6 shadow-sm transition-shadow hover:shadow-md',
         className,
       )}
     >
       {background && <div className="pointer-events-none absolute inset-0">{background}</div>}
       <div className="relative z-10">
         {icon && (
-          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-mint/15 text-brand-dark">
+          <div
+            className={cn(
+              'mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-mint/15 text-brand-dark',
+              iconClassName,
+            )}
+          >
             {icon}
           </div>
         )}
-        <h3 className="mb-2 text-lg font-bold tracking-tight text-brand-dark">{name}</h3>
-        <p className="text-sm leading-relaxed text-brand-dark/60">{description}</p>
+        <h3 className={cn('mb-2 text-lg font-bold tracking-tight text-brand-dark', titleClassName)}>
+          {name}
+        </h3>
+        <p className={cn('text-sm leading-relaxed text-brand-dark/60', descriptionClassName)}>
+          {description}
+        </p>
       </div>
     </div>
   );
