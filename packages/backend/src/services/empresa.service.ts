@@ -1,4 +1,4 @@
-import { and, eq, notInArray, sql } from 'drizzle-orm';
+import { and, eq, like, notInArray, or, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { competencias, empresas, funcionarios, setores, users, usuarioEmpresas } from '../db/schema';
 import type {
@@ -87,6 +87,30 @@ export async function vincularUsuarioEmpresa(
     .onConflictDoNothing();
 }
 
+type DbExecutor = Pick<typeof db, 'insert' | 'select' | 'execute'>;
+
+function isUniqueViolation(err: unknown): boolean {
+  let current: unknown = err;
+  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth += 1) {
+    if ('code' in current && (current as { code?: string }).code === '23505') return true;
+    current = 'cause' in current ? (current as { cause?: unknown }).cause : undefined;
+  }
+  return false;
+}
+
+export function slugifyEmpresaNome(nome: string): string {
+  const slug = nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48)
+    .replace(/-+$/g, '');
+
+  return slug || 'empresa';
+}
+
 export async function criarEmpresa(input: {
   nome: string;
   slug: string;
@@ -105,6 +129,105 @@ export async function criarEmpresa(input: {
   await vincularUsuarioEmpresa(input.userId, empresa.id, input.papel ?? 'admin');
 
   return toPublicEmpresa(empresa);
+}
+
+async function alocarSlug(executor: DbExecutor, base: string): Promise<string> {
+  const rows = await executor
+    .select({ slug: empresas.slug })
+    .from(empresas)
+    .where(or(eq(empresas.slug, base), like(empresas.slug, `${base}-%`)));
+
+  const usados = new Set(rows.map((row) => row.slug));
+  if (!usados.has(base)) return base;
+
+  for (let n = 2; n < 1000; n += 1) {
+    const candidate = `${base}-${n}`;
+    if (!usados.has(candidate)) return candidate;
+  }
+
+  return `${base}-${Date.now().toString(36)}`;
+}
+
+export async function criarEmpresaDoUsuario(
+  executor: DbExecutor,
+  input: { nome: string; userId: number; papel?: PapelEmpresa }
+): Promise<Empresa> {
+  const nome = input.nome.trim() || 'Minha empresa';
+  const slug = await alocarSlug(executor, slugifyEmpresaNome(nome));
+
+  const [empresa] = await executor
+    .insert(empresas)
+    .values({ nome, slug, ativo: true })
+    .returning();
+
+  await executor.insert(usuarioEmpresas).values({
+    userId: input.userId,
+    empresaId: empresa.id,
+    papel: input.papel ?? 'admin',
+  });
+
+  return toPublicEmpresa(empresa);
+}
+
+export async function garantirEmpresaInicial(userId: number): Promise<EmpresaComPapel[]> {
+  const atuais = await listEmpresasDoUsuario(userId);
+  if (atuais.length > 0) return atuais;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await db.transaction(async (tx) => {
+        const executor = tx as unknown as DbExecutor;
+        await executor.execute(sql`select pg_advisory_xact_lock(${userId})`);
+
+        const locked = await listEmpresasDoUsuarioCom(executor, userId);
+        if (locked.length > 0) return locked;
+
+        const [user] = await executor
+          .select({ nome: users.nome })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+        if (!user) return [];
+
+        const empresa = await criarEmpresaDoUsuario(executor, {
+          nome: user.nome,
+          userId,
+          papel: 'admin',
+        });
+
+        return [{ ...empresa, papel: 'admin' as const }];
+      });
+    } catch (err) {
+      if (!isUniqueViolation(err) || attempt === 2) throw err;
+    }
+  }
+
+  return [];
+}
+
+async function listEmpresasDoUsuarioCom(
+  executor: DbExecutor,
+  userId: number
+): Promise<EmpresaComPapel[]> {
+  const rows = await executor
+    .select({
+      id: empresas.id,
+      nome: empresas.nome,
+      slug: empresas.slug,
+      ativo: empresas.ativo,
+      papel: usuarioEmpresas.papel,
+    })
+    .from(usuarioEmpresas)
+    .innerJoin(empresas, eq(usuarioEmpresas.empresaId, empresas.id))
+    .where(and(eq(usuarioEmpresas.userId, userId), eq(empresas.ativo, true)));
+
+  return rows.map((row) => ({
+    id: row.id,
+    nome: row.nome,
+    slug: row.slug,
+    ativo: row.ativo,
+    papel: row.papel as EmpresaComPapel['papel'],
+  }));
 }
 
 export async function getPapelUsuarioVinculo(
@@ -323,6 +446,8 @@ export async function removerUsuarioEmpresa(
   await db
     .delete(usuarioEmpresas)
     .where(and(eq(usuarioEmpresas.empresaId, empresaId), eq(usuarioEmpresas.userId, userId)));
+
+  await garantirEmpresaInicial(userId);
 }
 
 export async function assertSetorEmpresa(setorId: number, empresaId: string) {

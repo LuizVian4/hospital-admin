@@ -320,6 +320,7 @@ export interface User {
   id: number;
   email: string;
   nome: string;
+  telefone: string | null;
   ativo: boolean;
 }
 
@@ -341,6 +342,8 @@ export interface RefreshTokenRequest {
 export interface RegisterRequest {
   email: string;
   nome: string;
+  empresaNome: string;
+  telefone: string;
   password: string;
 }
 

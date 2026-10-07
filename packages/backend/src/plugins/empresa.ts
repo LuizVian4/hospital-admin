@@ -1,6 +1,10 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isPublicApiPath, type JwtPayload } from './auth';
-import { listEmpresasDoUsuario, usuarioTemAcessoEmpresa } from '../services/empresa.service';
+import {
+  garantirEmpresaInicial,
+  listEmpresasDoUsuario,
+  usuarioTemAcessoEmpresa,
+} from '../services/empresa.service';
 
 export const EMPRESA_HEADER = 'x-empresa-id';
 
@@ -49,7 +53,10 @@ export async function registerEmpresaContext(app: FastifyInstance) {
     const empresaId = getEmpresaIdFromRequest(request);
 
     if (!empresaId) {
-      const empresas = await listEmpresasDoUsuario(payload.sub);
+      let empresas = await listEmpresasDoUsuario(payload.sub);
+      if (empresas.length === 0) {
+        empresas = await garantirEmpresaInicial(payload.sub);
+      }
       if (empresas.length === 1) {
         resolvedEmpresaId = empresas[0].id;
       } else if (empresas.length === 0) {

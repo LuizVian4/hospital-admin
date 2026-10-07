@@ -3,6 +3,8 @@ const WEBHOOK_TIMEOUT_MS = 10_000;
 export interface AccountCreatedNotice {
   nome: string;
   email: string;
+  telefone: string;
+  empresaNome?: string;
   createdAt?: Date | null;
 }
 
@@ -44,6 +46,10 @@ async function sendSignupEmbed(webhookUrl: string, account: AccountCreatedNotice
           { name: 'Ambiente', value: environmentLabel(), inline: true },
           { name: 'Nome', value: account.nome, inline: true },
           { name: 'E-mail', value: account.email, inline: true },
+          { name: 'Telefone', value: account.telefone, inline: true },
+          ...(account.empresaNome
+            ? [{ name: 'Empresa', value: account.empresaNome, inline: true }]
+            : []),
           { name: 'Data de cadastro', value: formatDateTime(createdAt) },
         ],
         timestamp: new Date().toISOString(),

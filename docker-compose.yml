@@ -53,6 +53,7 @@ services:
       - ./packages/frontend/public:/app/packages/frontend/public
       - ./packages/frontend/index.html:/app/packages/frontend/index.html
       - ./packages/frontend/vite.config.ts:/app/packages/frontend/vite.config.ts
+      - ./packages/shared/src:/app/packages/shared/src
     depends_on:
       - backend
     command: npm run dev -w @escala/frontend -- --host 0.0.0.0

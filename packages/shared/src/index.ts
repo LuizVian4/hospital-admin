@@ -127,6 +127,7 @@ export {
   isTurnoFolgaOuPlantao,
   isTurnoMtOuSn,
 } from './plantaoExtra';
+export { normalizeTelefone } from './telefone';
 export {
   getTurnoEfetivoNoDia,
   funcionarioPossuiTurnoNoDia,

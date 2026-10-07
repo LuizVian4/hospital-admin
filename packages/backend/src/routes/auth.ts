@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { db } from '../db';
 import { users } from '../db/schema';
-import type { AuthResponse } from '@escala/shared';
+import { normalizeTelefone, type AuthResponse } from '@escala/shared';
 import type { JwtPayload } from '../plugins/auth';
 import {
   REFRESH_COOKIE,
@@ -16,6 +16,7 @@ import {
   toPublicUser,
 } from '../services/auth.service';
 import { notifyAccountCreated } from '../services/discord.service';
+import { criarEmpresaDoUsuario } from '../services/empresa.service';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -24,7 +25,9 @@ const loginSchema = z.object({
 
 const registerSchema = z.object({
   email: z.string().email(),
-  nome: z.string().min(1),
+  nome: z.string().trim().min(1),
+  empresaNome: z.string().trim().min(1),
+  telefone: z.string().trim().min(1),
   password: z.string().min(8),
 });
 
@@ -49,6 +52,18 @@ const refreshSchema = z.object({
 const logoutSchema = z.object({
   refreshToken: z.string().min(1).optional(),
 });
+
+function uniqueConstraint(err: unknown): string | undefined {
+  let current: unknown = err;
+  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth += 1) {
+    if ('code' in current && (current as { code?: string }).code === '23505') {
+      const constraint = (current as { constraint?: string }).constraint;
+      if (constraint) return constraint;
+    }
+    current = 'cause' in current ? (current as { cause?: unknown }).cause : undefined;
+  }
+  return undefined;
+}
 
 function resolveRefreshToken(
   cookieToken: string | undefined,
@@ -117,20 +132,55 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         return reply.code(409).send({ error: 'E-mail já cadastrado' });
       }
 
+      const telefone = normalizeTelefone(body.telefone);
+      if (!telefone) {
+        return reply.code(400).send({ error: 'Informe um telefone válido com DDD' });
+      }
+
       const passwordHash = await bcrypt.hash(body.password, 12);
-      const [created] = await db
-        .insert(users)
-        .values({
-          email,
-          nome: body.nome,
-          passwordHash,
-          ativo: true,
-        })
-        .returning();
+      let created: typeof users.$inferSelect | undefined;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          created = await db.transaction(async (tx) => {
+            const [user] = await tx
+              .insert(users)
+              .values({
+                email,
+                nome: body.nome,
+                telefone,
+                passwordHash,
+                ativo: true,
+              })
+              .returning();
+
+            await criarEmpresaDoUsuario(tx as unknown as Parameters<typeof criarEmpresaDoUsuario>[0], {
+              nome: body.empresaNome,
+              userId: user.id,
+              papel: 'admin',
+            });
+
+            return user;
+          });
+          break;
+        } catch (err) {
+          const constraint = uniqueConstraint(err);
+          if (constraint?.includes('email')) {
+            return reply.code(409).send({ error: 'E-mail já cadastrado' });
+          }
+          if (constraint?.includes('slug') && attempt < 2) continue;
+          throw err;
+        }
+      }
+
+      if (!created) {
+        return reply.code(500).send({ error: 'Não foi possível criar a conta' });
+      }
 
       notifyAccountCreated({
         nome: created.nome,
         email: created.email,
+        telefone,
+        empresaNome: body.empresaNome,
         createdAt: created.createdAt,
       });
 

@@ -72,6 +72,7 @@ export function toPublicUser(user: typeof users.$inferSelect): User {
     id: user.id,
     email: user.email,
     nome: user.nome,
+    telefone: user.telefone,
     ativo: user.ativo,
   };
 }

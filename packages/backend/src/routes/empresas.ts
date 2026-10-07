@@ -9,6 +9,7 @@ import {
   atualizarEmpresa,
   atualizarPapelUsuarioEmpresa,
   criarEmpresa,
+  garantirEmpresaInicial,
   getEmpresaDetalhes,
   listEmpresasDoUsuario,
   listUsuariosCandidatosEmpresa,
@@ -73,6 +74,10 @@ export const empresasRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Querystring: { incluirInativas?: string } }>('/api/empresas', async (request) => {
     const payload = request.user as JwtPayload;
     const incluirInativas = request.query.incluirInativas === '1';
+    const empresas = await listEmpresasDoUsuario(payload.sub, { incluirInativas });
+    if (empresas.length > 0) return empresas;
+
+    await garantirEmpresaInicial(payload.sub);
     return listEmpresasDoUsuario(payload.sub, { incluirInativas });
   });
 

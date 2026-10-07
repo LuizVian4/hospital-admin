@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { normalizeTelefone } from '@escala/shared';
 import { AuthButton, AuthError, AuthField } from '@/components/auth/AuthField';
 import { useAuth } from '@/contexts/AuthContext';
 import { appRoutes } from '@/lib/routes';
@@ -12,7 +13,9 @@ export function RegisterForm({ redirectTo = appRoutes.dashboard }: RegisterFormP
   const { register } = useAuth();
   const navigate = useNavigate();
   const [nome, setNome] = useState('');
+  const [empresaNome, setEmpresaNome] = useState('');
   const [email, setEmail] = useState('');
+  const [telefone, setTelefone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -32,10 +35,15 @@ export function RegisterForm({ redirectTo = appRoutes.dashboard }: RegisterFormP
       return;
     }
 
+    if (!normalizeTelefone(telefone)) {
+      setError('Informe um telefone válido com DDD');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      await register(nome.trim(), email.trim(), password);
+      await register(nome.trim(), empresaNome.trim(), email.trim(), telefone.trim(), password);
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao criar conta');
@@ -58,6 +66,15 @@ export function RegisterForm({ redirectTo = appRoutes.dashboard }: RegisterFormP
       />
 
       <AuthField
+        label="Nome da empresa"
+        autoComplete="organization"
+        placeholder="Ex.: Hospital Santa Luzia"
+        value={empresaNome}
+        onChange={(e) => setEmpresaNome(e.target.value)}
+        required
+      />
+
+      <AuthField
         label="E-mail"
         type="email"
         autoComplete="email"
@@ -65,6 +82,18 @@ export function RegisterForm({ redirectTo = appRoutes.dashboard }: RegisterFormP
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
+      />
+
+      <AuthField
+        label="Telefone"
+        type="tel"
+        autoComplete="tel"
+        inputMode="tel"
+        placeholder="(71) 99999-9999"
+        value={telefone}
+        onChange={(e) => setTelefone(e.target.value)}
+        required
+        hint="DDD + número"
       />
 
       <AuthField

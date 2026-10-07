@@ -19,24 +19,6 @@ export function EmpresaGate() {
     );
   }
 
-  if (empresas.length === 0) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 3 }}>
-        <Card sx={{ maxWidth: 480, width: '100%' }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Nenhuma empresa vinculada
-            </Typography>
-            <Typography color="text.secondary">
-              Seu usuário ainda não possui acesso a nenhuma empresa. Solicite ao administrador o
-              vínculo com a organização correta.
-            </Typography>
-          </CardContent>
-        </Card>
-      </Box>
-    );
-  }
-
   if (!empresaId) {
     return (
       <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 3 }}>

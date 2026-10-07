@@ -169,6 +169,13 @@
       "when": 1720387200000,
       "tag": "0023_funcionario_matricula_por_empresa",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791337720939,
+      "tag": "0024_user_telefone",
+      "breakpoints": true
     }
   ]
 }

@@ -177,7 +177,7 @@ O sistema isola todos os dados operacionais (setores, funcionários, competênci
 
 ### Contexto na API
 
-Rotas autenticadas (exceto `GET/POST /api/empresas`) exigem contexto de empresa via header `X-Empresa-Id` ou cookie `empresa_id`. Se o usuário tiver acesso a uma única empresa, o backend resolve automaticamente. Usuários sem vínculo recebem `403`; usuários com múltiplas empresas e sem seleção recebem `400` com código `EMPRESA_REQUIRED`.
+Rotas autenticadas (exceto `GET/POST /api/empresas`) exigem contexto de empresa via header `X-Empresa-Id` ou cookie `empresa_id`. Se o usuário tiver acesso a uma única empresa, o backend resolve automaticamente. Quem ainda não tem empresa ativa recebe uma empresa inicial, com papel de administrador. Usuários com múltiplas empresas e sem seleção recebem `400` com código `EMPRESA_REQUIRED`.
 
 ## Autenticação
 
@@ -191,7 +191,7 @@ Demais rotas `/api/*` exigem sessão válida e contexto de empresa (quando aplic
 
 - Access token curto (padrão **15 min**); refresh automático no frontend
 - Login e cadastro com **rate limit** (5 tentativas / 15 min por IP)
-- Cadastro self-service em `/cadastro` (novo usuário ainda precisa ser vinculado a uma empresa por um admin)
+- Cadastro self-service em `/cadastro`: a conta já nasce com a empresa informada, e o usuário entra como administrador
 - Alteração de perfil e senha em `/perfil`
 - Gestão de membros da empresa em `/admin/empresa` (somente admins da empresa ativa)
 
