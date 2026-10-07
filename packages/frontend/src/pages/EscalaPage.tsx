@@ -15,6 +15,7 @@ import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import DownloadIcon from '@mui/icons-material/Download';
 import NotesIcon from '@mui/icons-material/Notes';
 import Dialog from '@mui/material/Dialog';
@@ -39,6 +40,7 @@ import { HistoricoMovimentacoesEscala } from '@/components/GradeEscala/Historico
 import { ResumoCargaHorariaEscala } from '@/components/GradeEscala/ResumoCargaHorariaEscala';
 import { SetorSelector } from '@/components/SetorSelector';
 import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/EmptyState';
 import { toast } from 'sonner';
 import { escalaPath } from '@/lib/routes';
 
@@ -289,13 +291,17 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
 
       {competenciaLoading && <GradeEscalaSkeleton />}
       {!competenciaLoading && !competenciaId && (
-        <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-            Nenhuma competência cadastrada para {periodoLabel}.
-          </Typography>
-          <Button variant="contained" onClick={handleCriarCompetencia}>
-            Criar competência
-          </Button>
+        <Paper variant="outlined">
+          <EmptyState
+            icon={<CalendarMonthIcon fontSize="small" />}
+            title="Nenhuma competência cadastrada"
+            description={`Ainda não há competência de ${config.labelFuncionario}s para ${periodoLabel}.`}
+            action={
+              <Button variant="contained" onClick={handleCriarCompetencia}>
+                Criar competência
+              </Button>
+            }
+          />
         </Paper>
       )}
       {!competenciaLoading && isLoading && competenciaId && <GradeEscalaSkeleton />}

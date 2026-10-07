@@ -27,6 +27,8 @@ import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import { api } from '@/api/client';
 import { isEnfermeiro } from '@escala/shared';
 import { escalaPath } from '@/lib/routes';
+import { AnimatedNumber } from '@/components/AnimatedNumber';
+import { StatusChip, contratoTone } from '@/components/StatusChip';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { PageHeader } from '@/components/PageHeader';
 import { ResumoPorSetor } from '@/components/dashboard/ResumoPorSetor';
@@ -111,14 +113,6 @@ function DashboardSkeleton() {
       </Grid>
     </Stack>
   );
-}
-
-function contratoColor(tipo: string): 'default' | 'primary' | 'secondary' | 'success' | 'warning' {
-  const t = tipo.toUpperCase();
-  if (t.includes('EFETIVO')) return 'primary';
-  if (t.includes('PROVIS')) return 'warning';
-  if (t.includes('TEMP')) return 'secondary';
-  return 'default';
 }
 
 export function Dashboard() {
@@ -206,11 +200,11 @@ export function Dashboard() {
               </Typography>
               <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
                 {data.funcionariosPorContrato.map((item) => (
-                  <Chip
+                  <StatusChip
                     key={item.tipo}
                     label={`${item.tipo}: ${item.total}`}
-                    color={contratoColor(item.tipo)}
-                    variant="outlined"
+                    tone={contratoTone(item.tipo)}
+                    size="medium"
                   />
                 ))}
               </Stack>
@@ -252,7 +246,7 @@ export function Dashboard() {
               <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
                 <Typography variant="subtitle2">Técnicos de enfermagem</Typography>
                 <Typography variant="subtitle2" color="primary.main" sx={{ fontWeight: 700 }}>
-                  {data.coberturaEscalaPercent}%
+                  <AnimatedNumber value={data.coberturaEscalaPercent} suffix="%" />
                 </Typography>
               </Stack>
               <LinearProgress
@@ -271,7 +265,7 @@ export function Dashboard() {
               <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
                 <Typography variant="subtitle2">Enfermeiros</Typography>
                 <Typography variant="subtitle2" color="primary.main" sx={{ fontWeight: 700 }}>
-                  {data.coberturaEscalaEnfermeirosPercent}%
+                  <AnimatedNumber value={data.coberturaEscalaEnfermeirosPercent} suffix="%" />
                 </Typography>
               </Stack>
               <LinearProgress

@@ -10,7 +10,6 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
 import Skeleton from '@mui/material/Skeleton';
 import Table from '@mui/material/Table';
@@ -37,10 +36,12 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import AddBusinessIcon from '@mui/icons-material/AddBusiness';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import type { EmpresaComPapel, PapelEmpresa, UsuarioEmpresa } from '@escala/shared';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/EmptyState';
+import { StatusChip } from '@/components/StatusChip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import {
@@ -284,20 +285,16 @@ function MembroRow({
         </Stack>
       </TableCell>
       <TableCell>
-        <Chip
-          size="small"
+        <StatusChip
           label={membro.ativo ? 'Ativo' : 'Inativo'}
-          color={membro.ativo ? 'success' : 'default'}
-          variant="outlined"
+          tone={membro.ativo ? 'success' : 'neutral'}
         />
       </TableCell>
       <TableCell>
         {readOnly ? (
-          <Chip
-            size="small"
+          <StatusChip
             label={membro.papel === 'admin' ? 'Administrador' : 'Membro'}
-            color={membro.papel === 'admin' ? 'primary' : 'default'}
-            variant="outlined"
+            tone={membro.papel === 'admin' ? 'primary' : 'neutral'}
           />
         ) : (
           <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -466,22 +463,12 @@ export function EmpresasAdminPage() {
                             {item.nome}
                           </Typography>
                           {isAmbienteAtivo && (
-                            <Chip
-                              size="small"
-                              icon={<CheckCircleIcon />}
-                              label="Ambiente ativo"
-                              color="primary"
-                              variant="outlined"
-                            />
+                            <StatusChip tone="primary" label="Ambiente ativo" />
                           )}
-                          {!item.ativo && (
-                            <Chip size="small" label="Inativa" color="default" variant="outlined" />
-                          )}
-                          <Chip
-                            size="small"
+                          {!item.ativo && <StatusChip label="Inativa" />}
+                          <StatusChip
                             label={item.papel === 'admin' ? 'Administrador' : 'Membro'}
-                            color={item.papel === 'admin' ? 'primary' : 'default'}
-                            variant="outlined"
+                            tone={item.papel === 'admin' ? 'primary' : 'neutral'}
                           />
                         </Stack>
                       </Box>
@@ -623,10 +610,13 @@ export function EmpresasAdminPage() {
                     ))}
                   {!loadingMembros && membros.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 4 : 3}>
-                        <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-                          Nenhum usuário vinculado.
-                        </Typography>
+                      <TableCell colSpan={isAdmin ? 4 : 3} sx={{ borderBottom: 0 }}>
+                        <EmptyState
+                          compact
+                          icon={<GroupOutlinedIcon fontSize="small" />}
+                          title="Nenhum usuário vinculado"
+                          description="Convide alguém da equipe para acessar esta empresa."
+                        />
                       </TableCell>
                     </TableRow>
                   )}

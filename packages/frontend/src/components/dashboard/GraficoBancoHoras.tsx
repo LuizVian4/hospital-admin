@@ -1,7 +1,6 @@
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Link as RouterLink } from 'react-router-dom';
@@ -9,6 +8,10 @@ import Link from '@mui/material/Link';
 import type { BancoHorasComDetalhes } from '@escala/shared';
 import { labelStatusCargaHoraria } from '@escala/shared';
 import { appRoutes } from '@/lib/routes';
+import { AnimatedNumber } from '@/components/AnimatedNumber';
+import { EmptyState } from '@/components/EmptyState';
+import { StatusChip, bancoHorasTone } from '@/components/StatusChip';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 interface GraficoBancoHorasProps {
   items: BancoHorasComDetalhes[];
@@ -37,7 +40,12 @@ export function GraficoBancoHoras({ items, mes, ano }: GraficoBancoHorasProps) {
               Banco de horas
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Funcionários devendo ou excedendo carga em {periodoLabel}
+              {items.length > 0 && (
+                <>
+                  <AnimatedNumber value={items.length} /> funcionário{items.length === 1 ? '' : 's'} com saldo pendente em {periodoLabel}
+                </>
+              )}
+              {items.length === 0 && `Saldos de ${periodoLabel}`}
             </Typography>
           </Box>
           <Link component={RouterLink} to={appRoutes.bancoHoras} underline="hover" variant="body2">
@@ -46,9 +54,12 @@ export function GraficoBancoHoras({ items, mes, ano }: GraficoBancoHorasProps) {
         </Stack>
 
         {items.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            Nenhum funcionário com saldo pendente neste período.
-          </Typography>
+          <EmptyState
+            compact
+            icon={<CheckCircleIcon fontSize="small" />}
+            title="Nenhum saldo pendente"
+            description={`Ninguém está devendo ou excedendo a carga em ${periodoLabel}.`}
+          />
         ) : (
           <Stack spacing={1.5}>
             {items.slice(0, 12).map((item) => {
@@ -72,11 +83,9 @@ export function GraficoBancoHoras({ items, mes, ano }: GraficoBancoHorasProps) {
                         {item.setorNome ? ` · ${item.setorNome}` : ''}
                       </Typography>
                     </Box>
-                    <Chip
-                      size="small"
+                    <StatusChip
                       label={labelStatusCargaHoraria(item.status, item.saldoHoras)}
-                      color={isDevendo ? 'error' : 'success'}
-                      variant="outlined"
+                      tone={bancoHorasTone(item.status)}
                     />
                   </Stack>
                   <Box

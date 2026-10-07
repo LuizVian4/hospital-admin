@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import Alert from '@mui/material/Alert';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardHeader from '@mui/material/CardHeader';
@@ -13,10 +12,11 @@ import Skeleton from '@mui/material/Skeleton';
 import Stack from '@mui/material/Stack';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import Typography from '@mui/material/Typography';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
 import { api } from '@/api/client';
 import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/EmptyState';
 import {
   TabelaBancoHorasCompetencia,
   TabelaBancoHorasGeral,
@@ -135,11 +135,15 @@ export function BancoHorasPage() {
           {isLoading ? (
             <Skeleton variant="rounded" height={360} />
           ) : isEmpty ? (
-            <Alert severity="info" variant="outlined">
-              {modo === 'competencia'
-                ? `Nenhum registro em ${periodoLabel}.`
-                : 'Nenhum registro acumulado nas competências cadastradas.'}
-            </Alert>
+            <EmptyState
+              icon={<EventBusyIcon fontSize="small" />}
+              title="Nenhum saldo neste período"
+              description={
+                modo === 'competencia'
+                  ? `Nenhum registro em ${periodoLabel}.`
+                  : 'Nenhum registro acumulado nas competências cadastradas.'
+              }
+            />
           ) : modo === 'competencia' ? (
             <TabelaBancoHorasCompetencia key={`${mes}-${ano}`} dados={dadosCompetencia} />
           ) : (

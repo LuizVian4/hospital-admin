@@ -14,8 +14,11 @@ import Typography from '@mui/material/Typography';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import SearchOffIcon from '@mui/icons-material/SearchOff';
 import type { BancoHorasAgregado, BancoHorasComDetalhes, StatusBancoHoras } from '@escala/shared';
 import { labelStatusCargaHoraria } from '@escala/shared';
+import { EmptyState } from '@/components/EmptyState';
+import { StatusChip, bancoHorasTone } from '@/components/StatusChip';
 import { BancoHorasFiltrosBar } from './BancoHorasFiltrosBar';
 import {
   FILTROS_BANCO_HORAS_INICIAIS,
@@ -31,38 +34,16 @@ const MESES_CURTOS = [
 ];
 
 function chipSituacao(status: StatusBancoHoras, saldoHoras: number) {
-  const label = labelStatusCargaHoraria(status, saldoHoras);
-  if (status === 'devendo') {
-    return (
-      <Chip
-        size="small"
-        icon={<TrendingDownIcon />}
-        label={label}
-        color="warning"
-        variant="outlined"
-      />
+  const label = status === 'atingiu' ? 'Atingiu' : labelStatusCargaHoraria(status, saldoHoras);
+  const icon =
+    status === 'devendo' ? (
+      <TrendingDownIcon />
+    ) : status === 'excedeu' ? (
+      <TrendingUpIcon />
+    ) : (
+      <CheckCircleIcon />
     );
-  }
-  if (status === 'excedeu') {
-    return (
-      <Chip
-        size="small"
-        icon={<TrendingUpIcon />}
-        label={label}
-        color="info"
-        variant="outlined"
-      />
-    );
-  }
-  return (
-    <Chip
-      size="small"
-      icon={<CheckCircleIcon />}
-      label="Atingiu"
-      color="success"
-      variant="outlined"
-    />
-  );
+  return <StatusChip size="small" icon={icon} label={label} tone={bancoHorasTone(status)} />;
 }
 
 function corSaldo(status: StatusBancoHoras): string {
@@ -154,15 +135,15 @@ interface ResumoBancoHorasProps {
 function ResumoBancoHoras({ devendo, excedeu, atingiu, total }: ResumoBancoHorasProps) {
   return (
     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-      <Chip size="small" label={`${total} registro${total !== 1 ? 's' : ''}`} variant="outlined" />
+      <StatusChip size="small" label={`${total} registro${total !== 1 ? 's' : ''}`} />
       {devendo > 0 && (
-        <Chip size="small" color="warning" variant="outlined" label={`${devendo} devendo`} />
+        <StatusChip size="small" tone="warning" label={`${devendo} devendo`} />
       )}
       {excedeu > 0 && (
-        <Chip size="small" color="info" variant="outlined" label={`${excedeu} excedendo`} />
+        <StatusChip size="small" tone="info" label={`${excedeu} excedendo`} />
       )}
       {atingiu > 0 && (
-        <Chip size="small" color="success" variant="outlined" label={`${atingiu} em dia`} />
+        <StatusChip size="small" tone="success" label={`${atingiu} em dia`} />
       )}
     </Stack>
   );
@@ -208,9 +189,12 @@ export function TabelaBancoHorasCompetencia({ dados }: TabelaBancoHorasCompetenc
       <ResumoBancoHoras {...resumo} />
 
       {filtrados.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-          Nenhum resultado para os filtros selecionados.
-        </Typography>
+        <EmptyState
+          compact
+          icon={<SearchOffIcon fontSize="small" />}
+          title="Nenhum resultado"
+          description="Nenhum resultado para os filtros selecionados."
+        />
       ) : (
         <TableContainer sx={{ maxHeight: 560, border: 1, borderColor: 'divider', borderRadius: 1, overflowX: 'auto' }}>
           <Table size="small" stickyHeader aria-label="Banco de horas por competência">
@@ -299,9 +283,12 @@ export function TabelaBancoHorasGeral({ dados }: TabelaBancoHorasGeralProps) {
       <ResumoBancoHoras {...resumo} />
 
       {filtrados.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-          Nenhum resultado para os filtros selecionados.
-        </Typography>
+        <EmptyState
+          compact
+          icon={<SearchOffIcon fontSize="small" />}
+          title="Nenhum resultado"
+          description="Nenhum resultado para os filtros selecionados."
+        />
       ) : (
         <TableContainer sx={{ maxHeight: 560, border: 1, borderColor: 'divider', borderRadius: 1, overflowX: 'auto' }}>
           <Table size="small" stickyHeader aria-label="Banco de horas acumulado">

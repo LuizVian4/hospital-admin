@@ -12,6 +12,8 @@ import { funcionarioPath } from '@/lib/routes';
 import { FuncionarioForm, type FuncionarioFormData } from '@/components/FuncionarioForm';
 import { StatusEspecialDialog } from '@/components/StatusEspecialDialog';
 import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/EmptyState';
+import { StatusChip, contratoTone } from '@/components/StatusChip';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
@@ -244,16 +246,6 @@ function AgrupamentoFuncionariosAccordion({
   );
 }
 
-function contratoChipColor(
-  contrato: string
-): 'success' | 'info' | 'warning' | 'default' {
-  const t = contrato.toUpperCase();
-  if (t.includes('EFETIVO')) return 'success';
-  if (t.includes('PROVIS')) return 'info';
-  if (t.includes('TEMP')) return 'warning';
-  return 'default';
-}
-
 interface StatCardProps {
   title: string;
   value: number | string;
@@ -379,12 +371,9 @@ function FuncionarioTableRow({
                 </Tooltip>
               )}
               {foraDoSetorAtivo && (
-                <Chip
+                <StatusChip
                   label={motivoAgrupamentoEspecial(f)}
-                  size="small"
-                  color={!f.ativo ? 'default' : 'warning'}
-                  variant="outlined"
-                  sx={{ height: 20, fontSize: '0.65rem' }}
+                  tone={!f.ativo ? 'neutral' : 'warning'}
                 />
               )}
             </Stack>
@@ -410,22 +399,17 @@ function FuncionarioTableRow({
             {f.coren}
           </Typography>
         ) : (
-          <Chip label="Pendente" size="small" color="warning" variant="outlined" />
+          <StatusChip label="Pendente" tone="warning" />
         )}
       </TableCell>
       <TableCell>
-        <Chip label={f.tipoContrato} size="small" color={contratoChipColor(f.tipoContrato)} variant="outlined" />
+        <StatusChip label={f.tipoContrato} tone={contratoTone(f.tipoContrato)} />
       </TableCell>
       <TableCell>
-        <Chip
-          label={f.ativo ? 'Ativo' : 'Inativo'}
-          size="small"
-          color={f.ativo ? 'success' : 'default'}
-          variant={f.ativo ? 'filled' : 'outlined'}
-        />
+        <StatusChip label={f.ativo ? 'Ativo' : 'Inativo'} tone={f.ativo ? 'success' : 'neutral'} />
       </TableCell>
       <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-        <Chip label={f.cargaHoraria} size="small" variant="outlined" />
+        <StatusChip label={f.cargaHoraria} tone="neutral" />
       </TableCell>
       <TableCell align="right">
         <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
@@ -841,28 +825,26 @@ export function FuncionariosPage() {
         {isLoading ? (
           <TableSkeleton />
         ) : agrupamentos.length === 0 ? (
-          <Stack spacing={2} sx={{ alignItems: 'center', py: 8, px: 3, textAlign: 'center' }}>
-            <Avatar sx={{ width: 56, height: 56, bgcolor: 'grey.100' }}>
-              <PeopleIcon color="action" sx={{ fontSize: 28 }} />
-            </Avatar>
-            <Box>
-              <Typography variant="h6">Nenhum funcionário encontrado</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 360 }}>
-                {hasActiveFilters
-                  ? 'Tente ajustar os filtros ou limpar a busca.'
-                  : 'Comece cadastrando o primeiro funcionário da equipe.'}
-              </Typography>
-            </Box>
-            {hasActiveFilters ? (
-              <Button variant="outlined" onClick={clearFilters}>
-                Limpar filtros
-              </Button>
-            ) : (
-              <Button variant="contained" startIcon={<PersonAddIcon />} onClick={openCreate}>
-                Cadastrar funcionário
-              </Button>
-            )}
-          </Stack>
+          <EmptyState
+            icon={<PeopleIcon fontSize="small" />}
+            title="Nenhum funcionário encontrado"
+            description={
+              hasActiveFilters
+                ? 'Tente ajustar os filtros ou limpar a busca.'
+                : 'Comece cadastrando o primeiro funcionário da equipe.'
+            }
+            action={
+              hasActiveFilters ? (
+                <Button variant="outlined" onClick={clearFilters}>
+                  Limpar filtros
+                </Button>
+              ) : (
+                <Button variant="contained" startIcon={<PersonAddIcon />} onClick={openCreate}>
+                  Cadastrar funcionário
+                </Button>
+              )
+            }
+          />
         ) : (
           <Box>
             {agrupamentos.map((agrupamento) => (

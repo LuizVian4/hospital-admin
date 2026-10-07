@@ -18,27 +18,16 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardHeader from '@mui/material/CardHeader';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import Avatar from '@mui/material/Avatar';
 import Divider from '@mui/material/Divider';
 import Alert from '@mui/material/Alert';
 import Skeleton from '@mui/material/Skeleton';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import PersonOffIcon from '@mui/icons-material/PersonOff';
 import BusinessIcon from '@mui/icons-material/Business';
 import { toast } from 'sonner';
 import { appRoutes } from '@/lib/routes';
-
-function contratoChipColor(
-  contrato: string
-): 'success' | 'info' | 'warning' | 'default' {
-  const t = contrato.toUpperCase();
-  if (t.includes('EFETIVO')) return 'success';
-  if (t.includes('PROVIS')) return 'info';
-  if (t.includes('TEMP')) return 'warning';
-  return 'default';
-}
+import { StatusChip, contratoTone } from '@/components/StatusChip';
 
 export function FuncionarioProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -154,34 +143,15 @@ export function FuncionarioProfilePage() {
                 Matrícula {funcionario.matricula}
               </Typography>
               <Stack direction="row" spacing={0.75} sx={{ mt: 1, flexWrap: 'wrap', gap: 0.75 }}>
-                <Chip label={funcionario.categoria} size="small" variant="outlined" />
-                <Chip
-                  label={funcionario.tipoContrato}
-                  size="small"
-                  color={contratoChipColor(funcionario.tipoContrato)}
-                  variant="outlined"
-                />
-                <Chip
-                  label={funcionario.ativo ? 'Ativo' : 'Inativo'}
-                  size="small"
-                  color={funcionario.ativo ? 'success' : 'default'}
-                  variant={funcionario.ativo ? 'filled' : 'outlined'}
-                />
-                <Chip label={funcionario.cargaHoraria} size="small" variant="outlined" />
+                <StatusChip label={funcionario.categoria} />
+                <StatusChip label={funcionario.tipoContrato} tone={contratoTone(funcionario.tipoContrato)} />
+                <StatusChip label={funcionario.ativo ? 'Ativo' : 'Inativo'} tone={funcionario.ativo ? 'success' : 'neutral'} />
+                <StatusChip label={funcionario.cargaHoraria} />
                 {setorNome && (
-                  <Chip
+                  <StatusChip
                     icon={<BusinessIcon sx={{ fontSize: '14px !important' }} />}
                     label={setorNome}
-                    size="small"
-                    variant="outlined"
-                  />
-                )}
-                {!funcionario.ativo && (
-                  <Chip
-                    icon={<PersonOffIcon sx={{ fontSize: '14px !important' }} />}
-                    label="Inativo"
-                    size="small"
-                    color="default"
+                    tone="primary"
                   />
                 )}
               </Stack>
