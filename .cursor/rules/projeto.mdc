@@ -1,0 +1,14 @@
+---
+description: Regras operacionais do Escala Hospital
+alwaysApply: true
+---
+
+# Projeto
+
+- Certeza abaixo de 95% sobre objetivo e impacto: pergunte antes de refatorar ou alterar estado.
+- Mudança perceptível ao usuário entra em `CHANGELOG.md` (`## [Não lançado]`). Ajuste interno invisível não entra. Não duplique entrada da mesma interação.
+- Não altere o selo do hero em `packages/frontend/src/components/landing/LandingHero.tsx` sem aprovação. Se a novidade merecer destaque, proponha o texto.
+- Dado operacional (setor, funcionário, competência, escala, banco de horas) sempre filtrado pela empresa ativa.
+- Regra de turno, padrão, carga e feriado fica em `@escala/shared`. Não duplique nos apps.
+- Texto de interface em português.
+- Detalhes: `AGENTS.md` e o `AGENTS.md` de cada pacote.

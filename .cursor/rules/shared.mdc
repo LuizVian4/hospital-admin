@@ -1,0 +1,12 @@
+---
+description: Práticas do pacote @escala/shared
+globs: packages/shared/**/*.ts
+alwaysApply: false
+---
+
+# Shared
+
+- Só tipo e função pura. Sem React, Fastify, Drizzle, `fetch` ou `process.env`.
+- Exporte o símbolo novo em `src/index.ts`.
+- Se o JSON da API mudou, atualize o tipo e o client do frontend juntos.
+- Não copie horas por turno, padrão rotacional ou feriado para outro pacote.

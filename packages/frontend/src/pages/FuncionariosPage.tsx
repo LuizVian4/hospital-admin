@@ -8,6 +8,7 @@ import {
   useSetores,
 } from '@/hooks/useFuncionarios';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { funcionarioPath } from '@/lib/routes';
 import { FuncionarioForm, type FuncionarioFormData } from '@/components/FuncionarioForm';
 import { StatusEspecialDialog } from '@/components/StatusEspecialDialog';
 import { PageHeader } from '@/components/PageHeader';
@@ -601,7 +602,7 @@ export function FuncionariosPage() {
               onEdit={openEdit}
               onStatus={setStatusFuncionario}
               onToggleAtivo={handleToggleAtivo}
-              onOpenProfile={(func) => navigate(`/funcionarios/${func.id}`)}
+              onOpenProfile={(func) => navigate(funcionarioPath(func.id))}
             />
           ))}
         </TableBody>

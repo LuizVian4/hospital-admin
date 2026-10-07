@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import type { FuncionarioComTurnos } from '@escala/shared';
 import { cn } from '@/lib/utils';
+import { funcionarioPath } from '@/lib/routes';
 
 interface FuncionarioInfoPopoverProps {
   funcionario: FuncionarioComTurnos;
@@ -50,7 +51,7 @@ export function FuncionarioInfoPopover({ funcionario, className }: FuncionarioIn
     <>
       <Link
         ref={triggerRef}
-        to={`/funcionarios/${funcionario.id}`}
+        to={funcionarioPath(funcionario.id)}
         onMouseEnter={show}
         onMouseLeave={hide}
         onFocus={show}

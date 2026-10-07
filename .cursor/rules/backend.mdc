@@ -1,0 +1,19 @@
+---
+description: Práticas da API Fastify/Drizzle
+globs: packages/backend/**/*.ts
+alwaysApply: false
+---
+
+# Backend
+
+- Rota valida com Zod, chama `requireEmpresaId` e delega regra reutilizável a `src/services`.
+- Toda query operacional filtra `empresaId`. Insert grava a empresa do request. Update/delete confirma o escopo (`assert*Empresa`).
+- Erro: `{ error: string }`, com `code` só quando o client ramifica. 400, 401, 403, 404 ou 409.
+- Payload compartilhado muda em `@escala/shared` e em `packages/frontend/src/api/client.ts` na mesma alteração.
+- Schema: snake_case no banco, camelCase no Drizzle. Unique de negócio inclui `empresa_id`.
+- Não logue senha, JWT, cookie ou `DATABASE_URL`.
+
+```ts
+const empresaId = requireEmpresaId(request);
+await assertFuncionarioEmpresa(id, empresaId);
+```

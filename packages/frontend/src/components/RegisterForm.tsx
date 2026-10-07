@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthButton, AuthError, AuthField } from '@/components/auth/AuthField';
 import { useAuth } from '@/contexts/AuthContext';
+import { appRoutes } from '@/lib/routes';
 
 interface RegisterFormProps {
   redirectTo?: string;
 }
 
-export function RegisterForm({ redirectTo = '/dashboard' }: RegisterFormProps) {
+export function RegisterForm({ redirectTo = appRoutes.dashboard }: RegisterFormProps) {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [nome, setNome] = useState('');

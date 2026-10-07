@@ -1,0 +1,22 @@
+---
+description: Práticas do frontend React/Vite
+globs: packages/frontend/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Frontend
+
+- Fluxo: componente/página → hook em `src/hooks` → `api` em `src/api/client.ts`. Sem `fetch` fora do client.
+- `.tsx` renderiza. Query, mutation e regra da tela ficam em hook `.ts`.
+- Estado global existente: `AuthContext` e `EmpresaContext`. O resto é React Query ou estado local. Sem store nova.
+- Rota nova em `src/App.tsx` e, se for menu, em `Layout.tsx`. Path de escala usa `escalaPath` de `@/lib/routes`.
+- App logado usa MUI. Landing usa Tailwind. Não misture os dois na mesma superfície.
+- Tipo de API vem de `@escala/shared`. Não recalcule turno ou carga no frontend se a função já existe no shared.
+
+```ts
+// ruim
+navigate(`/setores/${id}/escala/${mes}/${ano}`);
+
+// bom
+navigate(escalaPath(id, 'tecnico', mes, ano));
+```

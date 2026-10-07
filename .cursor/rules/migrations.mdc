@@ -1,0 +1,12 @@
+---
+description: Migrations Drizzle do backend
+globs: packages/backend/src/db/**/*
+alwaysApply: false
+---
+
+# Migrations
+
+- Depois de mudar `schema.ts`: `npm run db:generate -w @escala/backend`. Leia o SQL gerado.
+- Aplique com `npm run db:migrate` se o Postgres local estiver no ar. Se não estiver, diga isso no resumo. Se falhar com o banco no ar, corrija.
+- Não reescreva migration já aplicada em ambiente compartilhado. No local, ainda não publicada, consolide num arquivo só em vez de empilhar remendo.
+- Backfill preenche `empresa_id` e remove relação que viole a invariante nova.

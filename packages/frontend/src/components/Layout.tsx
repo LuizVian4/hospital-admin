@@ -32,30 +32,31 @@ import { BrandName } from '@/components/BrandName';
 import { EmpresaSwitcher } from '@/components/EmpresaSwitcher';
 import { useSetoresPorEscala } from '@/hooks/useFuncionarios';
 import { useAuth } from '@/contexts/AuthContext';
+import { appRoutes, escalaPath, isEscalaPath } from '@/lib/routes';
 
 const DRAWER_WIDTH = 256;
 const DRAWER_COLLAPSED_WIDTH = 72;
 const MOBILE_APP_BAR_HEIGHT = 56;
 
 const staticNav = [
-  { to: '/dashboard', label: 'Dashboard', icon: DashboardIcon, isActive: (path: string) => path === '/dashboard' },
+  { to: appRoutes.dashboard, label: 'Dashboard', icon: DashboardIcon, isActive: (path: string) => path === appRoutes.dashboard },
   {
-    to: '/funcionarios',
+    to: appRoutes.funcionarios,
     label: 'Funcionários',
     icon: PeopleIcon,
-    isActive: (path: string) => path.startsWith('/funcionarios'),
+    isActive: (path: string) => path.startsWith(appRoutes.funcionarios),
   },
   {
-    to: '/banco-horas',
+    to: appRoutes.bancoHoras,
     label: 'Banco de horas',
     icon: ScheduleIcon,
-    isActive: (path: string) => path.startsWith('/banco-horas'),
+    isActive: (path: string) => path.startsWith(appRoutes.bancoHoras),
   },
   {
-    to: '/importacao',
+    to: appRoutes.importacao,
     label: 'Importação',
     icon: UploadFileIcon,
-    isActive: (path: string) => path === '/importacao',
+    isActive: (path: string) => path === appRoutes.importacao,
   },
 ] as const;
 
@@ -68,16 +69,16 @@ type NavItem = {
 };
 
 const perfilNavBase = {
-  to: '/perfil',
+  to: appRoutes.perfil,
   icon: PersonIcon,
-  isActive: (path: string) => path.startsWith('/perfil'),
+  isActive: (path: string) => path.startsWith(appRoutes.perfil),
 } as const;
 
 const gerenciarEmpresasNav: NavItem = {
-  to: '/admin/empresa',
+  to: appRoutes.adminEmpresa,
   label: 'Gerenciar Empresas',
   icon: AdminPanelSettingsIcon,
-  isActive: (path: string) => path.startsWith('/admin/empresa'),
+  isActive: (path: string) => path.startsWith(appRoutes.adminEmpresa),
 };
 
 const logoutNav: NavItem = {
@@ -200,8 +201,8 @@ export function Layout() {
   const ano = now.getFullYear();
   const setorTecnicosId = setoresTecnicos[0]?.id ?? 1;
   const setorEnfermeirosId = setoresEnfermeiros[0]?.id ?? 1;
-  const escalaTecnicosTo = `/setores/${setorTecnicosId}/escala/${mes}/${ano}`;
-  const escalaEnfermeirosTo = `/setores/${setorEnfermeirosId}/escala-enfermeiros/${mes}/${ano}`;
+  const escalaTecnicosTo = escalaPath(setorTecnicosId, 'tecnico', mes, ano);
+  const escalaEnfermeirosTo = escalaPath(setorEnfermeirosId, 'enfermeiro', mes, ano);
 
   const nav = [
     staticNav[0],
@@ -209,14 +210,13 @@ export function Layout() {
       to: escalaTecnicosTo,
       label: 'Escala de Técnicos',
       icon: CalendarMonthIcon,
-      isActive: (path: string) =>
-        path.includes('/escala/') && !path.includes('/escala-enfermeiros/'),
+      isActive: (path: string) => isEscalaPath(path, 'tecnico'),
     },
     {
       to: escalaEnfermeirosTo,
       label: 'Escala de Enfermeiros',
       icon: MedicalServicesIcon,
-      isActive: (path: string) => path.includes('/escala-enfermeiros/'),
+      isActive: (path: string) => isEscalaPath(path, 'enfermeiro'),
     },
     ...staticNav.slice(1),
   ];
@@ -239,7 +239,7 @@ export function Layout() {
       >
         <Box
           component={RouterLink}
-          to="/dashboard"
+          to={appRoutes.dashboard}
           onClick={closeMobile}
           sx={{
             display: 'flex',
@@ -359,7 +359,7 @@ export function Layout() {
             >
               <MenuIcon />
             </IconButton>
-            <Box component={RouterLink} to="/dashboard" sx={{ display: 'flex', textDecoration: 'none', color: 'inherit' }}>
+            <Box component={RouterLink} to={appRoutes.dashboard} sx={{ display: 'flex', textDecoration: 'none', color: 'inherit' }}>
               <LogoBrand size={36} showText={false} />
             </Box>
             <Box component="span" sx={{ ml: 1.5, display: 'inline-flex', alignItems: 'center' }}>

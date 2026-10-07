@@ -5,6 +5,7 @@ import { LogoBrand } from '@/components/LogoBrand';
 import { ShimmerButton } from '@/components/magicui/shimmer-button';
 import { NAV_LINKS } from './data';
 import { cn } from '@/lib/utils';
+import { appRoutes } from '@/lib/routes';
 
 function scrollToSection(href: string) {
   document.getElementById(href.replace('#', ''))?.scrollIntoView({ behavior: 'smooth' });
@@ -17,7 +18,7 @@ export function LandingHeader() {
     <>
       <header className="sticky top-0 z-50 border-b border-brand-dark/5 bg-white/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 md:h-[4.5rem]">
-          <RouterLink to="/" className="text-inherit no-underline">
+          <RouterLink to={appRoutes.landing} className="text-inherit no-underline">
             <LogoBrand size={48} />
           </RouterLink>
 
@@ -35,10 +36,10 @@ export function LandingHeader() {
           </nav>
 
           <div className="hidden items-center gap-3 md:flex">
-            <ShimmerButton to="/cadastro" variant="outline" className="h-9 px-4 text-sm">
+            <ShimmerButton to={appRoutes.cadastro} variant="outline" className="h-9 px-4 text-sm">
               Criar conta
             </ShimmerButton>
-            <ShimmerButton to="/login" className="h-9 px-4 text-sm">
+            <ShimmerButton to={appRoutes.login} className="h-9 px-4 text-sm">
               Entrar
             </ShimmerButton>
           </div>
@@ -98,10 +99,10 @@ export function LandingHeader() {
             ))}
           </nav>
           <div className="mt-auto flex flex-col gap-2 pt-6">
-            <ShimmerButton to="/cadastro" variant="outline" className="w-full" onClick={() => setDrawerOpen(false)}>
+            <ShimmerButton to={appRoutes.cadastro} variant="outline" className="w-full" onClick={() => setDrawerOpen(false)}>
               Criar conta
             </ShimmerButton>
-            <ShimmerButton to="/login" className="w-full" onClick={() => setDrawerOpen(false)}>
+            <ShimmerButton to={appRoutes.login} className="w-full" onClick={() => setDrawerOpen(false)}>
               Entrar
             </ShimmerButton>
           </div>

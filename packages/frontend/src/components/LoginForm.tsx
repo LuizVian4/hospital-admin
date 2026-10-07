@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthButton, AuthError, AuthField } from '@/components/auth/AuthField';
 import { useAuth } from '@/contexts/AuthContext';
+import { appRoutes } from '@/lib/routes';
 
 interface LoginFormProps {
   redirectTo?: string;
 }
 
-export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
+export function LoginForm({ redirectTo = appRoutes.dashboard }: LoginFormProps) {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');

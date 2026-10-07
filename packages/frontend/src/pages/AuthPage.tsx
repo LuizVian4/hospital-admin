@@ -7,6 +7,7 @@ import { RegisterForm } from '@/components/RegisterForm';
 import { DotPattern } from '@/components/magicui/dot-pattern';
 import { DashboardMockup } from '@/components/landing/ProductMockups';
 import { useAuth } from '@/contexts/AuthContext';
+import { appRoutes } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 const PANEL_FEATURES = [
@@ -23,7 +24,7 @@ interface AuthPageProps {
 export function AuthPage({ mode }: AuthPageProps) {
   const { user, isLoading } = useAuth();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? '/dashboard';
+  const from = (location.state as { from?: string } | null)?.from ?? appRoutes.dashboard;
   const isLogin = mode === 'login';
   const linkState = location.state;
 
@@ -46,7 +47,7 @@ export function AuthPage({ mode }: AuthPageProps) {
         <DotPattern className="fill-white/[0.06] [mask-image:linear-gradient(to_bottom,white,transparent)]" />
 
         <div className="relative flex flex-1 flex-col justify-between p-10 xl:p-14">
-          <RouterLink to="/" className="inline-flex text-white no-underline">
+          <RouterLink to={appRoutes.landing} className="inline-flex text-white no-underline">
             <LogoBrand size={56} textColor="text-white" subtitleColor="text-white/60" />
           </RouterLink>
 
@@ -90,14 +91,14 @@ export function AuthPage({ mode }: AuthPageProps) {
       <main className="flex flex-1 flex-col">
         <header className="flex items-center justify-between px-6 py-5 sm:px-8">
           <RouterLink
-            to="/"
+            to={appRoutes.landing}
             className="inline-flex items-center gap-2 text-sm font-medium text-brand-dark/60 transition-colors hover:text-brand-dark"
           >
             <ArrowLeft className="h-4 w-4" />
             Voltar ao site
           </RouterLink>
 
-          <RouterLink to="/" className="lg:hidden">
+          <RouterLink to={appRoutes.landing} className="lg:hidden">
             <LogoBrand size={44} showText={false} />
           </RouterLink>
         </header>
@@ -129,7 +130,7 @@ export function AuthPage({ mode }: AuthPageProps) {
               ).map(({ id, label }) => (
                 <RouterLink
                   key={id}
-                  to={id === 'login' ? '/login' : '/cadastro'}
+                  to={id === 'login' ? appRoutes.login : appRoutes.cadastro}
                   state={linkState}
                   replace
                   className={cn(
@@ -151,7 +152,7 @@ export function AuthPage({ mode }: AuthPageProps) {
                 <>
                   Não tem uma conta?{' '}
                   <RouterLink
-                    to="/cadastro"
+                    to={appRoutes.cadastro}
                     state={linkState}
                     className="font-semibold text-brand-dark hover:text-brand-mint"
                   >
@@ -162,7 +163,7 @@ export function AuthPage({ mode }: AuthPageProps) {
                 <>
                   Já tem uma conta?{' '}
                   <RouterLink
-                    to="/login"
+                    to={appRoutes.login}
                     state={linkState}
                     className="font-semibold text-brand-dark hover:text-brand-mint"
                   >

@@ -12,15 +12,16 @@ import CircularProgress from '@mui/material/CircularProgress';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import type { TipoEscala } from '@escala/shared';
 import { api } from '@/api/client';
+import { escalaPath } from '@/lib/routes';
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
 
-const CONFIG: Record<TipoEscala, { label: string; pathSegment: string }> = {
-  tecnico: { label: 'Técnicos', pathSegment: 'escala' },
-  enfermeiro: { label: 'Enfermeiros', pathSegment: 'escala-enfermeiros' },
+const CONFIG: Record<TipoEscala, { label: string }> = {
+  tecnico: { label: 'Técnicos' },
+  enfermeiro: { label: 'Enfermeiros' },
 };
 
 interface SeletorCompetenciaSetorProps {
@@ -56,7 +57,7 @@ export function SeletorCompetenciaSetor({ setorId, setorNome, tipoEscala }: Sele
 
   const handleSelect = (mes: number, ano: number) => {
     handleClose();
-    navigate(`/setores/${setorId}/${config.pathSegment}/${mes}/${ano}`);
+    navigate(escalaPath(setorId, tipoEscala, mes, ano));
   };
 
   return (

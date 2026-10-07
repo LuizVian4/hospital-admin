@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useChangePassword, useDeleteAccount, useUpdateProfile } from '@/hooks/useProfile';
 import { getInitials } from '@/utils/funcionario';
 import { cn } from '@/lib/utils';
+import { appRoutes } from '@/lib/routes';
 
 function formatToday() {
   return new Date().toLocaleDateString('pt-BR', {
@@ -52,7 +53,7 @@ function DeleteAccountDialog({
       await deleteAccount.mutateAsync({ senha });
       toast.success('Conta excluída');
       await logout();
-      navigate('/', { replace: true });
+      navigate(appRoutes.landing, { replace: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao excluir conta');
     }

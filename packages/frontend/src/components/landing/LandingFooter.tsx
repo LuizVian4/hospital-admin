@@ -2,6 +2,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { LogoBrand } from '@/components/LogoBrand';
 import { BrandName } from '@/components/BrandName';
 import { NAV_LINKS } from './data';
+import { appRoutes } from '@/lib/routes';
 
 export function LandingFooter() {
   const year = new Date().getFullYear();
@@ -41,13 +42,13 @@ export function LandingFooter() {
             <p className="mb-3 text-sm font-semibold text-brand-dark">Acesso</p>
             <nav className="flex flex-col gap-2">
               <RouterLink
-                to="/login"
+                to={appRoutes.login}
                 className="text-sm text-brand-dark/60 transition-colors hover:text-brand-dark"
               >
                 Entrar
               </RouterLink>
               <RouterLink
-                to="/cadastro"
+                to={appRoutes.cadastro}
                 className="text-sm text-brand-dark/60 transition-colors hover:text-brand-dark"
               >
                 Criar conta

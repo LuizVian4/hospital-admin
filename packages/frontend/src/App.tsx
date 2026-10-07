@@ -18,6 +18,7 @@ import { ImportacaoPage } from '@/pages/ImportacaoPage';
 import { BancoHorasPage } from '@/pages/BancoHorasPage';
 import { PerfilPage } from '@/pages/UsuariosPage';
 import { EmpresasAdminPage } from '@/pages/EmpresasAdminPage';
+import { appRoutes } from '@/lib/routes';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,7 +52,7 @@ export function App() {
                   <Route path="banco-horas" element={<BancoHorasPage />} />
                   <Route path="admin/empresa" element={<EmpresasAdminPage />} />
                   <Route path="perfil" element={<PerfilPage />} />
-                      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                      <Route path="*" element={<Navigate to={appRoutes.dashboard} replace />} />
                     </Route>
                   </Route>
                 </Route>

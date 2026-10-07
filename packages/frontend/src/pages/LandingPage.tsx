@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { appRoutes } from '@/lib/routes';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { LandingHero } from '@/components/landing/LandingHero';
 import { LandingMetrics } from '@/components/landing/LandingMetrics';
@@ -37,7 +38,7 @@ const SCHEMA_JSON = {
 export function LandingPage() {
   const { user, isLoading } = useAuth();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? '/dashboard';
+  const from = (location.state as { from?: string } | null)?.from ?? appRoutes.dashboard;
 
   useEffect(() => {
     const script = document.createElement('script');

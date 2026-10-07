@@ -14,6 +14,7 @@ import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import CheckIcon from '@mui/icons-material/Check';
 import type { PapelEmpresa } from '@escala/shared';
 import { useEmpresa } from '@/contexts/EmpresaContext';
+import { appRoutes } from '@/lib/routes';
 
 function papelLabel(papel: PapelEmpresa) {
   return papel === 'admin' ? 'Administrador' : 'Membro';
@@ -46,7 +47,7 @@ export function EmpresaSwitcher({ collapsed }: EmpresaSwitcherProps) {
     if (id === empresaId) return;
     selectEmpresa(id);
     queryClient.clear();
-    navigate('/dashboard');
+    navigate(appRoutes.dashboard);
   };
 
   const switcherButton = (

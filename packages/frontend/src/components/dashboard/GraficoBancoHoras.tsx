@@ -8,6 +8,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import Link from '@mui/material/Link';
 import type { BancoHorasComDetalhes } from '@escala/shared';
 import { labelStatusCargaHoraria } from '@escala/shared';
+import { appRoutes } from '@/lib/routes';
 
 interface GraficoBancoHorasProps {
   items: BancoHorasComDetalhes[];
@@ -39,7 +40,7 @@ export function GraficoBancoHoras({ items, mes, ano }: GraficoBancoHorasProps) {
               Funcionários devendo ou excedendo carga em {periodoLabel}
             </Typography>
           </Box>
-          <Link component={RouterLink} to="/banco-horas" underline="hover" variant="body2">
+          <Link component={RouterLink} to={appRoutes.bancoHoras} underline="hover" variant="body2">
             Ver tabela completa
           </Link>
         </Stack>

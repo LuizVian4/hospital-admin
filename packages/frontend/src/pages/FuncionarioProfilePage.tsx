@@ -28,6 +28,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
 import BusinessIcon from '@mui/icons-material/Business';
 import { toast } from 'sonner';
+import { appRoutes } from '@/lib/routes';
 
 function contratoChipColor(
   contrato: string
@@ -98,7 +99,7 @@ export function FuncionarioProfilePage() {
       <Stack spacing={2} sx={{ alignItems: 'flex-start' }}>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/funcionarios')}
+          onClick={() => navigate(appRoutes.funcionarios)}
         >
           Voltar
         </Button>
@@ -111,7 +112,7 @@ export function FuncionarioProfilePage() {
     <Stack spacing={3}>
       <Button
         component={RouterLink}
-        to="/funcionarios"
+        to={appRoutes.funcionarios}
         startIcon={<ArrowBackIcon />}
         sx={{ alignSelf: 'flex-start' }}
       >

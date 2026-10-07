@@ -8,6 +8,7 @@ import { BorderBeam } from '@/components/magicui/border-beam';
 import { DotPattern } from '@/components/magicui/dot-pattern';
 import { ShimmerButton } from '@/components/magicui/shimmer-button';
 import { HERO_TRUST_ITEMS } from './data';
+import { appRoutes } from '@/lib/routes';
 import { DashboardMockup } from './ProductMockups';
 
 function scrollToSection(id: string) {
@@ -97,7 +98,7 @@ export function LandingHero() {
             className="mt-5 text-sm text-brand-dark/50"
           >
             Sem cartão de crédito.{' '}
-            <RouterLink to="/cadastro" className="font-semibold text-brand-dark hover:text-brand-mint">
+            <RouterLink to={appRoutes.cadastro} className="font-semibold text-brand-dark hover:text-brand-mint">
               Crie sua conta gratuitamente
             </RouterLink>{' '}
             e explore o sistema agora.

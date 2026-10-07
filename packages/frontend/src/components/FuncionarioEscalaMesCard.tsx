@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import type { Funcionario, FuncionarioComTurnos, GradeEscalaResponse } from '@escala/shared';
 import { isEnfermeiro } from '@escala/shared';
+import { escalaPath } from '@/lib/routes';
 import { useCompetencia } from '@/hooks/useCompetencia';
 import { useEscala } from '@/hooks/useEscala';
 import { CalendarioEscalaMes } from '@/components/CalendarioEscalaMes';
@@ -46,7 +47,6 @@ export function FuncionarioEscalaMesCard({ funcionario }: FuncionarioEscalaMesCa
   const [ano, setAno] = useState(now.getFullYear());
 
   const tipoEscala = isEnfermeiro(funcionario.categoria) ? 'enfermeiro' : 'tecnico';
-  const escalaPath = tipoEscala === 'enfermeiro' ? 'escala-enfermeiros' : 'escala';
 
   const { data: competencia, isLoading: competenciaLoading } = useCompetencia(
     funcionario.setorId ?? undefined,
@@ -84,7 +84,7 @@ export function FuncionarioEscalaMesCard({ funcionario }: FuncionarioEscalaMesCa
   const periodoLabel = `${MESES[mes - 1]} / ${ano}`;
   const linkEscalaSetor =
     funcionario.setorId != null
-      ? `/setores/${funcionario.setorId}/${escalaPath}/${mes}/${ano}`
+      ? escalaPath(funcionario.setorId, tipoEscala, mes, ano)
       : null;
 
   const isLoading = competenciaLoading || (competenciaId != null && escalaLoading);

@@ -40,24 +40,20 @@ import { ResumoCargaHorariaEscala } from '@/components/GradeEscala/ResumoCargaHo
 import { SetorSelector } from '@/components/SetorSelector';
 import { PageHeader } from '@/components/PageHeader';
 import { toast } from 'sonner';
+import { escalaPath } from '@/lib/routes';
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
 
-const ESCALA_CONFIG: Record<
-  TipoEscala,
-  { titulo: string; pathSegment: string; labelFuncionario: string }
-> = {
+const ESCALA_CONFIG: Record<TipoEscala, { titulo: string; labelFuncionario: string }> = {
   tecnico: {
     titulo: 'Escala de Técnicos',
-    pathSegment: 'escala',
     labelFuncionario: 'técnico',
   },
   enfermeiro: {
     titulo: 'Escala de Enfermeiros',
-    pathSegment: 'escala-enfermeiros',
     labelFuncionario: 'enfermeiro',
   },
 };
@@ -101,12 +97,9 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
   useEffect(() => {
     if (setoresLoading || setores.length === 0) return;
     if (!setores.some((s) => s.id === setorIdNum)) {
-      navigate(
-        `/setores/${setores[0].id}/${config.pathSegment}/${mesNum}/${anoNum}`,
-        { replace: true }
-      );
+      navigate(escalaPath(setores[0].id, tipoEscala, mesNum, anoNum), { replace: true });
     }
-  }, [setores, setoresLoading, setorIdNum, mesNum, anoNum, navigate, config.pathSegment]);
+  }, [setores, setoresLoading, setorIdNum, mesNum, anoNum, navigate, tipoEscala]);
 
   const { data: escala, isLoading } = useEscala(competenciaId, tipoEscala);
   const updateObs = useUpdateObservacoes(competenciaId ?? 0, tipoEscala);
@@ -122,7 +115,7 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
     let newAno = anoNum;
     if (newMes < 1) { newMes = 12; newAno--; }
     if (newMes > 12) { newMes = 1; newAno++; }
-    navigate(`/setores/${setorIdNum}/${config.pathSegment}/${newMes}/${newAno}`);
+    navigate(escalaPath(setorIdNum, tipoEscala, newMes, newAno));
   };
 
   const handleSaveObservacoes = (texto: string) => {
@@ -180,7 +173,7 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
             result.ignorados > 0 ? ` (${result.ignorados} sem grupo ignorados)` : ''
           }`
         );
-        navigate(`/setores/${setorIdNum}/${config.pathSegment}/${result.mes}/${result.ano}`);
+        navigate(escalaPath(setorIdNum, tipoEscala, result.mes, result.ano));
       },
       onError: (err) => {
         toast.error(err.message || 'Erro ao simular próximo mês');
@@ -205,7 +198,7 @@ export function EscalaPage({ tipoEscala = 'tecnico' }: EscalaPageProps) {
           <SetorSelector
             value={setorIdNum}
             onChange={(id) =>
-              navigate(`/setores/${id}/${config.pathSegment}/${mesNum}/${anoNum}`)
+              navigate(escalaPath(id, tipoEscala, mesNum, anoNum))
             }
             tipoEscala={tipoEscala}
           />

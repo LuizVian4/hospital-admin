@@ -6,6 +6,7 @@ import CardContent from '@mui/material/CardContent';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useEmpresa } from '@/contexts/EmpresaContext';
+import { appRoutes } from '@/lib/routes';
 
 export function EmpresaGate() {
   const { empresas, empresaId, isLoading, selectEmpresa } = useEmpresa();
@@ -76,5 +77,5 @@ export function EmpresaGate() {
 export function EmpresaRedirect() {
   const { empresaId } = useEmpresa();
   if (!empresaId) return <Navigate to="/selecionar-empresa" replace />;
-  return <Navigate to="/dashboard" replace />;
+  return <Navigate to={appRoutes.dashboard} replace />;
 }

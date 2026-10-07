@@ -1,6 +1,7 @@
 import { ArrowRight } from 'lucide-react';
 import { DotPattern } from '@/components/magicui/dot-pattern';
 import { ShimmerButton } from '@/components/magicui/shimmer-button';
+import { appRoutes } from '@/lib/routes';
 
 function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -26,7 +27,7 @@ export function LandingMidCta() {
             <ArrowRight className="h-4 w-4" />
           </ShimmerButton>
           <ShimmerButton
-            to="/cadastro"
+            to={appRoutes.cadastro}
             variant="outline"
             className="border-white/20 bg-transparent text-white hover:bg-white/10"
           >

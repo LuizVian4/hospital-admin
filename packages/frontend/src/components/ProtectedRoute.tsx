@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useAuth } from '@/contexts/AuthContext';
+import { appRoutes } from '@/lib/routes';
 
 export function ProtectedRoute() {
   const { user, isLoading } = useAuth();
@@ -16,7 +17,7 @@ export function ProtectedRoute() {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to={appRoutes.login} replace state={{ from: location.pathname }} />;
   }
 
   return <Outlet />;

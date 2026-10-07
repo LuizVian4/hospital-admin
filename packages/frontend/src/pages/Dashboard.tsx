@@ -26,6 +26,7 @@ import PersonOffIcon from '@mui/icons-material/PersonOff';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import { api } from '@/api/client';
 import { isEnfermeiro } from '@escala/shared';
+import { escalaPath } from '@/lib/routes';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { PageHeader } from '@/components/PageHeader';
 import { ResumoPorSetor } from '@/components/dashboard/ResumoPorSetor';
@@ -146,20 +147,17 @@ export function Dashboard() {
             {data.setoresSemCompetencia.length} competência(s) pendente(s) em {periodoLabel}
           </Typography>
           <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-            {data.setoresSemCompetencia.map((s) => {
-              const pathSegment = s.tipo === 'enfermeiro' ? 'escala-enfermeiros' : 'escala';
-              return (
-                <Chip
-                  key={`${s.setorId}-${s.tipo}`}
-                  label={`${s.setor} (${s.tipo === 'enfermeiro' ? 'enfermeiros' : 'técnicos'})`}
-                  size="small"
-                  component={RouterLink}
-                  to={`/setores/${s.setorId}/${pathSegment}/${mes}/${ano}`}
-                  clickable
-                  variant="outlined"
-                />
-              );
-            })}
+            {data.setoresSemCompetencia.map((s) => (
+              <Chip
+                key={`${s.setorId}-${s.tipo}`}
+                label={`${s.setor} (${s.tipo === 'enfermeiro' ? 'enfermeiros' : 'técnicos'})`}
+                size="small"
+                component={RouterLink}
+                to={escalaPath(s.setorId, s.tipo, mes, ano)}
+                clickable
+                variant="outlined"
+              />
+            ))}
           </Stack>
         </Alert>
       )}
@@ -322,9 +320,7 @@ export function Dashboard() {
                 <TableBody>
                   {data.semEscalaDefinida.map((f) => {
                     const setor = data.setores.find((s) => s.id === f.setorId);
-                    const escalaPath = isEnfermeiro(f.categoria ?? '')
-                      ? 'escala-enfermeiros'
-                      : 'escala';
+                    const tipoEscala = isEnfermeiro(f.categoria ?? '') ? 'enfermeiro' : 'tecnico';
                     return (
                       <TableRow key={f.id} hover>
                         <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{f.matricula}</TableCell>
@@ -334,7 +330,7 @@ export function Dashboard() {
                           {setor ? (
                             <Link
                               component={RouterLink}
-                              to={`/setores/${setor.id}/${escalaPath}/${mes}/${ano}`}
+                              to={escalaPath(setor.id, tipoEscala, mes, ano)}
                               underline="hover"
                             >
                               {setor.nome}
