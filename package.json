@@ -6,7 +6,8 @@
     "packages/*"
   ],
   "scripts": {
-    "start": "docker compose up --build",
+    "start": "if [ \"$NODE_ENV\" = \"production\" ]; then npm run start:prod; else docker compose up --build; fi",
+    "start:prod": "node packages/backend/dist/db/migrate.js && node packages/backend/dist/server.js",
     "start:db": "docker compose up -d db",
     "stop": "docker compose down",
     "seed": "docker compose exec backend npm run db:seed -w @escala/backend",
