@@ -15,6 +15,7 @@ import {
   rotateRefreshSession,
   toPublicUser,
 } from '../services/auth.service';
+import { notifyAccountCreated } from '../services/discord.service';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -126,6 +127,12 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
           ativo: true,
         })
         .returning();
+
+      notifyAccountCreated({
+        nome: created.nome,
+        email: created.email,
+        createdAt: created.createdAt,
+      });
 
       const tokens = await issueSession(app, reply, created);
 

@@ -116,6 +116,7 @@ npm run dev
 | `CORS_ORIGINS` | Origens permitidas (vírgula; obrigatório com cookies) | `http://localhost:5173` |
 | `ADMIN_EMAIL` | E-mail do admin inicial (`db:seed`) | `admin@hospital.local` |
 | `ADMIN_PASSWORD` | Senha do admin inicial (`db:seed`) | `admin123` |
+| `DISCORD_WEBHOOK_URL` | Webhook HTTPS de um canal novo do Discord. Cada cadastro em `/cadastro` envia um aviso. O seed não dispara | *(vazio: cadastro segue sem aviso)* |
 
 No Render, o Web Service usa a **Internal Database URL** (rede privada, mesma região). Para rodar `db:migrate` ou `db:seed` da sua máquina contra o banco remoto, use a **External Database URL** do painel do Postgres.
 

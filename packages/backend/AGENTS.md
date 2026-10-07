@@ -41,5 +41,6 @@ const empresaId = requireEmpresaId(request);
 ## Auth
 
 - Senha só como hash (`bcrypt`). Token de refresh persistido como hash.
-- Não logue senha, JWT, cookie ou `DATABASE_URL`.
+- Não logue senha, JWT, cookie, `DATABASE_URL` ou `DISCORD_WEBHOOK_URL`.
 - Rate limit permanece em login e cadastro.
+- `POST /api/auth/register` chama `notifyAccountCreated` depois do insert. Sem webhook válido o cadastro segue; o seed não notifica.

@@ -27,6 +27,7 @@ services:
       JWT_ACCESS_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
       CORS_ORIGINS: http://localhost:5173
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
       ADMIN_EMAIL: admin@hospital.local
       ADMIN_PASSWORD: admin123
     ports:

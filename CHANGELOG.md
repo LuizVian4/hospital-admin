@@ -6,6 +6,10 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Não lançado]
 
+### Adicionado
+
+- Cada nova conta criada em `/cadastro` avisa um canal do Discord, quando `DISCORD_WEBHOOK_URL` está configurada.
+
 ### Alterado
 
 - O cabeçalho das telas internas ficou no fundo claro, com o título e as ações lado a lado.
