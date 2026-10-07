@@ -20,8 +20,7 @@ function cookieBaseOptions() {
   } = {
     httpOnly: true,
     secure: isProduction,
-    // Frontend e API em hosts diferentes (ex.: *.up.railway.app) exigem None + Secure.
-    sameSite: isProduction ? 'none' : 'lax',
+    sameSite: 'lax',
     path: '/',
   };
 

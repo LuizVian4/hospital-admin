@@ -88,7 +88,14 @@ export interface DashboardData {
   bancoHorasPendentes: BancoHorasComDetalhes[];
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+function resolveApiUrl(): string {
+  const configured = import.meta.env.VITE_API_URL?.trim();
+  if (configured) return configured.replace(/\/$/, '');
+  if (import.meta.env.DEV) return 'http://localhost:3001';
+  return '';
+}
+
+const API_URL = resolveApiUrl();
 
 const PUBLIC_AUTH_PATHS = new Set([
   '/api/auth/login',

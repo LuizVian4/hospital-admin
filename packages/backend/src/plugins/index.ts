@@ -20,11 +20,6 @@ function isAllowedCorsOrigin(origin: string): boolean {
     return true;
   }
 
-  // Staging no Railway: front e API em subdomínios distintos de up.railway.app
-  if (/^https:\/\/[a-z0-9-]+\.up\.railway\.app$/i.test(origin)) {
-    return true;
-  }
-
   // Domínios customizados Escala360 (app, api, www)
   if (/^https:\/\/([a-z0-9-]+\.)?escala360\.(app|com\.br)$/i.test(origin)) {
     return true;

@@ -31,7 +31,7 @@ Cada tipo de escala segue seu padrão rotacional, com grupos de início e suport
 | Backend | Node.js 20, Fastify 4, Drizzle ORM, PostgreSQL 16, Zod |
 | Frontend | React 18, Vite, Material UI 9, Tailwind CSS, TanStack Query |
 | Shared | Tipos e regras de negócio compartilhados (`@escala/shared`) |
-| Infra | Docker Compose (dev), Railway (produção) |
+| Infra | Docker Compose (dev), Render (produção) |
 
 ## Estrutura do monorepo
 
@@ -42,9 +42,8 @@ escala-hospital/
 │   ├── backend/     # API Fastify + migrations Drizzle
 │   └── frontend/    # React + Vite
 ├── docker-compose.yml
-├── railway.toml              # deploy do backend (API)
-├── railway.frontend.toml     # deploy do frontend
-├── railway.env.example       # variáveis de referência para o Railway
+├── render.yaml               # Web Service + Postgres no Render
+├── render.env.example        # variáveis de referência para o Render
 └── package.json
 ```
 
@@ -67,7 +66,7 @@ cp .env.example .env
 npm start
 ```
 
-O backend executa migrations automaticamente na subida (Docker local e produção no Railway). Para popular dados de exemplo:
+O backend executa migrations automaticamente na subida (Docker local e produção no Render). Para popular dados de exemplo:
 
 ```bash
 npm run seed
@@ -110,7 +109,7 @@ npm run dev
 |----------|-----------|--------|
 | `DATABASE_URL` | Conexão PostgreSQL | `postgres://postgres:postgres@localhost:5433/escala_hospital` |
 | `PORT` | Porta da API | `3001` |
-| `VITE_API_URL` | URL da API no frontend | `http://localhost:3001` |
+| `VITE_API_URL` | URL da API no frontend de desenvolvimento. Em produção fica vazia: o frontend chama a mesma origem | `http://localhost:3001` |
 | `JWT_SECRET` | Segredo para assinar tokens JWT | *(obrigatório)* |
 | `JWT_ACCESS_EXPIRES_IN` | Validade do access token (cookie) | `15m` |
 | `JWT_REFRESH_EXPIRES_IN` | Validade do refresh token (cookie) | `7d` |
@@ -118,18 +117,21 @@ npm run dev
 | `ADMIN_EMAIL` | E-mail do admin inicial (`db:seed`) | `admin@hospital.local` |
 | `ADMIN_PASSWORD` | Senha do admin inicial (`db:seed`) | `admin123` |
 
-No Railway, use `DATABASE_URL=${{Postgres.DATABASE_URL}}` no serviço da API (rede interna). Para rodar `db:migrate` ou `db:seed` da sua máquina contra o banco remoto, use `DATABASE_PUBLIC_URL` do painel do Postgres.
+No Render, o Web Service usa a **Internal Database URL** (rede privada, mesma região). Para rodar `db:migrate` ou `db:seed` da sua máquina contra o banco remoto, use a **External Database URL** do painel do Postgres.
 
-## Deploy (Railway)
+## Deploy (Render)
 
-Produção usa **dois serviços** no mesmo projeto Railway:
+Produção sobe **um Web Service** Docker. A API serve o build do Vite na mesma origem e aplica as migrations na inicialização. O Postgres fica no mesmo projeto.
 
-| Serviço | Config-as-code | Dockerfile |
-|---------|----------------|------------|
-| API | `railway.toml` | `packages/backend/Dockerfile` |
-| Frontend | `railway.frontend.toml` | `packages/frontend/Dockerfile` |
+| Peça | Onde |
+|------|------|
+| Blueprint | `render.yaml` |
+| Imagem | `packages/backend/Dockerfile` |
+| Variáveis | `render.env.example` |
 
-Variáveis de ambiente de referência: `railway.env.example`.
+No painel, deixe o **Root Directory** vazio e o **Dockerfile Path** em `packages/backend/Dockerfile`. Health check: `/health`.
+
+Não defina `VITE_API_URL` no Render. O bundle de produção chama `/api` na própria origem. `JWT_SECRET` é obrigatório; se estiver migrando sessões, reuse o segredo anterior.
 
 ### Migrations
 
@@ -139,9 +141,9 @@ As migrations Drizzle em `packages/backend/src/db/migrations/` são aplicadas **
 |----------|-----------|
 | Docker local (`npm start`) | `Dockerfile.dev` executa `db:migrate` na subida |
 | Dev sem Docker | `npm run db:migrate` manualmente |
-| Railway (produção) | `packages/backend/Dockerfile` executa `node dist/db/migrate.js` a cada deploy |
+| Render (produção) | `packages/backend/Dockerfile` executa `node dist/db/migrate.js` a cada deploy |
 
-Um push na branch conectada ao Railway (ex.: `main`) dispara rebuild e deploy; migrations pendentes rodam no container antes de `server.js`. Se uma migration falhar, o deploy não conclui — o schema não fica inconsistente com o código.
+Um push na branch conectada ao Render (ex.: `main`) dispara rebuild e deploy; migrations pendentes rodam no container antes de `server.js`. Se uma migration falhar, o deploy não conclui — o schema não fica inconsistente com o código.
 
 Para criar uma nova migration após alterar o schema Drizzle:
 
@@ -153,9 +155,9 @@ Revise o arquivo gerado, commite e faça merge; o próximo deploy aplica no banc
 
 ### Checklist de deploy
 
-1. Configurar Postgres + serviço API com `railway.toml` e variáveis do `railway.env.example` (`JWT_SECRET`, `CORS_ORIGINS`, etc.)
-2. Configurar serviço frontend com `railway.frontend.toml` e `VITE_API_URL` apontando para a URL pública da API
-3. Garantir que `CORS_ORIGINS` inclui a URL do frontend em produção
+1. Criar o projeto a partir de `render.yaml` (ou um Web Service Docker + Postgres na mesma região)
+2. Preencher `JWT_SECRET` e conferir `DATABASE_URL` com a Internal Database URL
+3. Health check em `/health`; o frontend abre na URL do próprio Web Service
 
 ## Multi-tenant (empresas)
 
